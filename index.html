@@ -794,27 +794,12 @@ function initPremiumTextures(scene) {
   makeIconTextures(scene);
 }
 
-// Phaser particle API changed around 3.60; this helper supports both old/new factories.
+// Phaser 3.60+ particle factory returns a ParticleEmitter directly.
+// Keep this helper small and non-throwing so effects can never hard-crash scenes.
 function createEmitterCompat(scene, x, y, key, config, depth = null) {
-  const obj = scene.add.particles(x, y, key, config);
-  if (obj && depth != null && typeof obj.setDepth === 'function') obj.setDepth(depth);
-
-  // Old style: ParticleEmitterManager with createEmitter/addEmitter
-  if (obj && typeof obj.createEmitter === 'function') {
-    try {
-      const emitter = obj.createEmitter(config);
-      return { particles: obj, emitter };
-    } catch (e) {
-      if (typeof obj.addEmitter === 'function') {
-        const emitter = obj.addEmitter(config);
-        return { particles: obj, emitter };
-      }
-      throw e;
-    }
-  }
-
-  // New style: factory returns an emitter directly.
-  return { particles: obj, emitter: obj };
+  const emitter = scene.add.particles(x, y, key, config);
+  if (emitter && depth != null && typeof emitter.setDepth === 'function') emitter.setDepth(depth);
+  return { particles: emitter, emitter };
 }
 
 const FX = {
