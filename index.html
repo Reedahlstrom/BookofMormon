@@ -44,7 +44,97 @@ const GameState = {
   battleWon: false,
   ironRodComplete: false,
   brassPlatesObtained: false,
+  // Premium systems
+  alignment: { faithVsDoubt: 0, compassionVsHarshness: 0, choices: [] },
+  chapter: { book: '1 Nephi', chapter: 3, label: '1 Nephi \u00b7 Ch. 3' },
+  time: { t: 0.72 }, // 0..1 day cycle (0 = midnight, 0.5 = noon)
+  settings: {
+    difficulty: 'disciple', // explorer | disciple | warrior
+    textSize: 'medium',     // small | medium | large
+    colorblind: false,
+    music: 0.65,
+    sfx: 0.8,
+    textSpeedMs: 22,        // typewriter speed
+    autoAdvance: false,
+  },
 };
+
+const STORAGE_KEY_SAVE = 'bomrpg_save_v1';
+
+function clamp01(n) { return Math.max(0, Math.min(1, n)); }
+function lerp(a, b, t) { return a + (b - a) * t; }
+function nowMs() { return Date.now(); }
+
+function safeParseJSON(value, fallback) {
+  try { return JSON.parse(value); } catch { return fallback; }
+}
+
+function saveGame(meta = {}) {
+  const payload = {
+    version: 1,
+    savedAt: nowMs(),
+    meta,
+    state: GameState,
+  };
+  try { localStorage.setItem(STORAGE_KEY_SAVE, JSON.stringify(payload)); } catch {}
+}
+
+function loadGame() {
+  const raw = localStorage.getItem(STORAGE_KEY_SAVE);
+  if (!raw) return false;
+  const payload = safeParseJSON(raw, null);
+  if (!payload || payload.version !== 1 || !payload.state) return false;
+
+  // Shallow-merge for forwards compatibility (keeps new defaults if missing).
+  Object.keys(payload.state).forEach((k) => { GameState[k] = payload.state[k]; });
+  return true;
+}
+
+function hasSaveGame() {
+  return !!localStorage.getItem(STORAGE_KEY_SAVE);
+}
+
+function resetGameState() {
+  const keepSettings = GameState.settings;
+  const keepName = GameState.playerName;
+  const keepScriptures = [];
+  Object.keys(GameState).forEach(k => delete GameState[k]);
+  Object.assign(GameState, {
+    playerName: keepName || 'Traveler',
+    faith: 50, courage: 30, testimony: 20, charity: 25, wisdom: 15,
+    maxFaith: 100, level: 1, faithPoints: 0, fpToNext: 100,
+    scriptures: keepScriptures,
+    prophetCards: [],
+    journal: [],
+    currentWorld: 1,
+    questFlags: {},
+    companion: null,
+    inventory: [],
+    battleWon: false,
+    ironRodComplete: false,
+    brassPlatesObtained: false,
+    alignment: { faithVsDoubt: 0, compassionVsHarshness: 0, choices: [] },
+    chapter: { book: '1 Nephi', chapter: 3, label: '1 Nephi \u00b7 Ch. 3' },
+    time: { t: 0.72 },
+    settings: keepSettings || {
+      difficulty: 'disciple',
+      textSize: 'medium',
+      colorblind: false,
+      music: 0.65,
+      sfx: 0.8,
+      textSpeedMs: 22,
+      autoAdvance: false,
+    },
+  });
+}
+
+function recordChoice(choice) {
+  if (!choice) return;
+  const { id, faithVsDoubt = 0, compassionVsHarshness = 0, label = '' } = choice;
+  GameState.alignment.faithVsDoubt += faithVsDoubt;
+  GameState.alignment.compassionVsHarshness += compassionVsHarshness;
+  GameState.alignment.choices.push({ id: id || `choice_${GameState.alignment.choices.length + 1}`, label, faithVsDoubt, compassionVsHarshness, time: nowMs() });
+}
 
 function addScripture(ref, text) {
   if (!GameState.scriptures.find(s => s.ref === ref)) {
@@ -527,188 +617,1064 @@ function generateAllSprites(scene) {
   });
 }
 
+// ============================================================
+// PREMIUM SYSTEMS: Procedural Textures, Lighting, Particles, Audio
+// ============================================================
 
-// --- HELPER: Dialogue box ---
-function showDialogue(scene, speaker, text, onComplete, options) {
-  // Speaker portrait
+function ensureCanvasTexture(scene, key, width, height, drawFn) {
+  const existing = scene.textures.get(key);
+  if (existing && existing.key) return key;
+  const tx = scene.textures.createCanvas(key, width, height);
+  const ctx = tx.getContext();
+  drawFn(ctx, width, height);
+  tx.refresh();
+  return key;
+}
+
+function hexToCss(hex) {
+  return `#${hex.toString(16).padStart(6, '0')}`;
+}
+
+function makeRadialLightTexture(scene, key, size, innerHex, outerHex, innerA = 1, outerA = 0) {
+  return ensureCanvasTexture(scene, key, size, size, (ctx, w, h) => {
+    ctx.clearRect(0, 0, w, h);
+    const g = ctx.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, w / 2);
+    g.addColorStop(0, `${hexToCss(innerHex)}${Math.round(innerA * 255).toString(16).padStart(2, '0')}`);
+    g.addColorStop(1, `${hexToCss(outerHex)}${Math.round(outerA * 255).toString(16).padStart(2, '0')}`);
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, w, h);
+  });
+}
+
+function makeParchmentTexture(scene, key, width, height) {
+  return ensureCanvasTexture(scene, key, width, height, (ctx, w, h) => {
+    ctx.clearRect(0, 0, w, h);
+    ctx.fillStyle = '#f6eed8';
+    ctx.fillRect(0, 0, w, h);
+
+    // Subtle fiber noise.
+    for (let i = 0; i < (w * h) / 45; i++) {
+      const x = Math.random() * w;
+      const y = Math.random() * h;
+      const a = 0.04 + Math.random() * 0.06;
+      ctx.fillStyle = `rgba(140, 110, 70, ${a.toFixed(3)})`;
+      ctx.fillRect(x, y, 1 + Math.random() * 2, 1 + Math.random() * 2);
+    }
+
+    // Edge vignette.
+    const g = ctx.createLinearGradient(0, 0, 0, h);
+    g.addColorStop(0, 'rgba(90, 60, 20, 0.18)');
+    g.addColorStop(0.1, 'rgba(90, 60, 20, 0)');
+    g.addColorStop(0.9, 'rgba(90, 60, 20, 0)');
+    g.addColorStop(1, 'rgba(90, 60, 20, 0.16)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, w, h);
+  });
+}
+
+function makeIconTextures(scene) {
+  ensureCanvasTexture(scene, 'icon_heart', 32, 32, (ctx) => {
+    ctx.clearRect(0, 0, 32, 32);
+    ctx.fillStyle = '#ffcc66';
+    ctx.beginPath();
+    ctx.moveTo(16, 26);
+    ctx.bezierCurveTo(6, 18, 4, 10, 10, 8);
+    ctx.bezierCurveTo(14, 6, 16, 10, 16, 10);
+    ctx.bezierCurveTo(16, 10, 18, 6, 22, 8);
+    ctx.bezierCurveTo(28, 10, 26, 18, 16, 26);
+    ctx.closePath();
+    ctx.fill();
+  });
+
+  ensureCanvasTexture(scene, 'icon_flame', 32, 32, (ctx) => {
+    ctx.clearRect(0, 0, 32, 32);
+    const g = ctx.createRadialGradient(16, 18, 2, 16, 18, 12);
+    g.addColorStop(0, 'rgba(255, 255, 220, 1)');
+    g.addColorStop(0.4, 'rgba(255, 210, 80, 0.95)');
+    g.addColorStop(1, 'rgba(255, 120, 0, 0)');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(16, 18, 12, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  ensureCanvasTexture(scene, 'icon_compass', 48, 48, (ctx) => {
+    ctx.clearRect(0, 0, 48, 48);
+    ctx.strokeStyle = 'rgba(255, 215, 0, 0.9)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(24, 24, 18, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(20, 30, 50, 0.65)';
+    ctx.beginPath();
+    ctx.arc(24, 24, 16, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(255, 215, 0, 0.9)';
+    ctx.font = 'bold 10px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('N', 24, 12);
+  });
+}
+
+function initPremiumTextures(scene) {
+  makeRadialLightTexture(scene, 'light_warm_256', 256, 0xffb24a, 0x000000, 0.95, 0);
+  makeRadialLightTexture(scene, 'light_cool_256', 256, 0xbfdcff, 0x000000, 0.75, 0);
+  makeRadialLightTexture(scene, 'light_gold_256', 256, 0xffe066, 0x000000, 0.9, 0);
+  makeRadialLightTexture(scene, 'light_white_256', 256, 0xffffff, 0x000000, 0.75, 0);
+  ensureCanvasTexture(scene, 'particle_dot', 8, 8, (ctx) => {
+    ctx.clearRect(0, 0, 8, 8);
+    ctx.fillStyle = 'rgba(255,255,255,1)';
+    ctx.beginPath();
+    ctx.arc(4, 4, 3, 0, Math.PI * 2);
+    ctx.fill();
+  });
+  ensureCanvasTexture(scene, 'particle_smoke', 24, 24, (ctx) => {
+    ctx.clearRect(0, 0, 24, 24);
+    const g = ctx.createRadialGradient(12, 12, 2, 12, 12, 12);
+    g.addColorStop(0, 'rgba(180,190,210,0.25)');
+    g.addColorStop(1, 'rgba(180,190,210,0)');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(12, 12, 12, 0, Math.PI * 2);
+    ctx.fill();
+  });
+  ensureCanvasTexture(scene, 'particle_spark', 16, 16, (ctx) => {
+    ctx.clearRect(0, 0, 16, 16);
+    const g = ctx.createRadialGradient(8, 8, 1, 8, 8, 8);
+    g.addColorStop(0, 'rgba(255,255,220,1)');
+    g.addColorStop(0.4, 'rgba(255,190,60,0.9)');
+    g.addColorStop(1, 'rgba(255,100,0,0)');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(8, 8, 8, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  makeParchmentTexture(scene, 'ui_parchment_panel', 520, 220);
+  makeParchmentTexture(scene, 'ui_parchment_wide', 760, 180);
+  makeParchmentTexture(scene, 'ui_parchment_tall', 520, 360);
+  makeIconTextures(scene);
+}
+
+const FX = {
+  // Creates an overlay-based lighting rig that works with generated textures (no external assets).
+  createLightingRig(scene, opts = {}) {
+    const rig = { lights: [], pulse: 0, enabled: true };
+
+    rig.darkness = scene.add.rectangle(0, 0, W, H, 0x000000, 0.0)
+      .setOrigin(0).setScrollFactor(0).setDepth(80);
+    rig.darkness.setBlendMode(Phaser.BlendModes.MULTIPLY);
+
+    const worldSpace = (opts.space || 'world') !== 'screen';
+    rig.overlay = scene.add.container(0, 0).setScrollFactor(worldSpace ? 1 : 0).setDepth(81);
+
+    rig.setAmbient = (alpha) => {
+      rig.darkness.setAlpha(clamp01(alpha));
+    };
+
+    rig.addLight = (x, y, textureKey, baseScale = 1, baseAlpha = 1, flicker = 0) => {
+      const spr = scene.add.image(x, y, textureKey);
+      if (!worldSpace) spr.setScrollFactor(0);
+      spr.setBlendMode(Phaser.BlendModes.SCREEN);
+      spr.setDepth(81);
+      spr.setScale(baseScale);
+      spr.setAlpha(baseAlpha);
+      const light = { spr, baseScale, baseAlpha, flicker, seed: Math.random() * 1000 };
+      rig.lights.push(light);
+      rig.overlay.add(spr);
+      return light;
+    };
+
+    rig.attachWarmTo = (target, offsetX, offsetY, radiusScale = 0.45, alpha = 0.35) => {
+      const spr = scene.add.image(target.x + offsetX, target.y + offsetY, 'light_warm_256')
+        .setBlendMode(Phaser.BlendModes.SCREEN)
+        .setDepth(target.depth + 1)
+        .setScale(radiusScale)
+        .setAlpha(alpha);
+      if (!worldSpace) spr.setScrollFactor(0);
+      const link = { spr, target, ox: offsetX, oy: offsetY };
+      rig.lights.push({ spr, baseScale: radiusScale, baseAlpha: alpha, flicker: 0.12, seed: Math.random() * 1000, link });
+      return spr;
+    };
+
+    rig.update = (time) => {
+      if (!rig.enabled) return;
+      rig.lights.forEach((l) => {
+        if (l.link) {
+          l.spr.x = l.link.target.x + l.link.ox;
+          l.spr.y = l.link.target.y + l.link.oy;
+        }
+        if (l.flicker) {
+          const n = Math.sin((time * 0.006) + l.seed) * 0.5 + Math.sin((time * 0.014) + l.seed * 1.7) * 0.5;
+          const j = 1 + n * l.flicker;
+          l.spr.setAlpha(clamp01(l.baseAlpha * j));
+          l.spr.setScale(l.baseScale * (1 + (j - 1) * 0.35));
+        }
+      });
+
+      if (opts.spiritualPulse) {
+        const p = 0.02 + Math.max(0, Math.sin(time * 0.0015)) * 0.03;
+        rig.darkness.setAlpha(clamp01(rig.darkness.alpha + p));
+      }
+    };
+
+    // Default ambient tuning per scene type.
+    if (opts.mode === 'night') rig.setAmbient(0.45);
+    if (opts.mode === 'interior') rig.setAmbient(0.7);
+    if (opts.mode === 'dream') rig.setAmbient(0.35);
+    if (opts.mode === 'day') rig.setAmbient(0.18);
+
+    return rig;
+  },
+
+  createWindDust(scene, area = { x: 0, y: 0, w: W, h: H }, intensity = 1) {
+    const mgr = scene.add.particles(0, 0, 'particle_dot').setDepth(20);
+    const emitter = mgr.createEmitter({
+      x: { min: area.x - 20, max: area.x + area.w + 20 },
+      y: { min: area.y + 30, max: area.y + area.h - 40 },
+      lifespan: { min: 2200, max: 3800 },
+      quantity: 1,
+      frequency: Math.floor(180 / Math.max(0.4, intensity)),
+      speedX: { min: 35, max: 75 },
+      speedY: { min: -10, max: 10 },
+      scale: { start: 0.12, end: 0.0 },
+      alpha: { start: 0.15, end: 0 },
+      tint: 0xd7c3a3,
+    });
+    return { mgr, emitter };
+  },
+
+  createCampfire(scene, x, y) {
+    const light = scene._lighting?.addLight(x, y + 2, 'light_warm_256', 0.55, 0.55, 0.28);
+    const sparks = scene.add.particles(x, y, 'particle_spark').setDepth(25);
+    sparks.createEmitter({
+      x: x, y: y,
+      lifespan: { min: 450, max: 900 },
+      speedY: { min: -55, max: -95 },
+      speedX: { min: -18, max: 18 },
+      scale: { start: 0.25, end: 0 },
+      alpha: { start: 0.8, end: 0 },
+      quantity: 1,
+      frequency: 60,
+      blendMode: 'ADD',
+      tint: [0xffdd88, 0xffaa44, 0xff6622],
+    });
+    const smoke = scene.add.particles(x, y - 10, 'particle_smoke').setDepth(24);
+    smoke.createEmitter({
+      x: x, y: y - 10,
+      lifespan: { min: 1800, max: 2800 },
+      speedY: { min: -15, max: -30 },
+      speedX: { min: -8, max: 8 },
+      scale: { start: 0.5, end: 1.2 },
+      alpha: { start: 0.18, end: 0 },
+      frequency: 140,
+      tint: 0xaab6c4,
+    });
+    return { light, sparks, smoke };
+  },
+};
+
+const AudioEngine = (() => {
+  let ctx = null;
+  let master = null;
+  let musicBus = null;
+  let sfxBus = null;
+  let activeTheme = null;
+  let themeGain = null;
+  let themeInterval = null;
+
+  function ensure() {
+    if (ctx) return true;
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return false;
+    ctx = new Ctx();
+    master = ctx.createGain();
+    musicBus = ctx.createGain();
+    sfxBus = ctx.createGain();
+    master.gain.value = 0.9;
+    musicBus.gain.value = clamp01(GameState.settings.music ?? 0.65);
+    sfxBus.gain.value = clamp01(GameState.settings.sfx ?? 0.8);
+    musicBus.connect(master);
+    sfxBus.connect(master);
+    master.connect(ctx.destination);
+    return true;
+  }
+
+  function unlock() {
+    if (!ensure()) return;
+    if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+  }
+
+  function setVolumes() {
+    if (!ctx) return;
+    musicBus.gain.value = clamp01(GameState.settings.music ?? 0.65);
+    sfxBus.gain.value = clamp01(GameState.settings.sfx ?? 0.8);
+  }
+
+  function playClick() {
+    if (!ensure()) return;
+    const t = ctx.currentTime;
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.type = 'square';
+    o.frequency.setValueAtTime(880, t);
+    o.frequency.exponentialRampToValueAtTime(660, t + 0.04);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.05, t + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.06);
+    o.connect(g).connect(sfxBus);
+    o.start(t);
+    o.stop(t + 0.08);
+  }
+
+  function playChime() {
+    if (!ensure()) return;
+    const t = ctx.currentTime;
+    const freqs = [880, 1320, 1760];
+    freqs.forEach((f, i) => {
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.type = 'sine';
+      o.frequency.setValueAtTime(f, t + i * 0.02);
+      g.gain.setValueAtTime(0.0001, t + i * 0.02);
+      g.gain.exponentialRampToValueAtTime(0.06, t + i * 0.02 + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + i * 0.02 + 0.35);
+      o.connect(g).connect(sfxBus);
+      o.start(t + i * 0.02);
+      o.stop(t + i * 0.02 + 0.4);
+    });
+  }
+
+  function playWhoosh() {
+    if (!ensure()) return;
+    const t = ctx.currentTime;
+    const buf = ctx.createBuffer(1, ctx.sampleRate * 0.25, ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / data.length);
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    const bp = ctx.createBiquadFilter();
+    bp.type = 'bandpass';
+    bp.frequency.setValueAtTime(1200, t);
+    bp.frequency.exponentialRampToValueAtTime(400, t + 0.2);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.12, t + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.25);
+    src.connect(bp).connect(g).connect(sfxBus);
+    src.start(t);
+    src.stop(t + 0.25);
+  }
+
+  function step(surface = 'sand') {
+    if (!ensure()) return;
+    const t = ctx.currentTime;
+    const f = surface === 'stone' ? 160 : surface === 'wood' ? 210 : surface === 'grass' ? 130 : 110;
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.type = 'triangle';
+    o.frequency.setValueAtTime(f, t);
+    o.frequency.exponentialRampToValueAtTime(f * 0.6, t + 0.06);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.05, t + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.08);
+    o.connect(g).connect(sfxBus);
+    o.start(t);
+    o.stop(t + 0.09);
+  }
+
+  function stopTheme() {
+    if (themeInterval) {
+      clearInterval(themeInterval);
+      themeInterval = null;
+    }
+    if (themeGain) {
+      themeGain.gain.setTargetAtTime(0.0001, ctx.currentTime, 0.2);
+      themeGain = null;
+    }
+    activeTheme = null;
+  }
+
+  function setTheme(name) {
+    if (!ensure()) return;
+    if (activeTheme === name) return;
+
+    const t0 = ctx.currentTime;
+    const newGain = ctx.createGain();
+    newGain.gain.setValueAtTime(0.0001, t0);
+    newGain.gain.exponentialRampToValueAtTime(0.28, t0 + 2.0);
+    newGain.connect(musicBus);
+
+    // Fade out previous theme.
+    if (themeGain) themeGain.gain.exponentialRampToValueAtTime(0.0001, t0 + 2.0);
+    if (themeInterval) clearInterval(themeInterval);
+
+    activeTheme = name;
+    themeGain = newGain;
+
+    const scales = {
+      jerusalem: [0, 2, 3, 7, 8, 10], // Phrygian-ish
+      wilderness: [0, 3, 5, 7, 10],
+      dream: [0, 2, 5, 7, 9],
+      battle: [0, 2, 3, 5, 7, 8, 10],
+      spiritual: [0, 5, 7, 9],
+    };
+    const base = name === 'battle' ? 110 : name === 'dream' ? 84 : name === 'wilderness' ? 78 : 96;
+    const scale = scales[name] || scales.jerusalem;
+    let stepN = 0;
+
+    themeInterval = setInterval(() => {
+      const t = ctx.currentTime;
+      const degree = scale[stepN % scale.length];
+      const octave = (stepN % 8 < 4) ? 0 : 1;
+      const freq = base * Math.pow(2, (degree + octave * 12) / 12);
+
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      const f = ctx.createBiquadFilter();
+      o.type = name === 'dream' ? 'sine' : 'triangle';
+      o.frequency.setValueAtTime(freq, t);
+      f.type = 'lowpass';
+      f.frequency.setValueAtTime(name === 'battle' ? 1400 : 900, t);
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(name === 'battle' ? 0.09 : 0.065, t + 0.03);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + (name === 'battle' ? 0.16 : 0.22));
+      o.connect(f).connect(g).connect(newGain);
+      o.start(t);
+      o.stop(t + (name === 'battle' ? 0.18 : 0.26));
+
+      // Simple bass pulse.
+      if (stepN % 4 === 0) {
+        const bo = ctx.createOscillator();
+        const bg = ctx.createGain();
+        bo.type = 'sine';
+        bo.frequency.setValueAtTime(base / 2, t);
+        bg.gain.setValueAtTime(0.0001, t);
+        bg.gain.exponentialRampToValueAtTime(name === 'wilderness' ? 0.035 : 0.05, t + 0.02);
+        bg.gain.exponentialRampToValueAtTime(0.0001, t + 0.24);
+        bo.connect(bg).connect(newGain);
+        bo.start(t);
+        bo.stop(t + 0.26);
+      }
+
+      stepN++;
+    }, name === 'battle' ? 160 : name === 'wilderness' ? 280 : 220);
+  }
+
+  return {
+    unlock,
+    setTheme,
+    stopTheme,
+    setVolumes,
+    sfx: { click: playClick, chime: playChime, whoosh: playWhoosh, step },
+  };
+})();
+
+
+function uiTextScale() {
+  return GameState.settings.textSize === 'large' ? 1.15 : GameState.settings.textSize === 'small' ? 0.92 : 1;
+}
+
+function makePortraitCircle(scene, textureKey, x, y, size, depth = 210) {
+  const frame = scene.add.circle(x, y, size / 2 + 2, 0x16213e, 0.75).setDepth(depth).setScrollFactor(0);
+  frame.setStrokeStyle(2, COLORS.gold, 0.9);
+  const img = scene.add.image(x, y, textureKey).setDepth(depth + 1).setScrollFactor(0);
+  img.setScale(size / Math.max(img.width, 1));
+  const maskG = scene.add.graphics().setScrollFactor(0).setDepth(depth + 2);
+  maskG.fillStyle(0xffffff, 1);
+  maskG.fillCircle(x, y, size / 2);
+  img.setMask(maskG.createGeometryMask());
+  maskG.setVisible(false);
+  return { frame, img, maskG };
+}
+
+// --- HELPER: Dialogue box (premium parchment UI) ---
+function showDialogue(scene, speaker, text, onComplete, optionsOrOpts) {
+  AudioEngine.unlock();
+
+  const opts = Array.isArray(optionsOrOpts) ? { choices: optionsOrOpts } : (optionsOrOpts || {});
   const portraitMap = {
     'Nephi': 'nephi', 'Lehi': 'lehi', 'Sariah': 'sariah',
     'Sam': 'sam', 'Laman': 'laman',
+    'Narrator': null,
   };
+  const portraitKey = portraitMap[speaker] || null;
 
-  const bg = scene.add.rectangle(W/2, H - 80, W - 40, 140, 0x000000, 0.9)
-    .setStrokeStyle(2, COLORS.gold).setDepth(100).setScrollFactor(0);
+  if (scene._dialogueOpen) return null;
+  scene._dialogueOpen = true;
 
-  let portraitSprite = null;
-  const portraitKey = portraitMap[speaker];
+  const scale = uiTextScale();
+  const ui = scene.add.container(0, 0).setDepth(200).setScrollFactor(0);
+
+  const dim = scene.add.rectangle(0, 0, W, H, 0x000000, 0.25).setOrigin(0);
+  dim.setBlendMode(Phaser.BlendModes.MULTIPLY);
+  ui.add(dim);
+
+  const panel = scene.add.image(W / 2, H - 88, 'ui_parchment_wide');
+  panel.setDisplaySize(W - 36, 170);
+  ui.add(panel);
+
+  const panelShadow = scene.add.rectangle(W / 2, H - 88, W - 40, 170, 0x000000, 0.18);
+  panelShadow.setBlendMode(Phaser.BlendModes.MULTIPLY);
+  ui.add(panelShadow);
+
+  const goldLine = scene.add.rectangle(40, H - 168, W - 80, 2, COLORS.gold, 0.55).setOrigin(0);
+  ui.add(goldLine);
+
+  const titleFont = 'Palatino Linotype, Book Antiqua, Palatino, serif';
+  const bodyFont = 'Georgia, serif';
+
+  const name = scene.add.text(52, H - 160, speaker, {
+    fontSize: `${Math.floor(18 * scale)}px`,
+    fontFamily: titleFont,
+    color: '#8b5a2b',
+    fontStyle: 'bold',
+  });
+  ui.add(name);
+
+  let portrait = null;
+  const textLeft = portraitKey && scene.textures.exists(portraitKey) ? 138 : 60;
   if (portraitKey && scene.textures.exists(portraitKey)) {
-    // Portrait background
-    const pBg = scene.add.rectangle(55, H - 80, 70, 70, 0x16213e, 0.8)
-      .setStrokeStyle(1, COLORS.gold).setDepth(101).setScrollFactor(0);
-    portraitSprite = scene.add.image(55, H - 80, portraitKey)
-      .setScale(1.4).setDepth(102).setScrollFactor(0);
+    portrait = makePortraitCircle(scene, portraitKey, 88, H - 105, 72, 210);
+    ui.add(portrait.frame);
+    ui.add(portrait.img);
   }
 
-  const textX = portraitKey ? 100 : 40;
-  const nameText = scene.add.text(textX, H - 145, speaker, {
-    fontSize: '16px', fontFamily: 'monospace', color: '#ffd700', fontStyle: 'bold'
-  }).setDepth(101).setScrollFactor(0);
-
-  if (options) {
-    const optTexts = [];
-    const extraEls = [portraitSprite].filter(Boolean);
-    options.forEach((opt, i) => {
-      const t = scene.add.text(textX + 10, H - 115 + i * 28, `► ${opt.text}`, {
-        fontSize: '14px', fontFamily: 'monospace', color: '#ffffff'
-      }).setDepth(101).setInteractive({ useHandCursor: true }).setScrollFactor(0);
-      t.on('pointerover', () => t.setColor('#ffd700'));
-      t.on('pointerout', () => t.setColor('#ffffff'));
-      t.on('pointerdown', () => {
-        bg.destroy(); nameText.destroy();
-        optTexts.forEach(ot => ot.destroy());
-        extraEls.forEach(e => e.destroy());
-        // destroy portrait bg
-        if (portraitKey) bg.parentContainer; // handled by destroying all
-        if (opt.onSelect) opt.onSelect();
-      });
-      optTexts.push(t);
+  // Optional Nephi internal monologue.
+  let thoughtText = null;
+  if (opts.thought) {
+    thoughtText = scene.add.text(60, H - 198, opts.thought, {
+      fontSize: `${Math.floor(12 * scale)}px`,
+      fontFamily: bodyFont,
+      color: '#2f2a20',
+      fontStyle: 'italic',
+      alpha: 0.85,
+      wordWrap: { width: W - 120 },
     });
-    return { bg, nameText, optTexts };
+    ui.add(thoughtText);
   }
 
-  const msgText = scene.add.text(textX, H - 120, '', {
-    fontSize: '14px', fontFamily: 'monospace', color: '#ffffff',
-    wordWrap: { width: W - textX - 60 }, lineSpacing: 4
-  }).setDepth(101).setScrollFactor(0);
+  // Typewriter text
+  const msg = scene.add.text(textLeft, H - 132, '', {
+    fontSize: `${Math.floor(16 * scale)}px`,
+    fontFamily: bodyFont,
+    color: '#1f1a12',
+    wordWrap: { width: W - textLeft - 70 },
+    lineSpacing: 6,
+  });
+  ui.add(msg);
 
-  let charIndex = 0;
+  const prompt = scene.add.text(W - 92, H - 28, 'Tap', {
+    fontSize: `${Math.floor(12 * scale)}px`,
+    fontFamily: 'monospace',
+    color: '#8b5a2b',
+    alpha: 0,
+  });
+  ui.add(prompt);
+
+  const progressBg = scene.add.rectangle(60, H - 28, W - 150, 6, 0x000000, 0.08).setOrigin(0, 0.5);
+  const progress = scene.add.rectangle(60, H - 28, 0, 6, COLORS.gold, 0.55).setOrigin(0, 0.5);
+  progressBg.setVisible(false);
+  progress.setVisible(false);
+  ui.add(progressBg);
+  ui.add(progress);
+
   let typing = true;
-  const timer = scene.time.addEvent({
-    delay: 25,
+  let charIndex = 0;
+  const full = String(text ?? '');
+  const speed = Math.max(10, GameState.settings.textSpeedMs ?? 22);
+
+  const typeEvt = scene.time.addEvent({
+    delay: speed,
     callback: () => {
-      if (charIndex < text.length) {
-        msgText.setText(text.substring(0, ++charIndex));
+      if (charIndex < full.length) {
+        charIndex++;
+        msg.setText(full.substring(0, charIndex));
       } else {
         typing = false;
-        timer.remove();
-        const cont = scene.add.text(W - 80, H - 25, '▼ Continue', {
-          fontSize: '12px', fontFamily: 'monospace', color: '#ffd700'
-        }).setDepth(101).setScrollFactor(0);
-        scene.tweens.add({ targets: cont, alpha: 0.3, duration: 500, yoyo: true, repeat: -1 });
+        typeEvt.remove(false);
+        prompt.setAlpha(0.85);
+        scene.tweens.add({ targets: prompt, alpha: 0.35, duration: 700, yoyo: true, repeat: -1 });
 
-        const handler = () => {
-          bg.destroy(); nameText.destroy(); msgText.destroy(); cont.destroy();
-          if (portraitSprite) portraitSprite.destroy();
-          scene.input.off('pointerdown', handler);
-          scene.input.keyboard.off('keydown-SPACE', handler);
-          if (onComplete) onComplete();
-        };
-        scene.input.on('pointerdown', handler);
-        scene.input.keyboard.on('keydown-SPACE', handler);
+        if (GameState.settings.autoAdvance) {
+          progressBg.setVisible(true);
+          progress.setVisible(true);
+          const dur = Math.min(6500, 1200 + full.length * 28);
+          progress.width = 0;
+          scene.tweens.add({
+            targets: progress,
+            displayWidth: W - 150,
+            duration: dur,
+            onComplete: () => advance(),
+          });
+        }
       }
     },
-    loop: true
+    loop: true,
   });
 
-  const skipHandler = () => {
-    if (typing) { charIndex = text.length; msgText.setText(text); }
+  const cleanup = () => {
+    ui.destroy(true);
+    if (portrait) {
+      portrait.maskG.destroy();
+    }
+    scene._dialogueOpen = false;
   };
-  scene.input.once('pointerdown', skipHandler);
 
-  return { bg, nameText, msgText };
+  const advance = () => {
+    if (typing) {
+      charIndex = full.length;
+      msg.setText(full);
+      typing = false;
+      AudioEngine.sfx.click();
+      return;
+    }
+    AudioEngine.sfx.click();
+    cleanup();
+    if (onComplete) onComplete();
+  };
+
+  const handlePointer = () => advance();
+  const handleSpace = () => advance();
+
+  scene.input.on('pointerdown', handlePointer);
+  scene.input.keyboard.on('keydown-SPACE', handleSpace);
+
+  // Choice prompt (replaces typewriter with options).
+  if (opts.choices && opts.choices.length) {
+    typeEvt.remove(false);
+    typing = false;
+    msg.setText(full);
+    prompt.setAlpha(0);
+
+    const choices = [];
+    const baseY = H - 76;
+    opts.choices.forEach((c, i) => {
+      const t = scene.add.text(textLeft, baseY + i * (28 * scale), `\u25ba ${c.text}`, {
+        fontSize: `${Math.floor(15 * scale)}px`,
+        fontFamily: 'Georgia, serif',
+        color: '#1f1a12',
+      }).setInteractive({ useHandCursor: true });
+      t.on('pointerover', () => t.setColor('#6b4e1e'));
+      t.on('pointerout', () => t.setColor('#1f1a12'));
+      t.on('pointerdown', () => {
+        recordChoice({ id: c.id, label: c.text, faithVsDoubt: c.faithVsDoubt || 0, compassionVsHarshness: c.compassionVsHarshness || 0 });
+        scene.input.off('pointerdown', handlePointer);
+        scene.input.keyboard.off('keydown-SPACE', handleSpace);
+        cleanup();
+        if (c.onSelect) c.onSelect();
+        else if (onComplete) onComplete();
+      });
+      choices.push(t);
+      ui.add(t);
+    });
+
+    scene.input.off('pointerdown', handlePointer);
+    scene.input.keyboard.off('keydown-SPACE', handleSpace);
+    dim.setAlpha(0.35);
+    return ui;
+  }
+
+  // Ensure listeners are removed when UI is destroyed.
+  ui.once(Phaser.GameObjects.Events.DESTROY, () => {
+    scene.input.off('pointerdown', handlePointer);
+    scene.input.keyboard.off('keydown-SPACE', handleSpace);
+  });
+
+  return ui;
 }
 
-// --- HELPER: Scripture unlock popup ---
+// --- HELPER: Scripture unlock (slide toast + particles) ---
 function showScriptureUnlock(scene, ref, text, onDone) {
+  AudioEngine.unlock();
   if (!addScripture(ref, text)) { if (onDone) onDone(); return; }
   gainFP(25);
 
-  const overlay = scene.add.rectangle(W/2, H/2, W, H, 0x000000, 0.7).setDepth(200).setScrollFactor(0);
-  const scroll = scene.add.rectangle(W/2, H/2, 500, 280, COLORS.cream, 0.95)
-    .setStrokeStyle(3, COLORS.gold).setDepth(201).setScrollFactor(0);
-  const icon = scene.add.text(W/2, H/2 - 110, '📜', { fontSize: '40px' })
-    .setOrigin(0.5).setDepth(202).setScrollFactor(0);
-  const title = scene.add.text(W/2, H/2 - 70, 'SCRIPTURE UNLOCKED', {
-    fontSize: '20px', fontFamily: 'monospace', color: '#b8860b', fontStyle: 'bold'
-  }).setOrigin(0.5).setDepth(202).setScrollFactor(0);
-  const refText = scene.add.text(W/2, H/2 - 40, ref, {
-    fontSize: '16px', fontFamily: 'monospace', color: '#8b4513', fontStyle: 'bold'
-  }).setOrigin(0.5).setDepth(202).setScrollFactor(0);
-  const verseText = scene.add.text(W/2, H/2 + 10, `"${text}"`, {
-    fontSize: '13px', fontFamily: 'monospace', color: '#333333',
-    wordWrap: { width: 440 }, align: 'center', fontStyle: 'italic', lineSpacing: 4
-  }).setOrigin(0.5).setDepth(202).setScrollFactor(0);
-  const fpText = scene.add.text(W/2, H/2 + 80, '+25 Faith Points', {
-    fontSize: '14px', fontFamily: 'monospace', color: '#3498db'
-  }).setOrigin(0.5).setDepth(202).setScrollFactor(0);
-  const cont = scene.add.text(W/2, H/2 + 115, 'Click to continue', {
-    fontSize: '12px', fontFamily: 'monospace', color: '#888888'
-  }).setOrigin(0.5).setDepth(202).setScrollFactor(0);
+  const scale = uiTextScale();
+  const toast = scene.add.container(0, 0).setDepth(220).setScrollFactor(0);
 
-  const els = [overlay, scroll, icon, title, refText, verseText, fpText, cont];
-  scroll.setScale(0); icon.setAlpha(0);
-  scene.tweens.add({ targets: scroll, scale: 1, duration: 400, ease: 'Back.easeOut' });
-  scene.tweens.add({ targets: [icon, title, refText, verseText, fpText], alpha: 1, duration: 300, delay: 300 });
-  scene.tweens.add({ targets: cont, alpha: 0.4, duration: 600, yoyo: true, repeat: -1, delay: 600 });
+  const panel = scene.add.image(W / 2, H + 90, 'ui_parchment_panel');
+  panel.setDisplaySize(560, 160);
+  toast.add(panel);
 
-  scene.time.delayedCall(500, () => {
-    scene.input.once('pointerdown', () => {
-      els.forEach(e => e.destroy());
-      if (onDone) onDone();
-    });
+  const outline = scene.add.rectangle(W / 2, H + 90, 560, 160, 0x000000, 0);
+  outline.setStrokeStyle(2, COLORS.gold, 0.85);
+  toast.add(outline);
+
+  const title = scene.add.text(W / 2, H + 40, 'SCRIPTURE UNLOCKED', {
+    fontSize: `${Math.floor(16 * scale)}px`,
+    fontFamily: 'Palatino Linotype, Book Antiqua, Palatino, serif',
+    color: '#8b5a2b',
+    fontStyle: 'bold',
+  }).setOrigin(0.5);
+  toast.add(title);
+
+  const refText = scene.add.text(W / 2, H + 66, ref, {
+    fontSize: `${Math.floor(14 * scale)}px`,
+    fontFamily: 'Georgia, serif',
+    color: '#1f1a12',
+    fontStyle: 'bold',
+  }).setOrigin(0.5);
+  toast.add(refText);
+
+  const verse = scene.add.text(W / 2, H + 106, text, {
+    fontSize: `${Math.floor(12 * scale)}px`,
+    fontFamily: 'Georgia, serif',
+    color: '#2a241b',
+    fontStyle: 'italic',
+    wordWrap: { width: 520 },
+    align: 'center',
+    lineSpacing: 4,
+  }).setOrigin(0.5);
+  toast.add(verse);
+
+  const quill = scene.add.text(W / 2 + 250, H + 40, '\u270d', { fontSize: `${Math.floor(18 * scale)}px`, color: '#8b5a2b' }).setOrigin(0.5);
+  toast.add(quill);
+
+  // Burst particles
+  const burst = scene.add.particles(W / 2, H - 30, 'particle_spark').setDepth(221);
+  burst.createEmitter({
+    speed: { min: 80, max: 220 },
+    angle: { min: 200, max: 340 },
+    lifespan: { min: 450, max: 900 },
+    scale: { start: 0.5, end: 0 },
+    alpha: { start: 1, end: 0 },
+    quantity: 18,
+    blendMode: 'ADD',
+    tint: [0xffe066, 0xffd27a, 0xffffff],
+  }).explode(22, W / 2, H - 40);
+
+  AudioEngine.sfx.chime();
+
+  scene.tweens.add({
+    targets: [panel, outline, title, refText, verse, quill],
+    y: '-=190',
+    duration: 550,
+    ease: 'Cubic.easeOut',
   });
+
+  let dismissed = false;
+  const dismiss = () => {
+    if (dismissed) return;
+    dismissed = true;
+    toast.destroy(true);
+    burst.destroy();
+    if (onDone) onDone();
+  };
+
+  scene.time.delayedCall(4000, dismiss);
+  scene.input.once('pointerdown', dismiss);
 }
 
-// --- HELPER: HUD ---
+// --- HELPER: HUD (premium) ---
 function createHUD(scene) {
-  const hud = {};
-  hud.bg = scene.add.rectangle(0, 0, W, 50, 0x000000, 0.7).setOrigin(0).setDepth(90).setScrollFactor(0);
+  const hud = { objective: null };
+  const scale = uiTextScale();
+  const root = scene.add.container(0, 0).setDepth(150).setScrollFactor(0);
+  hud.root = root;
 
-  hud.faithLabel = scene.add.text(10, 8, '✦ Faith', {
-    fontSize: '11px', fontFamily: 'monospace', color: '#ffd700'
-  }).setDepth(91).setScrollFactor(0);
-  hud.faithBg = scene.add.rectangle(80, 14, 120, 12, 0x333333).setOrigin(0).setDepth(91).setScrollFactor(0);
-  hud.faithBar = scene.add.rectangle(80, 14, 120 * (GameState.faith / GameState.maxFaith), 12, COLORS.faithBlue)
-    .setOrigin(0).setDepth(92).setScrollFactor(0);
-  hud.faithNum = scene.add.text(205, 8, `${GameState.faith}/${GameState.maxFaith}`, {
-    fontSize: '11px', fontFamily: 'monospace', color: '#3498db'
-  }).setDepth(91).setScrollFactor(0);
+  const topBg = scene.add.rectangle(0, 0, W, 64, 0x000000, 0.08).setOrigin(0);
+  topBg.setBlendMode(Phaser.BlendModes.MULTIPLY);
+  root.add(topBg);
 
-  hud.levelText = scene.add.text(280, 8, `Lv.${GameState.level}`, {
-    fontSize: '12px', fontFamily: 'monospace', color: '#ffd700', fontStyle: 'bold'
-  }).setDepth(91).setScrollFactor(0);
-  hud.fpText = scene.add.text(280, 24, `FP: ${GameState.faithPoints}/${GameState.fpToNext}`, {
-    fontSize: '10px', fontFamily: 'monospace', color: '#aaaaaa'
-  }).setDepth(91).setScrollFactor(0);
+  const leftPanel = scene.add.image(12, 8, 'ui_parchment_panel').setOrigin(0);
+  leftPanel.setDisplaySize(330, 56);
+  leftPanel.setAlpha(0.95);
+  root.add(leftPanel);
 
-  // Companion portrait in HUD
-  if (GameState.companion) {
-    hud.compBg = scene.add.rectangle(W - 160, 5, 150, 40, 0x16213e, 0.8)
-      .setOrigin(0).setDepth(91).setScrollFactor(0).setStrokeStyle(1, COLORS.gold);
-    if (scene.textures.exists('nephi')) {
-      hud.compIcon = scene.add.image(W - 140, 25, 'nephi').setDepth(92).setScrollFactor(0);
-    }
-    hud.compName = scene.add.text(W - 120, 10, GameState.companion.name, {
-      fontSize: '11px', fontFamily: 'monospace', color: '#ffd700'
-    }).setDepth(92).setScrollFactor(0);
-    hud.compTitle = scene.add.text(W - 120, 26, GameState.companion.title, {
-      fontSize: '9px', fontFamily: 'monospace', color: '#aaaaaa'
-    }).setDepth(92).setScrollFactor(0);
+  // Main portrait (Nephi when present, otherwise player).
+  const mainPortraitKey = scene.textures.exists('nephi') ? 'nephi' : 'player';
+  const mainPortrait = makePortraitCircle(scene, mainPortraitKey, 46, 36, 44, 160);
+  root.add(mainPortrait.frame);
+  root.add(mainPortrait.img);
+  hud.mainPortrait = mainPortrait;
+
+  // Companion portrait (if any).
+  hud.compPortrait = null;
+  if (GameState.companion && scene.textures.exists('player')) {
+    const comp = makePortraitCircle(scene, 'player', 94, 36, 34, 160);
+    comp.frame.setAlpha(0.7);
+    comp.img.setAlpha(0.85);
+    root.add(comp.frame);
+    root.add(comp.img);
+    hud.compPortrait = comp;
   }
 
-  hud.scriptureIcon = scene.add.text(W/2 - 40, 8, `📜 ${GameState.scriptures.length}`, {
-    fontSize: '12px', fontFamily: 'monospace', color: '#ffd700'
-  }).setDepth(91).setScrollFactor(0);
+  // HP (Faith-as-HP for now)
+  const hpIcon = scene.add.image(132, 22, 'icon_heart').setScale(0.65).setAlpha(0.9);
+  root.add(hpIcon);
+  const hpLabel = scene.add.text(152, 14, 'HP', {
+    fontSize: `${Math.floor(11 * scale)}px`,
+    fontFamily: 'monospace',
+    color: '#8b5a2b',
+  });
+  root.add(hpLabel);
+  const hpBg = scene.add.rectangle(152, 30, 160, 10, 0x000000, 0.12).setOrigin(0, 0.5);
+  const hpFill = scene.add.rectangle(152, 30, 160, 10, 0xffcc66, 0.85).setOrigin(0, 0.5);
+  root.add(hpBg);
+  root.add(hpFill);
+  const hpNum = scene.add.text(318, 24, '', { fontSize: `${Math.floor(10 * scale)}px`, fontFamily: 'monospace', color: '#2a241b' }).setOrigin(1, 0);
+  root.add(hpNum);
 
-  hud.update = () => {
-    const ratio = Math.min(GameState.faith / GameState.maxFaith, 1);
-    hud.faithBar.setDisplaySize(120 * ratio, 12);
-    hud.faithNum.setText(`${GameState.faith}/${GameState.maxFaith}`);
-    hud.levelText.setText(`Lv.${GameState.level}`);
-    hud.fpText.setText(`FP: ${GameState.faithPoints}/${GameState.fpToNext}`);
-    hud.scriptureIcon.setText(`📜 ${GameState.scriptures.length}`);
+  // Faith Points to next level (gold cascade on gain handled by scripture unlock + FX).
+  const fpIcon = scene.add.image(132, 48, 'icon_flame').setScale(0.58).setAlpha(0.9);
+  root.add(fpIcon);
+  const fpLabel = scene.add.text(152, 40, 'FAITH', {
+    fontSize: `${Math.floor(11 * scale)}px`,
+    fontFamily: 'monospace',
+    color: '#8b5a2b',
+  });
+  root.add(fpLabel);
+  const fpBg = scene.add.rectangle(152, 56, 160, 8, 0x000000, 0.12).setOrigin(0, 0.5);
+  const fpFill = scene.add.rectangle(152, 56, 160, 8, COLORS.gold, 0.65).setOrigin(0, 0.5);
+  root.add(fpBg);
+  root.add(fpFill);
+  const lvText = scene.add.text(318, 44, '', { fontSize: `${Math.floor(10 * scale)}px`, fontFamily: 'monospace', color: '#2a241b' }).setOrigin(1, 0);
+  root.add(lvText);
+
+  // Right cluster: compass + chapter + day/night
+  const rightPanel = scene.add.image(W - 12, 8, 'ui_parchment_panel').setOrigin(1, 0);
+  rightPanel.setDisplaySize(300, 56);
+  rightPanel.setAlpha(0.95);
+  root.add(rightPanel);
+
+  const compass = scene.add.image(W - 270, 36, 'icon_compass').setScale(0.7);
+  root.add(compass);
+  const needle = scene.add.triangle(W - 270, 36, 0, -12, 4, 10, -4, 10, COLORS.gold, 0.9);
+  needle.setStrokeStyle(1, darken(COLORS.gold, 60), 0.7);
+  root.add(needle);
+  hud.compass = { compass, needle, spin: 0 };
+
+  const chapter = scene.add.text(W - 232, 16, GameState.chapter.label, {
+    fontSize: `${Math.floor(12 * scale)}px`,
+    fontFamily: 'Palatino Linotype, Book Antiqua, Palatino, serif',
+    color: '#8b5a2b',
+    fontStyle: 'bold',
+  });
+  root.add(chapter);
+  hud.chapterText = chapter;
+
+  const dayNightIcon = scene.add.image(W - 36, 20, 'light_gold_256').setScale(0.12).setAlpha(0.85);
+  dayNightIcon.setBlendMode(Phaser.BlendModes.SCREEN);
+  root.add(dayNightIcon);
+  hud.dayNightIcon = dayNightIcon;
+
+  // Small scripture counter
+  const scr = scene.add.text(W - 232, 38, '', { fontSize: `${Math.floor(11 * scale)}px`, fontFamily: 'monospace', color: '#2a241b' });
+  root.add(scr);
+  hud.scriptureText = scr;
+
+  hud.setObjective = (x, y) => { hud.objective = { x, y }; };
+
+  hud.update = (player, surfaceHint = 'sand') => {
+    const hpRatio = clamp01(GameState.faith / Math.max(1, GameState.maxFaith));
+    hpFill.displayWidth = 160 * hpRatio;
+    hpNum.setText(`${GameState.faith}/${GameState.maxFaith}`);
+
+    const fpRatio = clamp01(GameState.faithPoints / Math.max(1, GameState.fpToNext));
+    fpFill.displayWidth = 160 * fpRatio;
+    lvText.setText(`Lv.${GameState.level}`);
+    hud.scriptureText.setText(`\uD83D\uDCDC ${GameState.scriptures.length}`);
+
+    // Liahona behavior: low faith spins, high faith points true (if objective known).
+    const low = hpRatio < 0.35;
+    if (low) {
+      hud.compass.spin += 0.03;
+      needle.rotation = hud.compass.spin;
+      needle.fillColor = 0xd0b070;
+    } else if (hud.objective && player) {
+      const dx = hud.objective.x - player.x;
+      const dy = hud.objective.y - player.y;
+      const ang = Math.atan2(dy, dx) + Math.PI / 2;
+      needle.rotation = ang;
+      needle.fillColor = hpRatio > 0.75 ? COLORS.gold : 0xd0b070;
+    } else {
+      needle.rotation *= 0.92;
+    }
+
+    const isNight = (GameState.time.t < 0.25 || GameState.time.t > 0.75);
+    hud.dayNightIcon.setTexture(isNight ? 'light_cool_256' : 'light_gold_256');
+    hud.dayNightIcon.setAlpha(isNight ? 0.7 : 0.85);
   };
+
   return hud;
+}
+
+function attachPauseMenu(scene) {
+  const scale = uiTextScale();
+  const menu = { open: false };
+
+  const root = scene.add.container(0, 0).setDepth(300).setScrollFactor(0);
+  root.setVisible(false);
+
+  const dim = scene.add.rectangle(0, 0, W, H, 0x000000, 0.55).setOrigin(0);
+  dim.setBlendMode(Phaser.BlendModes.MULTIPLY);
+  root.add(dim);
+
+  const panel = scene.add.image(W + 260, H / 2, 'ui_parchment_tall');
+  panel.setDisplaySize(520, 420);
+  root.add(panel);
+
+  const border = scene.add.rectangle(W + 260, H / 2, 520, 420, 0x000000, 0);
+  border.setStrokeStyle(2, COLORS.gold, 0.85);
+  root.add(border);
+
+  // Tiny animated lantern (stylized).
+  const lantern = scene.add.image(W + 470, H / 2 - 180, 'light_warm_256').setScale(0.12).setAlpha(0.65);
+  lantern.setBlendMode(Phaser.BlendModes.SCREEN);
+  root.add(lantern);
+  scene.tweens.add({ targets: lantern, alpha: 0.35, duration: 900, yoyo: true, repeat: -1 });
+
+  const title = scene.add.text(W + 40, H / 2 - 195, 'PAUSED', {
+    fontSize: `${Math.floor(22 * scale)}px`,
+    fontFamily: 'Palatino Linotype, Book Antiqua, Palatino, serif',
+    color: '#8b5a2b',
+    fontStyle: 'bold',
+  });
+  root.add(title);
+
+  const tabs = ['Journey', 'Scriptures', 'Companions', 'Wardrobe', 'Inventory', 'Settings'];
+  let activeTab = 'Journey';
+  const tabTexts = [];
+  const content = scene.add.text(W + 40, H / 2 - 110, '', {
+    fontSize: `${Math.floor(13 * scale)}px`,
+    fontFamily: 'Georgia, serif',
+    color: '#1f1a12',
+    wordWrap: { width: 440 },
+    lineSpacing: 6,
+  });
+  root.add(content);
+
+  const updateContent = () => {
+    if (activeTab === 'Journey') {
+      content.setText(`Current: ${GameState.chapter.label}\n\nLast journal:\n${GameState.journal[GameState.journal.length - 1]?.entry || '...'}\n\nAlignment:\nFaith vs Doubt: ${GameState.alignment.faithVsDoubt}\nCompassion vs Harshness: ${GameState.alignment.compassionVsHarshness}`);
+      return;
+    }
+    if (activeTab === 'Scriptures') {
+      const list = GameState.scriptures.slice(-6).map(s => `- ${s.ref}`).join('\n') || '- None yet';
+      content.setText(`Collected scriptures (${GameState.scriptures.length}):\n${list}\n\n(Full journal formatting is next.)`);
+      return;
+    }
+    if (activeTab === 'Companions') {
+      content.setText(GameState.companion ? `Companion:\n${GameState.companion.name}\n${GameState.companion.title}` : 'No companion currently.');
+      return;
+    }
+    if (activeTab === 'Wardrobe') {
+      content.setText('Wardrobe is stubbed for now.\nNext: apply palette swaps to Nephi + player sprites from a settings panel.');
+      return;
+    }
+    if (activeTab === 'Inventory') {
+      const inv = GameState.inventory.length ? GameState.inventory.map(i => `- ${i}`).join('\n') : '- Empty';
+      content.setText(`Inventory:\n${inv}`);
+      return;
+    }
+    // Settings
+    content.setText(
+      `Difficulty: ${GameState.settings.difficulty}\nText size: ${GameState.settings.textSize}\nColorblind mode: ${GameState.settings.colorblind ? 'On' : 'Off'}\n\nMusic: ${Math.round((GameState.settings.music ?? 0.65) * 100)}%\nSFX: ${Math.round((GameState.settings.sfx ?? 0.8) * 100)}%\nType speed: ${GameState.settings.textSpeedMs}ms\nAuto-advance: ${GameState.settings.autoAdvance ? 'On' : 'Off'}\n\nClick buttons below to adjust.`
+    );
+  };
+
+  tabs.forEach((t, i) => {
+    const tt = scene.add.text(W + 40 + i * 78, H / 2 - 150, t, {
+      fontSize: `${Math.floor(11 * scale)}px`,
+      fontFamily: 'monospace',
+      color: t === activeTab ? '#8b5a2b' : '#3b3428',
+      fontStyle: 'bold',
+    }).setInteractive({ useHandCursor: true });
+    tt.on('pointerdown', () => {
+      AudioEngine.sfx.click();
+      activeTab = t;
+      tabTexts.forEach(o => o.setColor(o.text === activeTab ? '#8b5a2b' : '#3b3428'));
+      updateContent();
+    });
+    tabTexts.push(tt);
+    root.add(tt);
+  });
+
+  // Settings quick buttons (only visible on Settings tab, but low cost to always show).
+  const btns = [];
+  const addBtn = (x, y, label, onClick) => {
+    const r = scene.add.rectangle(x, y, 210, 34, 0x16213e, 0.65).setStrokeStyle(1, COLORS.gold, 0.45)
+      .setInteractive({ useHandCursor: true });
+    const tx = scene.add.text(x, y, label, { fontSize: `${Math.floor(12 * scale)}px`, fontFamily: 'monospace', color: '#ffffff' }).setOrigin(0.5);
+    r.on('pointerover', () => r.setFillStyle(0x223055, 0.8));
+    r.on('pointerout', () => r.setFillStyle(0x16213e, 0.65));
+    r.on('pointerdown', () => { AudioEngine.sfx.click(); onClick(); updateContent(); saveGame({ paused: true }); });
+    btns.push(r, tx);
+    root.add(r); root.add(tx);
+  };
+
+  const baseX = W + 160;
+  const baseY = H / 2 + 130;
+  addBtn(baseX - 120, baseY, 'Difficulty', () => {
+    const d = GameState.settings.difficulty;
+    GameState.settings.difficulty = d === 'explorer' ? 'disciple' : d === 'disciple' ? 'warrior' : 'explorer';
+  });
+  addBtn(baseX + 120, baseY, 'Text Size', () => {
+    const t = GameState.settings.textSize;
+    GameState.settings.textSize = t === 'small' ? 'medium' : t === 'medium' ? 'large' : 'small';
+  });
+  addBtn(baseX - 120, baseY + 44, 'Music +/-', () => {
+    GameState.settings.music = clamp01((GameState.settings.music ?? 0.65) + 0.1);
+    if (GameState.settings.music > 0.95) GameState.settings.music = 0.25;
+    AudioEngine.setVolumes();
+  });
+  addBtn(baseX + 120, baseY + 44, 'SFX +/-', () => {
+    GameState.settings.sfx = clamp01((GameState.settings.sfx ?? 0.8) + 0.1);
+    if (GameState.settings.sfx > 0.95) GameState.settings.sfx = 0.25;
+    AudioEngine.setVolumes();
+  });
+  addBtn(baseX - 120, baseY + 88, 'Type Speed', () => {
+    const v = GameState.settings.textSpeedMs ?? 22;
+    GameState.settings.textSpeedMs = v === 32 ? 22 : v === 22 ? 14 : 32;
+  });
+  addBtn(baseX + 120, baseY + 88, 'Auto-Advance', () => {
+    GameState.settings.autoAdvance = !GameState.settings.autoAdvance;
+  });
+
+  const closeHint = scene.add.text(W + 40, H / 2 + 190, 'Esc: close', {
+    fontSize: `${Math.floor(11 * scale)}px`,
+    fontFamily: 'monospace',
+    color: '#3b3428',
+    alpha: 0.8,
+  });
+  root.add(closeHint);
+
+  const openMenu = () => {
+    if (menu.open) return;
+    menu.open = true;
+    root.setVisible(true);
+    updateContent();
+    scene._pauseOpen = true;
+    scene.tweens.add({ targets: [panel, border, lantern, title, content, closeHint, ...tabTexts, ...btns], x: '-=560', duration: 350, ease: 'Cubic.easeOut' });
+  };
+
+  const closeMenu = () => {
+    if (!menu.open) return;
+    menu.open = false;
+    scene._pauseOpen = false;
+    scene.tweens.add({
+      targets: [panel, border, lantern, title, content, closeHint, ...tabTexts, ...btns],
+      x: '+=560',
+      duration: 260,
+      ease: 'Cubic.easeIn',
+      onComplete: () => root.setVisible(false),
+    });
+  };
+
+  const esc = scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
+  esc.on('down', () => {
+    AudioEngine.unlock();
+    if (menu.open) closeMenu();
+    else openMenu();
+  });
+
+  dim.setInteractive();
+  dim.on('pointerdown', () => { if (menu.open) closeMenu(); });
+
+  menu.openMenu = openMenu;
+  menu.closeMenu = closeMenu;
+  return menu;
 }
 
 
@@ -722,8 +1688,12 @@ class BootScene extends Phaser.Scene {
       fontSize: '14px', fontFamily: 'monospace', color: '#aaaaaa'
     }).setOrigin(0.5);
 
+    // Load save/settings early so UI/audio reflect the player's preferences.
+    loadGame();
+
     // Generate all pixel art character textures
     generateAllSprites(this);
+    initPremiumTextures(this);
 
     this.cameras.main.fadeIn(500, 0, 0, 0);
     this.time.delayedCall(600, () => this.scene.start('Title'));
@@ -806,23 +1776,56 @@ class TitleScene extends Phaser.Scene {
       fontSize: '11px', fontFamily: 'monospace', color: '#888888'
     }).setOrigin(0.5);
 
-    const startText = this.add.text(W/2, 500, '► PRESS START ◄', {
-      fontSize: '22px', fontFamily: 'monospace', color: '#ffffff', fontStyle: 'bold'
-    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
-    this.tweens.add({ targets: startText, alpha: 0.3, duration: 800, yoyo: true, repeat: -1 });
+    const hasSave = hasSaveGame();
 
-    const startGame = () => {
+    if (hasSave) {
+      const last = GameState.journal[GameState.journal.length - 1]?.entry || 'The journey continues...';
+      this.add.text(W/2, 360, 'Previously in 1 Nephi...', {
+        fontSize: '14px', fontFamily: 'Palatino Linotype, Book Antiqua, Palatino, serif', color: '#c0a060', fontStyle: 'italic'
+      }).setOrigin(0.5);
+      this.add.text(W/2, 385, last, {
+        fontSize: '12px', fontFamily: 'Georgia, serif', color: '#aab3c0', wordWrap: { width: 620 }, align: 'center', lineSpacing: 4
+      }).setOrigin(0.5);
+      this.add.text(W/2, 430, `Scriptures found: ${GameState.scriptures.length}`, {
+        fontSize: '11px', fontFamily: 'monospace', color: '#8899aa'
+      }).setOrigin(0.5);
+    }
+
+    const mkButton = (y, label) => {
+      const btn = this.add.rectangle(W/2, y, 360, 44, 0x16213e, 0.7)
+        .setStrokeStyle(2, COLORS.gold, 0.6).setInteractive({ useHandCursor: true });
+      const txt = this.add.text(W/2, y, label, {
+        fontSize: '18px', fontFamily: 'monospace', color: '#ffffff', fontStyle: 'bold'
+      }).setOrigin(0.5);
+      btn.on('pointerover', () => btn.setFillStyle(0x223055, 0.85));
+      btn.on('pointerout', () => btn.setFillStyle(0x16213e, 0.7));
+      return { btn, txt };
+    };
+
+    const continueBtn = hasSave ? mkButton(500, 'CONTINUE') : null;
+    const newBtn = mkButton(hasSave ? 552 : 500, hasSave ? 'NEW JOURNEY' : 'START');
+
+    const begin = (mode) => {
+      AudioEngine.unlock();
+      AudioEngine.setVolumes();
+      AudioEngine.setTheme('spiritual');
+      AudioEngine.sfx.click();
+      if (mode === 'new') resetGameState();
+      saveGame({ scene: 'WorldMap' });
       this.cameras.main.fadeOut(500, 0, 0, 0);
       this.time.delayedCall(500, () => this.scene.start('WorldMap'));
     };
-    startText.on('pointerdown', startGame);
-    this.input.keyboard.on('keydown-SPACE', startGame);
-    this.input.keyboard.on('keydown-ENTER', startGame);
+
+    if (continueBtn) continueBtn.btn.on('pointerdown', () => begin('continue'));
+    newBtn.btn.on('pointerdown', () => begin('new'));
+
+    this.input.keyboard.on('keydown-ENTER', () => begin(hasSave ? 'continue' : 'new'));
+    this.input.keyboard.on('keydown-SPACE', () => begin(hasSave ? 'continue' : 'new'));
 
     this.add.text(W/2, H - 50, 'A faithful retelling of the sacred record', {
       fontSize: '10px', fontFamily: 'monospace', color: '#556677'
     }).setOrigin(0.5);
-    this.add.text(W/2, H - 30, 'Use Arrow Keys to move • Space/Click to interact', {
+    this.add.text(W/2, H - 30, 'Arrow Keys: move  \u2022  Space/Click: interact  \u2022  Esc: pause', {
       fontSize: '10px', fontFamily: 'monospace', color: '#445566'
     }).setOrigin(0.5);
   }
@@ -836,10 +1839,19 @@ class WorldMapScene extends Phaser.Scene {
   constructor() { super('WorldMap'); }
 
   create() {
+    AudioEngine.setTheme('jerusalem');
     this.cameras.main.fadeIn(500);
     this.add.rectangle(W/2, H/2, W, H, COLORS.deepBlue);
     this.add.rectangle(W/2, H/2, W - 60, H - 60, COLORS.sand, 0.2)
       .setStrokeStyle(2, COLORS.gold);
+
+    this._lighting = FX.createLightingRig(this, { mode: 'day' });
+    // Soft god rays drifting over the parchment map frame.
+    const rays = this.add.image(W/2, H/2 - 40, 'light_white_256').setScale(3.4).setAlpha(0.08);
+    rays.setBlendMode(Phaser.BlendModes.SCREEN);
+    this.tweens.add({ targets: rays, x: W/2 + 40, alpha: 0.12, duration: 5000, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+
+    this._pause = attachPauseMenu(this);
 
     this.add.text(W/2, 40, 'BOOK OF MORMON LANDS', {
       fontSize: '20px', fontFamily: 'monospace', color: '#ffd700', fontStyle: 'bold'
@@ -880,6 +1892,9 @@ class WorldMapScene extends Phaser.Scene {
         this.tweens.add({ targets: node, scale: 1.2, duration: 800, yoyo: true, repeat: -1 });
         node.setInteractive({ useHandCursor: true });
         node.on('pointerdown', () => {
+          AudioEngine.unlock();
+          AudioEngine.sfx.click();
+          saveGame({ scene: w.scene });
           this.cameras.main.fadeOut(500);
           this.time.delayedCall(500, () => this.scene.start(w.scene));
         });
@@ -907,6 +1922,10 @@ class WorldMapScene extends Phaser.Scene {
     this.add.text(W - 80, 95, 'W', { fontSize: '10px', fontFamily: 'monospace', color: '#ffd70033' }).setOrigin(0.5);
     this.add.text(W - 40, 95, 'E', { fontSize: '10px', fontFamily: 'monospace', color: '#ffd70033' }).setOrigin(0.5);
   }
+
+  update(time) {
+    this._lighting?.update(time);
+  }
 }
 
 
@@ -917,12 +1936,20 @@ class JerusalemScene extends Phaser.Scene {
   constructor() { super('Jerusalem'); }
 
   create() {
+    AudioEngine.setTheme('jerusalem');
     this.cameras.main.fadeIn(800);
     GameState.companion = { name: 'Nephi', title: 'Son of Lehi', color: COLORS.faithBlue };
 
     const worldW = 1600, worldH = 900;
     this.physics.world.setBounds(0, 0, worldW, worldH);
     this.cameras.main.setBounds(0, 0, worldW, worldH);
+
+    this._pause = attachPauseMenu(this);
+    this._lighting = FX.createLightingRig(this, { mode: 'night' });
+    // Moonlight wash + subtle shifting "cloud part" god rays.
+    this._lighting.addLight(260, 90, 'light_cool_256', 3.6, 0.12, 0.02);
+    const rays = this._lighting.addLight(520, 140, 'light_white_256', 5.0, 0.04, 0.0);
+    this.tweens.add({ targets: rays.spr, x: 620, alpha: 0.08, duration: 9000, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
 
     // Sky
     this.add.rectangle(worldW/2, 0, worldW, 300, COLORS.nightBlue).setOrigin(0.5, 0);
@@ -932,6 +1959,13 @@ class JerusalemScene extends Phaser.Scene {
     for (let i = 0; i < 50; i++) {
       this.add.circle(Phaser.Math.Between(0, worldW), Phaser.Math.Between(0, 250),
         1, 0xffffff, Phaser.Math.FloatBetween(0.3, 0.8));
+    }
+
+    // Distant birds (tiny silhouettes).
+    for (let i = 0; i < 6; i++) {
+      const b = this.add.triangle(Phaser.Math.Between(0, worldW), Phaser.Math.Between(50, 170), 0, 0, 10, 4, 0, 8, 0x000000, 0.25);
+      b.setBlendMode(Phaser.BlendModes.MULTIPLY);
+      this.tweens.add({ targets: b, x: b.x + Phaser.Math.Between(400, 900), y: b.y + Phaser.Math.Between(-30, 30), duration: Phaser.Math.Between(14000, 22000), repeat: -1, delay: i * 900 });
     }
 
     // Ground
@@ -971,6 +2005,28 @@ class JerusalemScene extends Phaser.Scene {
     this.add.rectangle(840, 290, 10, 260, 0xb8a07a).setOrigin(0.5, 0);
     this.add.text(750, 270, 'Temple of Solomon', { fontSize: '10px', fontFamily: 'monospace', color: '#333' }).setOrigin(0.5);
 
+    // Temple lamps (warm light pools + flicker).
+    [
+      { x: 700, y: 560 },
+      { x: 800, y: 560 },
+    ].forEach((p) => {
+      this.add.rectangle(p.x, p.y, 6, 14, COLORS.brown).setOrigin(0.5, 1);
+      const flame = this.add.circle(p.x, p.y - 16, 4, 0xffaa44, 0.95);
+      flame.setBlendMode(Phaser.BlendModes.SCREEN);
+      this.tweens.add({ targets: flame, scale: 1.35, alpha: 0.6, duration: 220, yoyo: true, repeat: -1 });
+      this._lighting.addLight(p.x, p.y - 20, 'light_warm_256', 0.7, 0.45, 0.28);
+      const smoke = this.add.particles(p.x, p.y - 22, 'particle_smoke').setDepth(5);
+      smoke.createEmitter({
+        speedY: { min: -10, max: -22 },
+        speedX: { min: -6, max: 6 },
+        lifespan: { min: 1400, max: 2200 },
+        scale: { start: 0.35, end: 0.85 },
+        alpha: { start: 0.12, end: 0 },
+        frequency: 220,
+        tint: 0xaab6c4,
+      });
+    });
+
     // Laban's house
     this.add.rectangle(1300, 420, 100, 140, 0x8B0000).setOrigin(0.5, 0);
     this.add.rectangle(1300, 410, 110, 15, COLORS.darkRed).setOrigin(0.5, 0);
@@ -982,6 +2038,13 @@ class JerusalemScene extends Phaser.Scene {
       this.add.image(1260, 555, 'guard').setScale(1.5);
       this.add.image(1340, 555, 'guard').setScale(1.5).setFlipX(true);
     }
+
+    // Laban's doorway fire (tempting, dangerous glow).
+    this.add.rectangle(1300, 548, 8, 18, COLORS.brown).setOrigin(0.5, 1);
+    const labanFlame = this.add.circle(1300, 528, 5, 0xff6622, 0.95);
+    labanFlame.setBlendMode(Phaser.BlendModes.SCREEN);
+    this.tweens.add({ targets: labanFlame, scale: 1.4, alpha: 0.55, duration: 200, yoyo: true, repeat: -1 });
+    this._lighting.addLight(1300, 528, 'light_warm_256', 0.9, 0.55, 0.35);
 
     // Ground path
     this.add.rectangle(worldW/2, 620, worldW, 40, COLORS.darkSand, 0.5);
@@ -1090,8 +2153,11 @@ class JerusalemScene extends Phaser.Scene {
     this.cursors = this.input.keyboard.createCursorKeys();
     this.spaceKey = this.input.keyboard.addKey('SPACE');
     this.interactCooldown = 0;
+    this._stepCooldown = 0;
 
     this.hud = createHUD(this);
+    if (!GameState.brassPlatesObtained) this.hud.setObjective(1300, 520);
+    else if (!GameState.ironRodComplete) this.hud.setObjective(50, 600);
 
     this.interactPrompt = this.add.text(0, 0, 'Press SPACE', {
       fontSize: '10px', fontFamily: 'monospace', color: '#ffd700',
@@ -1102,23 +2168,50 @@ class JerusalemScene extends Phaser.Scene {
     if (!GameState.questFlags.jerusalemIntro) {
       GameState.questFlags.jerusalemIntro = true;
       this.time.delayedCall(500, () => {
-        showDialogue(this, 'Narrator', 'Jerusalem, 600 BC. The prophet Lehi has been warned by God to take his family and flee into the wilderness. But first, his sons must return for the brass plates — the sacred records held by Laban.', () => {
-          showDialogue(this, 'Nephi', 'I know the Lord will provide a way for us to accomplish what He has commanded. Will you come with me to retrieve the plates from Laban?', () => {
-            showDialogue(this, '', 'Choose your response:', null, [
-              { text: 'I will go and do! Let\'s get those plates.', onSelect: () => {
-                GameState.faith = Math.min(GameState.faith + 10, GameState.maxFaith);
-                gainFP(15);
-                addJournal('Chose to follow Nephi with faith');
-                showDialogue(this, 'Nephi', 'That is the spirit! The Lord has commanded my father to send us, and I know He will prepare a way. Let us go to Laban\'s treasury to the east.', () => {});
-              }},
-              { text: 'I\'m a little scared, but I\'ll try...', onSelect: () => {
-                gainFP(10);
-                addJournal('Chose to follow Nephi despite fear');
-                showDialogue(this, 'Nephi', 'It is alright to be afraid. Courage is not the absence of fear — it is choosing to move forward in faith. Come, the Lord will be with us.', () => {});
-              }}
-            ]);
-          });
-        });
+        showDialogue(this, 'Narrator',
+          'Jerusalem, 600 BC. Lehi has been warned to take his family into the wilderness. But first, his sons must return for the brass plates \u2014 sacred records held by Laban.',
+          () => {
+            showDialogue(this, 'Nephi',
+              'I do not know what waits for us in Laban\u2019s house. But I know the Lord can prepare a way to accomplish what He has commanded. Will you come with me?',
+              () => {
+                showDialogue(this, 'Traveler', 'How do you answer?', null, {
+                  choices: [
+                    {
+                      id: 'follow_nephi_faith',
+                      text: 'I will go and do. Let\u2019s go.',
+                      faithVsDoubt: 1,
+                      compassionVsHarshness: 0,
+                      onSelect: () => {
+                        GameState.faith = Math.min(GameState.faith + 10, GameState.maxFaith);
+                        gainFP(15);
+                        addJournal('Chose to follow Nephi with faith');
+                        showDialogue(this, 'Nephi',
+                          'That is the spirit. We will go forward in faith \u2014 and trust that the Lord will provide a way.',
+                          () => {}
+                        );
+                      }
+                    },
+                    {
+                      id: 'follow_nephi_fear',
+                      text: 'I\u2019m afraid. But I\u2019ll try.',
+                      faithVsDoubt: 0,
+                      compassionVsHarshness: 1,
+                      onSelect: () => {
+                        gainFP(10);
+                        addJournal('Chose to follow Nephi despite fear');
+                        showDialogue(this, 'Nephi',
+                          'It is all right to be afraid. Courage is choosing faith even when the night feels heavy. Come \u2014 we\u2019ll go together.',
+                          () => {}
+                        );
+                      }
+                    }
+                  ]
+                });
+              },
+              { thought: 'I did not know then that I would never walk these streets again.' }
+            );
+          }
+        );
       });
     }
   }
@@ -1132,10 +2225,23 @@ class JerusalemScene extends Phaser.Scene {
   }
 
   update(time, delta) {
+    this._lighting?.update(time);
+    if (this._pauseOpen || this._dialogueOpen) {
+      if (this.player?.body) this.player.body.setVelocity(0);
+      this.hud?.update(this.player, 'stone');
+      return;
+    }
+
     this.nearNephi = false;
     this.nearLehi = false;
     this.nearLaban = false;
     this.nearIronRod = false;
+
+    if (this.hud) {
+      if (!GameState.brassPlatesObtained) this.hud.setObjective(1300, 520);
+      else if (!GameState.ironRodComplete) this.hud.setObjective(50, 600);
+      else this.hud.objective = null;
+    }
 
     const speed = 160;
     this.player.body.setVelocity(0);
@@ -1153,6 +2259,13 @@ class JerusalemScene extends Phaser.Scene {
     // Walking bob animation
     if (this.player.body.velocity.x !== 0 || this.player.body.velocity.y !== 0) {
       this.player.setScale(2, 2 + Math.sin(time * 0.01) * 0.05);
+
+      // Footsteps (surface: stone/sand mix; stone for main road).
+      this._stepCooldown -= delta;
+      if (this._stepCooldown <= 0) {
+        AudioEngine.sfx.step('stone');
+        this._stepCooldown = 230;
+      }
     } else {
       this.player.setScale(2);
     }
@@ -1192,17 +2305,19 @@ class JerusalemScene extends Phaser.Scene {
       }
 
       if (this.nearLaban && !GameState.brassPlatesObtained) {
+        saveGame({ scene: 'BrassPlates' });
         this.scene.pause();
         this.scene.launch('BrassPlates');
       }
 
       if (this.nearIronRod) {
+        saveGame({ scene: 'IronRod' });
         this.cameras.main.fadeOut(500);
         this.time.delayedCall(500, () => this.scene.start('IronRod'));
       }
     }
 
-    this.hud.update();
+    this.hud.update(this.player, 'stone');
   }
 }
 
@@ -1214,7 +2329,15 @@ class BrassPlatesScene extends Phaser.Scene {
   constructor() { super('BrassPlates'); }
 
   create() {
+    AudioEngine.setTheme('wilderness');
     this.cameras.main.fadeIn(500);
+
+    this._pause = attachPauseMenu(this);
+    this._lighting = FX.createLightingRig(this, { mode: 'interior' });
+    this._lighting.setAmbient(0.78);
+    this.alertMeter = 0;
+    this.alertLevel = 0;
+    this.throwCooldown = 0;
 
     // Dark interior
     this.add.rectangle(W/2, H/2, W, H, 0x1a0a0a);
@@ -1235,6 +2358,31 @@ class BrassPlatesScene extends Phaser.Scene {
       this.tweens.add({ targets: flame, scale: 1.4, alpha: 0.5, duration: 250, yoyo: true, repeat: -1 });
       this.tweens.add({ targets: flameInner, scale: 1.3, alpha: 0.6, duration: 200, yoyo: true, repeat: -1, delay: 100 });
       this.add.circle(tx, 140, 50, 0xffaa00, 0.04);
+
+      // Lighting + particles
+      this._lighting.addLight(tx, 120, 'light_warm_256', 0.95, 0.55, 0.35);
+      const smoke = this.add.particles(tx, 110, 'particle_smoke').setDepth(5);
+      smoke.createEmitter({
+        speedY: { min: -10, max: -26 },
+        speedX: { min: -8, max: 8 },
+        lifespan: { min: 1400, max: 2400 },
+        scale: { start: 0.35, end: 0.9 },
+        alpha: { start: 0.14, end: 0 },
+        frequency: 210,
+        tint: 0xaab6c4,
+      });
+    });
+
+    // Shadow-safe pockets (darker floor regions).
+    this.shadowZones = [
+      new Phaser.Geom.Rectangle(120, 250, 140, 90),
+      new Phaser.Geom.Rectangle(320, 160, 130, 90),
+      new Phaser.Geom.Rectangle(520, 300, 140, 90),
+      new Phaser.Geom.Rectangle(610, 160, 130, 90),
+    ];
+    this.shadowZones.forEach((r) => {
+      const s = this.add.rectangle(r.x + r.width / 2, r.y + r.height / 2, r.width, r.height, 0x000000, 0.18);
+      s.setBlendMode(Phaser.BlendModes.MULTIPLY);
     });
 
     // Guards with proper sprites
@@ -1251,15 +2399,34 @@ class BrassPlatesScene extends Phaser.Scene {
       } else {
         guard = this.add.rectangle(gp.x, gp.y, 16, 24, COLORS.red);
       }
-      // Vision cone (subtle red glow)
-      const vision = this.add.circle(gp.x, gp.y, 45, COLORS.red, 0.08);
 
-      if (gp.patrol === 'h') {
-        this.tweens.add({ targets: [guard, vision], x: gp.x + gp.range, duration: 2000, yoyo: true, repeat: -1 });
-      } else {
-        this.tweens.add({ targets: [guard, vision], y: gp.y + gp.range, duration: 2000, yoyo: true, repeat: -1 });
-      }
-      this.guards.push({ sprite: guard, vision });
+      const range = Math.max(70, gp.range + 40);
+      const fov = Phaser.Math.DegToRad(70);
+      const cone = this.add.triangle(gp.x, gp.y, 0, 0, range, -range * 0.35, range, range * 0.35, 0xff6666, 0.09);
+      cone.setOrigin(0, 0.5);
+      cone.setBlendMode(Phaser.BlendModes.SCREEN);
+      cone.rotation = gp.patrol === 'h' ? 0 : Math.PI / 2;
+
+      const tween = this.tweens.add({
+        targets: guard,
+        x: gp.patrol === 'h' ? gp.x + gp.range : gp.x,
+        y: gp.patrol === 'v' ? gp.y + gp.range : gp.y,
+        duration: 2400,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut',
+      });
+
+      this.guards.push({
+        sprite: guard,
+        cone,
+        range,
+        fov,
+        lastX: gp.x,
+        lastY: gp.y,
+        tween,
+        investigating: false,
+      });
     });
 
     // Brass plates (goal)
@@ -1288,7 +2455,7 @@ class BrassPlatesScene extends Phaser.Scene {
       this.add.rectangle(ob.x, ob.y, ob.w, ob.h, 0x4a2a0a).setStrokeStyle(1, 0x3a1a00);
     });
 
-    this.add.text(W/2, H - 30, 'Sneak past the guards to reach the brass plates! Arrow keys to move.', {
+    this.add.text(W/2, H - 30, 'Sneak to the plates. Shadows are safer. Arrow keys: move  \u2022  Q: throw stone', {
       fontSize: '11px', fontFamily: 'monospace', color: '#aa8866'
     }).setOrigin(0.5);
 
@@ -1301,12 +2468,21 @@ class BrassPlatesScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     this.cursors = this.input.keyboard.createCursorKeys();
+    this.throwKey = this.input.keyboard.addKey('Q');
+    this.hud = createHUD(this);
+    this.hud.setObjective(680, 120);
     this.caught = false;
     this.won = false;
   }
 
-  update() {
+  update(time, delta) {
+    this._lighting?.update(time);
+    this.hud?.update(this.player, 'stone');
     if (this.caught || this.won) return;
+    if (this._pauseOpen || this._dialogueOpen) {
+      this.player.body.setVelocity(0);
+      return;
+    }
 
     const speed = 120;
     this.player.body.setVelocity(0);
@@ -1315,21 +2491,107 @@ class BrassPlatesScene extends Phaser.Scene {
     if (this.cursors.up.isDown) this.player.body.setVelocityY(-speed);
     if (this.cursors.down.isDown) this.player.body.setVelocityY(speed);
 
-    this.guards.forEach(g => {
-      const dist = Phaser.Math.Distance.Between(
-        this.player.x, this.player.y, g.sprite.x, g.sprite.y
-      );
-      if (dist < 45) {
-        this.caught = true;
-        this.statusText.setText('Caught! The guards spotted you!');
-        this.cameras.main.shake(300, 0.01);
-        this.time.delayedCall(1500, () => {
-          this.statusText.setText('');
-          this.player.setPosition(100, H - 100);
-          this.caught = false;
+    // Distraction: throw a small stone toward the pointer.
+    this.throwCooldown = Math.max(0, (this.throwCooldown || 0) - delta);
+    if (Phaser.Input.Keyboard.JustDown(this.throwKey) && this.throwCooldown <= 0) {
+      this.throwCooldown = GameState.settings.difficulty === 'warrior' ? 2200 : 1600;
+      AudioEngine.sfx.whoosh();
+      const px = this.input.activePointer.x;
+      const py = this.input.activePointer.y;
+      const spark = this.add.particles(px, py, 'particle_spark').setDepth(50);
+      spark.createEmitter({
+        speed: { min: 40, max: 140 },
+        lifespan: { min: 300, max: 650 },
+        scale: { start: 0.35, end: 0 },
+        alpha: { start: 0.9, end: 0 },
+        quantity: 10,
+        blendMode: 'ADD',
+        tint: [0xffffff, 0xffdd88],
+      }).explode(12, px, py);
+      this.time.delayedCall(700, () => spark.destroy());
+
+      // Nearest guard investigates (pauses patrol briefly).
+      let nearest = null;
+      let best = Infinity;
+      this.guards.forEach((g) => {
+        const d = Phaser.Math.Distance.Between(px, py, g.sprite.x, g.sprite.y);
+        if (d < best) { best = d; nearest = g; }
+      });
+      if (nearest && !nearest.investigating) {
+        nearest.investigating = true;
+        nearest.tween.pause();
+        this.tweens.add({
+          targets: nearest.sprite,
+          x: px,
+          y: py,
+          duration: 650,
+          ease: 'Cubic.easeOut',
+          yoyo: true,
+          hold: 400,
+          onComplete: () => {
+            nearest.tween.resume();
+            nearest.investigating = false;
+          }
         });
+        this.alertMeter = Math.max(0, this.alertMeter - 0.25);
+      }
+    }
+
+    const shadowed = this.shadowZones?.some(r => Phaser.Geom.Rectangle.Contains(r, this.player.x, this.player.y)) || false;
+    const diff = GameState.settings.difficulty || 'disciple';
+    const gainRate = diff === 'warrior' ? 0.0011 : diff === 'explorer' ? 0.00045 : 0.00075;
+    const decayRate = diff === 'warrior' ? 0.00035 : diff === 'explorer' ? 0.00055 : 0.00045;
+
+    let seen = false;
+    this.guards.forEach((g) => {
+      // Update facing based on movement (from patrol tween or investigation).
+      const dx = g.sprite.x - g.lastX;
+      const dy = g.sprite.y - g.lastY;
+      if (Math.abs(dx) + Math.abs(dy) > 0.08) {
+        g.cone.rotation = Math.atan2(dy, dx);
+        g.lastX = g.sprite.x;
+        g.lastY = g.sprite.y;
+      }
+      g.cone.x = g.sprite.x;
+      g.cone.y = g.sprite.y;
+
+      const vx = this.player.x - g.sprite.x;
+      const vy = this.player.y - g.sprite.y;
+      const dist = Math.hypot(vx, vy);
+      const r = shadowed ? g.range * 0.55 : g.range;
+      if (dist > r) return;
+      const angToPlayer = Math.atan2(vy, vx);
+      const diffAng = Phaser.Math.Angle.Wrap(angToPlayer - g.cone.rotation);
+      if (Math.abs(diffAng) <= g.fov / 2) {
+        seen = true;
       }
     });
+
+    if (seen) this.alertMeter = clamp01(this.alertMeter + delta * gainRate);
+    else this.alertMeter = clamp01(this.alertMeter - delta * decayRate);
+
+    const prevLevel = this.alertLevel;
+    this.alertLevel = this.alertMeter > 0.9 ? 3 : this.alertMeter > 0.6 ? 2 : this.alertMeter > 0.3 ? 1 : 0;
+
+    if (this.alertLevel !== prevLevel) {
+      if (this.alertLevel === 0) this.statusText.setText('');
+      if (this.alertLevel === 1) this.statusText.setText('Suspicious... (stay in shadows)');
+      if (this.alertLevel === 2) this.statusText.setText('Investigating!');
+      if (this.alertLevel === 3) this.statusText.setText('Spotted!');
+    }
+
+    if (this.alertLevel === 3) {
+      this.caught = true;
+      this.cameras.main.shake(300, 0.01);
+      this.time.delayedCall(1100, () => {
+        this.alertMeter = 0;
+        this.alertLevel = 0;
+        this.statusText.setText('');
+        this.player.setPosition(100, H - 100);
+        this.caught = false;
+      });
+      return;
+    }
 
     const plateDist = Phaser.Math.Distance.Between(
       this.player.x, this.player.y, this.plates.x, this.plates.y
@@ -1347,6 +2609,7 @@ class BrassPlatesScene extends Phaser.Scene {
           '1 Nephi 3:7',
           'I will go and do the things which the Lord hath commanded, for I know that the Lord giveth no commandments unto the children of men, save he shall prepare a way for them that they may accomplish the thing which he commandeth them.',
           () => {
+            saveGame({ scene: 'Jerusalem', milestone: 'brass_plates' });
             this.scene.stop();
             this.scene.resume('Jerusalem');
           }
@@ -1368,6 +2631,13 @@ class BattleScene extends Phaser.Scene {
   }
 
   create() {
+    AudioEngine.setTheme('battle');
+    this._pause = attachPauseMenu(this);
+    this._lighting = FX.createLightingRig(this, { mode: 'night', space: 'screen' });
+    this._lighting.setAmbient(0.25);
+    this._lighting.addLight(230, 360, 'light_warm_256', 1.0, 0.12, 0.05);
+    this._lighting.addLight(580, 200, 'light_cool_256', 1.4, 0.10, 0.04);
+
     this.cameras.main.fadeIn(300);
 
     // Background - desert battlefield
@@ -1450,8 +2720,12 @@ class BattleScene extends Phaser.Scene {
   }
 
   createBattleMenu() {
-    this.add.rectangle(W/2, H - 95, W - 40, 120, 0x000000, 0.85)
-      .setStrokeStyle(2, COLORS.gold).setDepth(40);
+    const menuBg = this.add.image(W/2, H - 92, 'ui_parchment_wide').setDepth(40);
+    menuBg.setDisplaySize(W - 36, 150);
+    const menuShade = this.add.rectangle(W/2, H - 92, W - 36, 150, 0x000000, 0.18).setDepth(40);
+    menuShade.setBlendMode(Phaser.BlendModes.MULTIPLY);
+    const menuBorder = this.add.rectangle(W/2, H - 92, W - 36, 150, 0x000000, 0).setDepth(40);
+    menuBorder.setStrokeStyle(2, COLORS.gold, 0.75);
 
     this.menuItems = [];
     const moves = [
@@ -1467,8 +2741,8 @@ class BattleScene extends Phaser.Scene {
       const bx = 120 + col * 320;
       const by = H - 130 + row * 40;
 
-      const btn = this.add.rectangle(bx + 130, by + 10, 290, 32, 0x16213e, 0.8)
-        .setStrokeStyle(1, 0x334455).setDepth(41).setInteractive({ useHandCursor: true });
+      const btn = this.add.rectangle(bx + 130, by + 10, 290, 34, 0x16213e, 0.78)
+        .setStrokeStyle(1, 0x334455, 0.7).setDepth(41).setInteractive({ useHandCursor: true });
       const txt = this.add.text(bx + 10, by, move.name, {
         fontSize: '13px', fontFamily: 'monospace', color: '#ffffff'
       }).setDepth(42);
@@ -1476,8 +2750,8 @@ class BattleScene extends Phaser.Scene {
         fontSize: '9px', fontFamily: 'monospace', color: '#888888'
       }).setDepth(42);
 
-      btn.on('pointerover', () => btn.setFillStyle(0x2a3a5e));
-      btn.on('pointerout', () => btn.setFillStyle(0x16213e, 0.8));
+      btn.on('pointerover', () => btn.setFillStyle(0x2a3a5e, 0.88));
+      btn.on('pointerout', () => btn.setFillStyle(0x16213e, 0.78));
       btn.on('pointerdown', () => {
         if (this.playerTurn && !this.animating) this.playerAttack(move);
       });
@@ -1491,8 +2765,21 @@ class BattleScene extends Phaser.Scene {
 
     if (move.heal) {
       GameState.faith = Math.min(GameState.faith + move.heal, GameState.maxFaith);
+      AudioEngine.sfx.chime();
       this.cameras.main.flash(300, 100, 200, 255);
       this.battleLog.setText(`You prayed and restored ${move.heal} faith!`);
+      const glow = this.add.particles(220, 360, 'particle_spark').setDepth(60);
+      glow.createEmitter({
+        speed: { min: 40, max: 140 },
+        angle: { min: 220, max: 320 },
+        lifespan: { min: 450, max: 950 },
+        scale: { start: 0.45, end: 0 },
+        alpha: { start: 0.95, end: 0 },
+        quantity: 10,
+        blendMode: 'ADD',
+        tint: [0xffe066, 0xffffff],
+      }).explode(18, 220, 360);
+      this.time.delayedCall(900, () => glow.destroy());
       this.updateBars();
       this.time.delayedCall(1200, () => this.enemyTurn());
       return;
@@ -1511,6 +2798,19 @@ class BattleScene extends Phaser.Scene {
 
     this.enemy.hp = Math.max(0, this.enemy.hp - damage);
     this.battleLog.setText(`${message} Dealt ${damage} damage!`);
+    AudioEngine.sfx.whoosh();
+
+    const hit = this.add.particles(this.enemy.sprite.x, this.enemy.sprite.y, 'particle_spark').setDepth(60);
+    hit.createEmitter({
+      speed: { min: 80, max: 240 },
+      lifespan: { min: 280, max: 650 },
+      scale: { start: 0.45, end: 0 },
+      alpha: { start: 1, end: 0 },
+      quantity: 14,
+      blendMode: 'ADD',
+      tint: [0xffe066, 0xffffff, 0xffaa44],
+    }).explode(18, this.enemy.sprite.x, this.enemy.sprite.y);
+    this.time.delayedCall(700, () => hit.destroy());
 
     this.tweens.add({
       targets: this.enemy.sprite, x: this.enemy.sprite.x + 10, duration: 50,
@@ -1541,6 +2841,17 @@ class BattleScene extends Phaser.Scene {
     this.battleLog.setText(`${attack.msg} Lost ${damage} faith.`);
 
     this.cameras.main.shake(200, 0.005);
+    const m = this.add.particles(220, 380, 'particle_smoke').setDepth(55);
+    m.createEmitter({
+      speed: { min: 40, max: 90 },
+      angle: { min: 20, max: 160 },
+      lifespan: { min: 600, max: 1200 },
+      scale: { start: 0.65, end: 1.2 },
+      alpha: { start: 0.18, end: 0 },
+      quantity: 10,
+      tint: 0x99aacc,
+    }).explode(12, 220, 380);
+    this.time.delayedCall(900, () => m.destroy());
     this.updateBars();
 
     if (GameState.faith <= 0) {
@@ -1584,11 +2895,16 @@ class BattleScene extends Phaser.Scene {
       showDialogue(this, 'Nephi', 'Well fought! Doubt flees when we hold firm to what we know is true. The Lord has blessed us this day.', () => {
         this.cameras.main.fadeOut(500);
         this.time.delayedCall(500, () => {
+          saveGame({ scene: this.returnScene, milestone: 'battle_won' });
           this.scene.stop();
           this.scene.resume(this.returnScene);
         });
       });
     });
+  }
+
+  update(time) {
+    this._lighting?.update(time);
   }
 }
 
@@ -1600,11 +2916,31 @@ class IronRodScene extends Phaser.Scene {
   constructor() { super('IronRod'); }
 
   create() {
+    AudioEngine.setTheme('dream');
     this.cameras.main.fadeIn(1000);
 
     const worldW = 2400, worldH = H;
     this.physics.world.setBounds(0, 0, worldW, worldH);
     this.cameras.main.setBounds(0, 0, worldW, worldH);
+
+    this._pause = attachPauseMenu(this);
+    this._lighting = FX.createLightingRig(this, { mode: 'dream' });
+    this._lighting.setAmbient(0.48);
+
+    // Dream-world particles (soft blue drift).
+    const ether = this.add.particles(0, 0, 'particle_dot').setDepth(2);
+    ether.createEmitter({
+      x: { min: 0, max: worldW },
+      y: { min: 0, max: worldH },
+      lifespan: { min: 4000, max: 6500 },
+      speedY: { min: -12, max: -35 },
+      speedX: { min: -10, max: 10 },
+      scale: { start: 0.08, end: 0 },
+      alpha: { start: 0.10, end: 0 },
+      frequency: 80,
+      tint: [0xbfdcff, 0x99bbff, 0xffffff],
+      blendMode: 'ADD',
+    });
 
     // Dreamy dark background
     this.add.rectangle(worldW/2, worldH/2, worldW, worldH, COLORS.nightBlue);
@@ -1653,10 +2989,26 @@ class IronRodScene extends Phaser.Scene {
         mistGroup.push(mist);
       }
       this.mists.push({ x: mx, clouds: mistGroup });
+
+      // Flowing mist layer (breathing motion).
+      const flow = this.add.particles(mx, worldH - 130, 'particle_smoke').setDepth(3);
+      flow.createEmitter({
+        x: { min: mx - 140, max: mx + 140 },
+        y: { min: worldH - 230, max: worldH - 40 },
+        lifespan: { min: 2600, max: 5200 },
+        speedX: { min: -20, max: 20 },
+        speedY: { min: -6, max: 6 },
+        scale: { start: 0.7, end: 1.4 },
+        alpha: { start: 0.10, end: 0 },
+        frequency: 140,
+        tint: 0x99aacc,
+        blendMode: 'NORMAL',
+      });
     });
 
     // Great and spacious building
     const bldg = this.add.rectangle(1200, 150, 300, 180, 0x4a3728).setStrokeStyle(2, 0x6a5738);
+    this.tweens.add({ targets: bldg, angle: 2, duration: 8000, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
     // Windows with people silhouettes
     for (let wy = 80; wy < 280; wy += 30) {
       for (let wx = 1070; wx < 1330; wx += 35) {
@@ -1717,6 +3069,23 @@ class IronRodScene extends Phaser.Scene {
     const treeGlow = this.add.circle(treeX, worldH - 190, 90, 0xffffff, 0.06);
     this.tweens.add({ targets: treeGlow, scale: 2.5, alpha: 0, duration: 3000, repeat: -1 });
 
+    // Tree of Life constant shimmer (white/silver particles).
+    this._lighting.addLight(treeX, worldH - 190, 'light_white_256', 1.8, 0.16, 0.03);
+    this._lighting.addLight(treeX, worldH - 190, 'light_gold_256', 1.5, 0.08, 0.02);
+    const treeParts = this.add.particles(treeX, worldH - 210, 'particle_dot').setDepth(6);
+    treeParts.createEmitter({
+      x: { min: treeX - 40, max: treeX + 40 },
+      y: { min: worldH - 220, max: worldH - 160 },
+      lifespan: { min: 2200, max: 3800 },
+      speedY: { min: -22, max: -55 },
+      speedX: { min: -10, max: 10 },
+      scale: { start: 0.16, end: 0 },
+      alpha: { start: 0.55, end: 0 },
+      frequency: 70,
+      tint: [0xffffff, 0xe6f2ff, 0xfff4cc],
+      blendMode: 'ADD',
+    });
+
     // Player sprite
     if (this.textures.exists('player')) {
       this.player = this.add.image(60, worldH - 65, 'player').setScale(2).setDepth(10);
@@ -1730,11 +3099,18 @@ class IronRodScene extends Phaser.Scene {
 
     this.visionFaith = 100;
     this.holdingRod = true;
+    this.voiceCooldown = 0;
+    this.whispers = [
+      "That's just an old book written by men.",
+      "Smart people don't believe that anymore.",
+      "You're missing out on the real world.",
+      "Your own brothers don't even believe it.",
+    ];
     this.faithLabel = this.add.text(10, 10, 'Hold to the Rod: ✦ 100', {
       fontSize: '14px', fontFamily: 'monospace', color: '#ffd700', fontStyle: 'bold'
     }).setScrollFactor(0).setDepth(100);
 
-    this.rodHint = this.add.text(W/2, H - 15, 'Stay on the lower path near the rod! Arrow keys to move.', {
+    this.rodHint = this.add.text(W/2, H - 15, 'Stay near the rod. Arrow keys: move  \u2022  Hold E: grip the rod', {
       fontSize: '10px', fontFamily: 'monospace', color: '#aaaaaa'
     }).setOrigin(0.5).setScrollFactor(0).setDepth(100);
 
@@ -1743,11 +3119,20 @@ class IronRodScene extends Phaser.Scene {
     this.reachedTree = false;
 
     this.cursors = this.input.keyboard.createCursorKeys();
+    this.holdKey = this.input.keyboard.addKey('E');
+    this.hud = createHUD(this);
+    this.hud.setObjective(treeX, worldH - 150);
 
     showDialogue(this, 'Lehi', 'In my dream, I saw a tree whose fruit was most desirable above all things. Hold to the iron rod — the word of God — and it will lead you through the mists of darkness to the tree of life. Do not let go!');
   }
 
-  update() {
+  update(time, delta) {
+    this._lighting?.update(time);
+    this.hud?.update(this.player, 'sand');
+    if (this._pauseOpen || this._dialogueOpen) {
+      if (this.player?.body) this.player.body.setVelocity(0);
+      return;
+    }
     if (this.reachedTree) return;
 
     const speed = 140;
@@ -1757,28 +3142,62 @@ class IronRodScene extends Phaser.Scene {
     if (this.cursors.up.isDown) this.player.body.setVelocityY(-speed * 0.7);
     if (this.cursors.down.isDown) this.player.body.setVelocityY(speed * 0.7);
 
-    this.holdingRod = this.player.y > H - 100;
+    const nearRod = this.player.y > H - 100;
+    const requireHold = (GameState.settings.difficulty || 'disciple') !== 'explorer';
+    this.holdingRod = nearRod && (!requireHold || this.holdKey.isDown);
 
     let inMist = false;
     this.mists.forEach(m => {
-      if (Math.abs(this.player.x - m.x) < 100) inMist = true;
+      if (Math.abs(this.player.x - m.x) < 120) inMist = true;
     });
 
-    if (inMist && !this.holdingRod) {
-      this.visionFaith -= 0.3;
-      this.faithLabel.setColor('#ff6666');
-    } else if (this.holdingRod) {
-      this.visionFaith = Math.min(100, this.visionFaith + 0.15);
-      this.faithLabel.setColor('#ffd700');
+    // Modern voices from the building (visual whisper).
+    this.voiceCooldown = Math.max(0, (this.voiceCooldown || 0) - delta);
+    if (inMist && !this.holdingRod && this.voiceCooldown <= 0) {
+      this.voiceCooldown = 2400;
+      const w = this.whispers[Phaser.Math.Between(0, this.whispers.length - 1)];
+      const t = this.add.text(W / 2, 92, `"${w}"`, {
+        fontSize: '12px',
+        fontFamily: 'Georgia, serif',
+        color: '#cc9966',
+        fontStyle: 'italic',
+      }).setOrigin(0.5).setScrollFactor(0).setDepth(120).setAlpha(0);
+      this.tweens.add({ targets: t, alpha: 0.85, duration: 350, yoyo: true, hold: 1200, onComplete: () => t.destroy() });
     }
 
-    this.faithLabel.setText(`Hold to the Rod: ✦ ${Math.floor(this.visionFaith)}`);
+    if (inMist && !this.holdingRod) {
+      this.visionFaith -= (GameState.settings.difficulty === 'warrior' ? 0.45 : 0.3);
+      this.faithLabel.setColor('#ff6666');
+      this._lighting.setAmbient(0.55);
+    } else if (this.holdingRod) {
+      this.visionFaith = Math.min(100, this.visionFaith + 0.18);
+      this.faithLabel.setColor('#ffd700');
+      this._lighting.setAmbient(0.46);
+    } else {
+      this._lighting.setAmbient(0.50);
+    }
+
+    // "Falling into the river": not game over, but teaches returning.
+    if (inMist && !this.holdingRod && this.player.y < H - 155) {
+      this.visionFaith = Math.max(20, this.visionFaith - 15);
+      this.player.setPosition(Math.max(30, this.player.x - 120), H - 65);
+      this.cameras.main.flash(450, 120, 120, 120);
+      showDialogue(this, 'Nephi', 'For a moment I let go \u2014 and I lost my way. But I can return.', () => {});
+    }
+
+    if (requireHold && nearRod && !this.holdKey.isDown) {
+      this.rodHint.setColor('#ff6666');
+    } else {
+      this.rodHint.setColor('#aaaaaa');
+    }
+
+    this.faithLabel.setText(`Hold to the Rod: \u2726 ${Math.floor(this.visionFaith)}`);
 
     if (this.visionFaith <= 0) {
       this.visionFaith = 50;
       this.player.setPosition(this.player.x - 200, H - 65);
       this.cameras.main.flash(500, 100, 100, 100);
-      showDialogue(this, 'Narrator', 'You lost your way in the mist! Hold to the iron rod — stay near the bottom of the path.');
+      showDialogue(this, 'Narrator', 'You lost your way in the mist. Hold to the iron rod \u2014 and keep going.', () => {});
     }
 
     const treeDist = Phaser.Math.Distance.Between(this.player.x, this.player.y, 2250, H - 150);
@@ -1788,11 +3207,19 @@ class IronRodScene extends Phaser.Scene {
       GameState.faith = Math.min(GameState.faith + 25, GameState.maxFaith);
       gainFP(50);
       addJournal('Held to the iron rod and reached the Tree of Life');
+      saveGame({ scene: 'IronRod', milestone: 'tree' });
+
+      AudioEngine.setTheme('spiritual');
+      AudioEngine.sfx.chime();
+      const flood = this.add.image(this.player.x, this.player.y - 80, 'light_white_256').setScale(3.4).setAlpha(0);
+      flood.setBlendMode(Phaser.BlendModes.SCREEN);
+      this.tweens.add({ targets: flood, alpha: 0.35, duration: 900, yoyo: true, repeat: 1, onComplete: () => flood.destroy() });
 
       this.cameras.main.flash(1000, 255, 255, 230);
-      this.time.delayedCall(500, () => {
-        showDialogue(this, 'Narrator', 'You have reached the Tree of Life! Its fruit is the love of God — the most joyous thing the soul can experience. Lehi reached out and partook, and his joy was full.', () => {
-          showDialogue(this, 'Lehi', 'This fruit is most sweet, above all that I ever tasted. It filled my soul with exceeding great joy. I want all of my family to taste of it.', () => {
+      this.time.delayedCall(900, () => {
+        showDialogue(this, 'Narrator',
+          'The mist clears. The tree stands before you \u2014 bright beyond description. You reach up, and the fruit is sweet above all that you have ever tasted.',
+          () => {
             showScriptureUnlock(this,
               '1 Nephi 11:25',
               'The love of God, which sheddeth itself abroad in the hearts of the children of men; wherefore, it is the most desirable above all things.',
@@ -1801,8 +3228,9 @@ class IronRodScene extends Phaser.Scene {
                 this.time.delayedCall(800, () => this.scene.start('Jerusalem'));
               }
             );
-          });
-        });
+          },
+          { thought: 'And I wept. Not from sadness, but from a joy too large for any other expression.' }
+        );
       });
     }
   }
