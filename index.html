@@ -1,0 +1,1306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Book of Mormon — An Interactive Journey</title>
+<script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #1a1a2e; display: flex; justify-content: center; align-items: center; min-height: 100vh; overflow: hidden; }
+canvas { image-rendering: pixelated; }
+</style>
+</head>
+<body>
+<script>
+// ============================================================
+// BOOK OF MORMON RPG — PHASER.JS GAME
+// ============================================================
+
+// --- CONSTANTS ---
+const W = 800, H = 600;
+const TILE = 32;
+const COLORS = {
+  sand: 0xd4a574, darkSand: 0xb8956a, gold: 0xffd700, olive: 0x6b8e23,
+  deepBlue: 0x16213e, skyBlue: 0x87ceeb, nightBlue: 0x0f3460, white: 0xffffff,
+  red: 0xc0392b, darkRed: 0x8b0000, green: 0x27ae60, darkGreen: 0x1e8449,
+  brown: 0x8b4513, lightBrown: 0xdeb887, gray: 0x808080, darkGray: 0x404040,
+  purple: 0x8e44ad, black: 0x000000, cream: 0xfff8dc, iron: 0x708090,
+  mist: 0x778899, treeGold: 0xffe066, faithBlue: 0x3498db, pink: 0xffb6c1
+};
+
+// --- GAME STATE ---
+const GameState = {
+  playerName: 'Traveler',
+  faith: 50, courage: 30, testimony: 20, charity: 25, wisdom: 15,
+  maxFaith: 100, level: 1, faithPoints: 0, fpToNext: 100,
+  scriptures: [],
+  prophetCards: [],
+  journal: [],
+  currentWorld: 1,
+  questFlags: {},
+  companion: null,
+  inventory: [],
+  battleWon: false,
+  ironRodComplete: false,
+  brassPlatesObtained: false,
+};
+
+function addScripture(ref, text) {
+  if (!GameState.scriptures.find(s => s.ref === ref)) {
+    GameState.scriptures.push({ ref, text });
+    return true;
+  }
+  return false;
+}
+
+function addJournal(entry) {
+  GameState.journal.push({ entry, time: Date.now() });
+}
+
+function gainFP(amount) {
+  GameState.faithPoints += amount;
+  while (GameState.faithPoints >= GameState.fpToNext) {
+    GameState.faithPoints -= GameState.fpToNext;
+    GameState.level++;
+    GameState.maxFaith += 10;
+    GameState.faith = Math.min(GameState.faith + 20, GameState.maxFaith);
+    GameState.courage += 5;
+    GameState.testimony += 5;
+    GameState.charity += 5;
+    GameState.wisdom += 3;
+    GameState.fpToNext = Math.floor(GameState.fpToNext * 1.5);
+  }
+}
+
+// --- HELPER: Draw pixel character ---
+function drawCharacter(scene, x, y, color, hairColor, size = 1) {
+  const g = scene.add.graphics();
+  const s = size;
+  // Body
+  g.fillStyle(color); g.fillRect(x - 6*s, y - 8*s, 12*s, 16*s);
+  // Head
+  g.fillStyle(0xf5cba7); g.fillRect(x - 5*s, y - 20*s, 10*s, 12*s);
+  // Hair
+  g.fillStyle(hairColor); g.fillRect(x - 6*s, y - 22*s, 12*s, 5*s);
+  // Eyes
+  g.fillStyle(0x000000); g.fillRect(x - 3*s, y - 16*s, 2*s, 2*s);
+  g.fillRect(x + 1*s, y - 16*s, 2*s, 2*s);
+  // Legs
+  g.fillStyle(COLORS.brown); g.fillRect(x - 5*s, y + 8*s, 4*s, 6*s);
+  g.fillRect(x + 1*s, y + 8*s, 4*s, 6*s);
+  return g;
+}
+
+// --- HELPER: Dialogue box ---
+function showDialogue(scene, speaker, text, onComplete, options) {
+  const bg = scene.add.rectangle(W/2, H - 80, W - 40, 140, 0x000000, 0.85)
+    .setStrokeStyle(2, COLORS.gold).setDepth(100);
+  const nameText = scene.add.text(40, H - 145, speaker, {
+    fontSize: '16px', fontFamily: 'monospace', color: '#ffd700', fontStyle: 'bold'
+  }).setDepth(101);
+
+  if (options) {
+    const lines = [];
+    const optTexts = [];
+    options.forEach((opt, i) => {
+      const t = scene.add.text(60, H - 115 + i * 28, `► ${opt.text}`, {
+        fontSize: '14px', fontFamily: 'monospace', color: '#ffffff'
+      }).setDepth(101).setInteractive({ useHandCursor: true });
+      t.on('pointerover', () => t.setColor('#ffd700'));
+      t.on('pointerout', () => t.setColor('#ffffff'));
+      t.on('pointerdown', () => {
+        bg.destroy(); nameText.destroy();
+        optTexts.forEach(ot => ot.destroy());
+        if (opt.onSelect) opt.onSelect();
+      });
+      optTexts.push(t);
+    });
+    return { bg, nameText, optTexts };
+  }
+
+  const msgText = scene.add.text(40, H - 120, '', {
+    fontSize: '14px', fontFamily: 'monospace', color: '#ffffff',
+    wordWrap: { width: W - 80 }, lineSpacing: 4
+  }).setDepth(101);
+
+  // Typewriter effect
+  let charIndex = 0;
+  let typing = true;
+  const timer = scene.time.addEvent({
+    delay: 25,
+    callback: () => {
+      if (charIndex < text.length) {
+        msgText.setText(text.substring(0, ++charIndex));
+      } else {
+        typing = false;
+        timer.remove();
+        const cont = scene.add.text(W - 80, H - 25, '▼ Continue', {
+          fontSize: '12px', fontFamily: 'monospace', color: '#ffd700'
+        }).setDepth(101);
+        scene.tweens.add({ targets: cont, alpha: 0.3, duration: 500, yoyo: true, repeat: -1 });
+
+        const handler = () => {
+          bg.destroy(); nameText.destroy(); msgText.destroy(); cont.destroy();
+          scene.input.off('pointerdown', handler);
+          scene.input.keyboard.off('keydown-SPACE', handler);
+          if (onComplete) onComplete();
+        };
+        scene.input.on('pointerdown', handler);
+        scene.input.keyboard.on('keydown-SPACE', handler);
+      }
+    },
+    loop: true
+  });
+
+  // Click to skip typewriter
+  const skipHandler = () => {
+    if (typing) {
+      charIndex = text.length;
+      msgText.setText(text);
+    }
+  };
+  scene.input.once('pointerdown', skipHandler);
+
+  return { bg, nameText, msgText };
+}
+
+// --- HELPER: Scripture unlock popup ---
+function showScriptureUnlock(scene, ref, text, onDone) {
+  if (!addScripture(ref, text)) { if (onDone) onDone(); return; }
+  gainFP(25);
+
+  const overlay = scene.add.rectangle(W/2, H/2, W, H, 0x000000, 0.7).setDepth(200);
+  const scroll = scene.add.rectangle(W/2, H/2, 500, 280, COLORS.cream, 0.95)
+    .setStrokeStyle(3, COLORS.gold).setDepth(201);
+  const icon = scene.add.text(W/2, H/2 - 110, '📜', { fontSize: '40px' })
+    .setOrigin(0.5).setDepth(202);
+  const title = scene.add.text(W/2, H/2 - 70, 'SCRIPTURE UNLOCKED', {
+    fontSize: '20px', fontFamily: 'monospace', color: '#b8860b', fontStyle: 'bold'
+  }).setOrigin(0.5).setDepth(202);
+  const refText = scene.add.text(W/2, H/2 - 40, ref, {
+    fontSize: '16px', fontFamily: 'monospace', color: '#8b4513', fontStyle: 'bold'
+  }).setOrigin(0.5).setDepth(202);
+  const verseText = scene.add.text(W/2, H/2 + 10, `"${text}"`, {
+    fontSize: '13px', fontFamily: 'monospace', color: '#333333',
+    wordWrap: { width: 440 }, align: 'center', fontStyle: 'italic', lineSpacing: 4
+  }).setOrigin(0.5).setDepth(202);
+  const fpText = scene.add.text(W/2, H/2 + 80, '+25 Faith Points', {
+    fontSize: '14px', fontFamily: 'monospace', color: '#3498db'
+  }).setOrigin(0.5).setDepth(202);
+  const cont = scene.add.text(W/2, H/2 + 115, 'Click to continue', {
+    fontSize: '12px', fontFamily: 'monospace', color: '#888888'
+  }).setOrigin(0.5).setDepth(202);
+
+  // Animate in
+  const els = [overlay, scroll, icon, title, refText, verseText, fpText, cont];
+  scroll.setScale(0); icon.setAlpha(0);
+  scene.tweens.add({ targets: scroll, scale: 1, duration: 400, ease: 'Back.easeOut' });
+  scene.tweens.add({ targets: [icon, title, refText, verseText, fpText], alpha: 1, duration: 300, delay: 300 });
+  scene.tweens.add({ targets: cont, alpha: 0.4, duration: 600, yoyo: true, repeat: -1, delay: 600 });
+
+  scene.time.delayedCall(500, () => {
+    scene.input.once('pointerdown', () => {
+      els.forEach(e => e.destroy());
+      if (onDone) onDone();
+    });
+  });
+}
+
+// --- HELPER: HUD ---
+function createHUD(scene) {
+  const hud = {};
+  hud.bg = scene.add.rectangle(0, 0, W, 50, 0x000000, 0.7).setOrigin(0).setDepth(90).setScrollFactor(0);
+
+  // Faith meter
+  hud.faithLabel = scene.add.text(10, 8, '✦ Faith', {
+    fontSize: '11px', fontFamily: 'monospace', color: '#ffd700'
+  }).setDepth(91).setScrollFactor(0);
+  hud.faithBg = scene.add.rectangle(80, 14, 120, 12, 0x333333).setOrigin(0).setDepth(91).setScrollFactor(0);
+  hud.faithBar = scene.add.rectangle(80, 14, 120 * (GameState.faith / GameState.maxFaith), 12, COLORS.faithBlue)
+    .setOrigin(0).setDepth(92).setScrollFactor(0);
+  hud.faithNum = scene.add.text(205, 8, `${GameState.faith}/${GameState.maxFaith}`, {
+    fontSize: '11px', fontFamily: 'monospace', color: '#3498db'
+  }).setDepth(91).setScrollFactor(0);
+
+  // Level & FP
+  hud.levelText = scene.add.text(280, 8, `Lv.${GameState.level}`, {
+    fontSize: '12px', fontFamily: 'monospace', color: '#ffd700', fontStyle: 'bold'
+  }).setDepth(91).setScrollFactor(0);
+  hud.fpText = scene.add.text(280, 24, `FP: ${GameState.faithPoints}/${GameState.fpToNext}`, {
+    fontSize: '10px', fontFamily: 'monospace', color: '#aaaaaa'
+  }).setDepth(91).setScrollFactor(0);
+
+  // Companion
+  if (GameState.companion) {
+    hud.compBg = scene.add.rectangle(W - 160, 5, 150, 40, 0x16213e, 0.8)
+      .setOrigin(0).setDepth(91).setScrollFactor(0).setStrokeStyle(1, COLORS.gold);
+    hud.compIcon = scene.add.rectangle(W - 148, 25, 20, 20, GameState.companion.color)
+      .setDepth(92).setScrollFactor(0);
+    hud.compName = scene.add.text(W - 132, 10, GameState.companion.name, {
+      fontSize: '11px', fontFamily: 'monospace', color: '#ffd700'
+    }).setDepth(92).setScrollFactor(0);
+    hud.compTitle = scene.add.text(W - 132, 26, GameState.companion.title, {
+      fontSize: '9px', fontFamily: 'monospace', color: '#aaaaaa'
+    }).setDepth(92).setScrollFactor(0);
+  }
+
+  // Scripture count
+  hud.scriptureIcon = scene.add.text(W/2 - 40, 8, `📜 ${GameState.scriptures.length}`, {
+    fontSize: '12px', fontFamily: 'monospace', color: '#ffd700'
+  }).setDepth(91).setScrollFactor(0);
+
+  hud.update = () => {
+    const ratio = Math.min(GameState.faith / GameState.maxFaith, 1);
+    hud.faithBar.setDisplaySize(120 * ratio, 12);
+    hud.faithNum.setText(`${GameState.faith}/${GameState.maxFaith}`);
+    hud.levelText.setText(`Lv.${GameState.level}`);
+    hud.fpText.setText(`FP: ${GameState.faithPoints}/${GameState.fpToNext}`);
+    hud.scriptureIcon.setText(`📜 ${GameState.scriptures.length}`);
+  };
+  return hud;
+}
+
+
+// ============================================================
+// SCENE: BOOT
+// ============================================================
+class BootScene extends Phaser.Scene {
+  constructor() { super('Boot'); }
+  create() {
+    // Quick fade in
+    this.cameras.main.fadeIn(500, 0, 0, 0);
+    this.time.delayedCall(600, () => this.scene.start('Title'));
+  }
+}
+
+
+// ============================================================
+// SCENE: TITLE SCREEN
+// ============================================================
+class TitleScene extends Phaser.Scene {
+  constructor() { super('Title'); }
+
+  create() {
+    this.cameras.main.fadeIn(1000, 0, 0, 0);
+    const bg = this.add.rectangle(W/2, H/2, W, H, COLORS.deepBlue);
+
+    // Stars
+    for (let i = 0; i < 100; i++) {
+      const star = this.add.circle(
+        Phaser.Math.Between(0, W), Phaser.Math.Between(0, H/2 + 100),
+        Phaser.Math.Between(1, 2), 0xffffff, Phaser.Math.FloatBetween(0.3, 1)
+      );
+      this.tweens.add({
+        targets: star, alpha: 0.1, duration: Phaser.Math.Between(1000, 3000),
+        yoyo: true, repeat: -1, delay: Phaser.Math.Between(0, 2000)
+      });
+    }
+
+    // Mountain silhouettes
+    const mountains = this.add.graphics();
+    mountains.fillStyle(0x1a1a3e);
+    mountains.beginPath();
+    mountains.moveTo(0, H);
+    mountains.lineTo(0, 380); mountains.lineTo(100, 320); mountains.lineTo(200, 370);
+    mountains.lineTo(280, 290); mountains.lineTo(380, 350); mountains.lineTo(450, 280);
+    mountains.lineTo(550, 340); mountains.lineTo(620, 300); mountains.lineTo(720, 360);
+    mountains.lineTo(800, 330); mountains.lineTo(800, H);
+    mountains.closePath(); mountains.fill();
+
+    // Ground
+    const ground = this.add.graphics();
+    ground.fillStyle(COLORS.darkSand, 0.3);
+    ground.fillRect(0, H - 100, W, 100);
+
+    // Golden plate effect
+    const plate = this.add.rectangle(W/2, 180, 200, 240, COLORS.gold, 0.15)
+      .setStrokeStyle(2, COLORS.gold);
+    this.tweens.add({ targets: plate, alpha: 0.3, duration: 2000, yoyo: true, repeat: -1 });
+
+    // Title
+    const titleMain = this.add.text(W/2, 140, 'THE BOOK OF MORMON', {
+      fontSize: '36px', fontFamily: 'monospace', color: '#ffd700', fontStyle: 'bold',
+      stroke: '#8b6914', strokeThickness: 3
+    }).setOrigin(0.5);
+
+    const subtitle = this.add.text(W/2, 185, 'An Interactive Journey', {
+      fontSize: '18px', fontFamily: 'monospace', color: '#c0a060', fontStyle: 'italic'
+    }).setOrigin(0.5);
+
+    const subtitle2 = this.add.text(W/2, 215, 'Another Testament of Jesus Christ', {
+      fontSize: '13px', fontFamily: 'monospace', color: '#8899aa'
+    }).setOrigin(0.5);
+
+    // Glowing line
+    const line = this.add.rectangle(W/2, 245, 300, 2, COLORS.gold, 0.5);
+    this.tweens.add({ targets: line, scaleX: 0.5, duration: 2000, yoyo: true, repeat: -1 });
+
+    // World info
+    this.add.text(W/2, 290, 'WORLD 1: THE FAMILY OF LEHI', {
+      fontSize: '14px', fontFamily: 'monospace', color: '#6b8e23'
+    }).setOrigin(0.5);
+    this.add.text(W/2, 310, '1 Nephi — 600 BC', {
+      fontSize: '11px', fontFamily: 'monospace', color: '#888888'
+    }).setOrigin(0.5);
+
+    // Press Start
+    const startText = this.add.text(W/2, 400, '► PRESS START ◄', {
+      fontSize: '22px', fontFamily: 'monospace', color: '#ffffff', fontStyle: 'bold'
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+    this.tweens.add({ targets: startText, alpha: 0.3, duration: 800, yoyo: true, repeat: -1 });
+
+    startText.on('pointerdown', () => {
+      this.cameras.main.fadeOut(500, 0, 0, 0);
+      this.time.delayedCall(500, () => this.scene.start('WorldMap'));
+    });
+    this.input.keyboard.on('keydown-SPACE', () => {
+      this.cameras.main.fadeOut(500, 0, 0, 0);
+      this.time.delayedCall(500, () => this.scene.start('WorldMap'));
+    });
+    this.input.keyboard.on('keydown-ENTER', () => {
+      this.cameras.main.fadeOut(500, 0, 0, 0);
+      this.time.delayedCall(500, () => this.scene.start('WorldMap'));
+    });
+
+    // Bottom credits
+    this.add.text(W/2, H - 50, 'A faithful retelling of the sacred record', {
+      fontSize: '10px', fontFamily: 'monospace', color: '#556677'
+    }).setOrigin(0.5);
+    this.add.text(W/2, H - 30, 'Use Arrow Keys to move • Space/Click to interact', {
+      fontSize: '10px', fontFamily: 'monospace', color: '#445566'
+    }).setOrigin(0.5);
+  }
+}
+
+
+// ============================================================
+// SCENE: WORLD MAP
+// ============================================================
+class WorldMapScene extends Phaser.Scene {
+  constructor() { super('WorldMap'); }
+
+  create() {
+    this.cameras.main.fadeIn(500);
+    this.add.rectangle(W/2, H/2, W, H, COLORS.deepBlue);
+
+    // Map background - ancient parchment style
+    this.add.rectangle(W/2, H/2, W - 60, H - 60, COLORS.sand, 0.2)
+      .setStrokeStyle(2, COLORS.gold);
+
+    this.add.text(W/2, 40, 'BOOK OF MORMON LANDS', {
+      fontSize: '20px', fontFamily: 'monospace', color: '#ffd700', fontStyle: 'bold'
+    }).setOrigin(0.5);
+
+    // World locations
+    const worlds = [
+      { x: 600, y: 120, name: 'Jerusalem', sub: 'World 1: The Family of Lehi', active: true, scene: 'Jerusalem' },
+      { x: 200, y: 200, name: 'Wilderness', sub: 'The journey south', active: false },
+      { x: 120, y: 350, name: 'Bountiful', sub: 'By the sea', active: false },
+      { x: 400, y: 450, name: 'Promised Land', sub: 'World 2: A New Home', active: false },
+      { x: 500, y: 350, name: 'Zarahemla', sub: 'World 4+', active: false },
+      { x: 650, y: 400, name: 'Land of Nephi', sub: 'World 5+', active: false },
+    ];
+
+    // Draw paths
+    const paths = this.add.graphics();
+    paths.lineStyle(2, COLORS.gold, 0.3);
+    paths.beginPath();
+    paths.moveTo(600, 120); paths.lineTo(200, 200); paths.lineTo(120, 350);
+    paths.moveTo(120, 350); paths.lineTo(400, 450);
+    paths.lineTo(500, 350); paths.lineTo(650, 400);
+    paths.strokePath();
+
+    // Draw dotted sea path
+    paths.lineStyle(1, COLORS.skyBlue, 0.3);
+    for (let i = 0; i < 20; i++) {
+      const t = i / 20;
+      const cx = 120 + (400 - 120) * t + Math.sin(t * Math.PI * 3) * 40;
+      const cy = 350 + (450 - 350) * t + Math.cos(t * Math.PI * 2) * 30 + 50;
+      paths.fillStyle(COLORS.skyBlue, 0.3);
+      paths.fillCircle(cx, cy, 2);
+    }
+
+    worlds.forEach(w => {
+      const color = w.active ? COLORS.gold : COLORS.gray;
+      const node = this.add.circle(w.x, w.y, w.active ? 14 : 10, color, w.active ? 0.9 : 0.3)
+        .setStrokeStyle(2, w.active ? COLORS.gold : COLORS.darkGray);
+
+      if (w.active) {
+        this.tweens.add({ targets: node, scale: 1.2, duration: 800, yoyo: true, repeat: -1 });
+        node.setInteractive({ useHandCursor: true });
+        node.on('pointerdown', () => {
+          this.cameras.main.fadeOut(500);
+          this.time.delayedCall(500, () => this.scene.start(w.scene));
+        });
+      }
+
+      const nameText = this.add.text(w.x, w.y + 22, w.name, {
+        fontSize: '12px', fontFamily: 'monospace', color: w.active ? '#ffd700' : '#666666', fontStyle: 'bold'
+      }).setOrigin(0.5);
+
+      this.add.text(w.x, w.y + 36, w.sub, {
+        fontSize: '9px', fontFamily: 'monospace', color: w.active ? '#aaaaaa' : '#444444'
+      }).setOrigin(0.5);
+    });
+
+    // Player dot on Jerusalem
+    const playerDot = this.add.circle(600, 120, 6, COLORS.green);
+    this.tweens.add({ targets: playerDot, scale: 1.5, alpha: 0.5, duration: 600, yoyo: true, repeat: -1 });
+
+    // Instructions
+    this.add.text(W/2, H - 40, 'Click on Jerusalem to begin your journey', {
+      fontSize: '12px', fontFamily: 'monospace', color: '#aaaaaa'
+    }).setOrigin(0.5);
+
+    // Compass rose
+    this.add.text(W - 60, 80, '✦ N', { fontSize: '12px', fontFamily: 'monospace', color: '#ffd70066' }).setOrigin(0.5);
+    this.add.text(W - 60, 110, 'S', { fontSize: '10px', fontFamily: 'monospace', color: '#ffd70033' }).setOrigin(0.5);
+    this.add.text(W - 80, 95, 'W', { fontSize: '10px', fontFamily: 'monospace', color: '#ffd70033' }).setOrigin(0.5);
+    this.add.text(W - 40, 95, 'E', { fontSize: '10px', fontFamily: 'monospace', color: '#ffd70033' }).setOrigin(0.5);
+  }
+}
+
+
+// ============================================================
+// SCENE: JERUSALEM (World 1 Hub)
+// ============================================================
+class JerusalemScene extends Phaser.Scene {
+  constructor() { super('Jerusalem'); }
+
+  create() {
+    this.cameras.main.fadeIn(800);
+    GameState.companion = { name: 'Nephi', title: 'Son of Lehi', color: COLORS.faithBlue };
+
+    // Create world bounds
+    const worldW = 1600, worldH = 900;
+    this.physics.world.setBounds(0, 0, worldW, worldH);
+    this.cameras.main.setBounds(0, 0, worldW, worldH);
+
+    // Sky gradient
+    this.add.rectangle(worldW/2, 0, worldW, 300, COLORS.nightBlue).setOrigin(0.5, 0);
+    this.add.rectangle(worldW/2, 200, worldW, 200, 0x2c3e50).setOrigin(0.5, 0);
+
+    // Ground
+    this.add.rectangle(worldW/2, worldH/2 + 100, worldW, worldH - 200, COLORS.sand).setOrigin(0.5, 0);
+
+    // Buildings - Jerusalem cityscape
+    const buildings = [
+      { x: 100, y: 400, w: 120, h: 160, color: COLORS.lightBrown },
+      { x: 250, y: 350, w: 80, h: 210, color: COLORS.darkSand },
+      { x: 370, y: 380, w: 140, h: 180, color: COLORS.lightBrown },
+      { x: 550, y: 340, w: 100, h: 220, color: COLORS.darkSand },
+      { x: 700, y: 370, w: 130, h: 190, color: COLORS.lightBrown },
+      { x: 900, y: 360, w: 90, h: 200, color: COLORS.darkSand },
+      { x: 1050, y: 390, w: 110, h: 170, color: COLORS.lightBrown },
+      { x: 1200, y: 350, w: 100, h: 210, color: COLORS.darkSand },
+      { x: 1380, y: 370, w: 120, h: 190, color: COLORS.lightBrown },
+    ];
+
+    buildings.forEach(b => {
+      const bld = this.add.rectangle(b.x, b.y, b.w, b.h, b.color).setOrigin(0, 0);
+      // Windows
+      for (let wy = b.y + 20; wy < b.y + b.h - 20; wy += 35) {
+        for (let wx = b.x + 15; wx < b.x + b.w - 15; wx += 25) {
+          this.add.rectangle(wx, wy, 10, 14, 0xffdd88, 0.6);
+        }
+      }
+    });
+
+    // Temple of Solomon (big gold-topped building)
+    this.add.rectangle(750, 280, 200, 280, 0xcdb891).setOrigin(0.5, 0);
+    this.add.rectangle(750, 260, 220, 30, COLORS.gold).setOrigin(0.5, 0);
+    this.add.text(750, 270, 'Temple', { fontSize: '10px', fontFamily: 'monospace', color: '#333' }).setOrigin(0.5);
+
+    // Laban's house (quest target)
+    const labansHouse = this.add.rectangle(1300, 420, 100, 140, 0x8B0000).setOrigin(0.5, 0);
+    this.add.rectangle(1300, 410, 110, 15, COLORS.darkRed).setOrigin(0.5, 0);
+    const labanSign = this.add.text(1300, 500, 'Laban\'s\nTreasury', {
+      fontSize: '10px', fontFamily: 'monospace', color: '#ffaaaa', align: 'center'
+    }).setOrigin(0.5);
+
+    // Ground path
+    this.add.rectangle(worldW/2, 620, worldW, 40, COLORS.darkSand, 0.5);
+
+    // Trees / palms
+    [150, 480, 850, 1100, 1450].forEach(tx => {
+      this.add.rectangle(tx, 560, 8, 50, COLORS.brown);
+      this.add.circle(tx, 540, 20, COLORS.olive, 0.8);
+    });
+
+    // Player
+    this.player = this.add.rectangle(200, 620, 20, 28, COLORS.green).setOrigin(0.5, 1);
+    this.physics.add.existing(this.player);
+    this.player.body.setCollideWorldBounds(true);
+    this.cameras.main.startFollow(this.player, true, 0.08, 0.08);
+
+    // Player face
+    this.playerFace = this.add.circle(200, 592, 8, 0xf5cba7).setDepth(5);
+    this.playerEye1 = this.add.rectangle(197, 590, 2, 2, 0x000000).setDepth(6);
+    this.playerEye2 = this.add.rectangle(203, 590, 2, 2, 0x000000).setDepth(6);
+
+    // Nephi NPC
+    this.nephi = this.add.rectangle(350, 620, 20, 28, COLORS.faithBlue).setOrigin(0.5, 1);
+    this.add.circle(350, 592, 8, 0xf5cba7);
+    this.add.text(350, 575, 'Nephi', { fontSize: '10px', fontFamily: 'monospace', color: '#ffd700' }).setOrigin(0.5);
+    const nephiGlow = this.add.circle(350, 610, 30, COLORS.faithBlue, 0.1);
+    this.tweens.add({ targets: nephiGlow, scale: 1.5, alpha: 0, duration: 1500, repeat: -1 });
+
+    // Lehi NPC
+    this.add.rectangle(500, 620, 20, 28, COLORS.purple).setOrigin(0.5, 1);
+    this.add.circle(500, 592, 8, 0xf5cba7);
+    this.add.text(500, 575, 'Lehi', { fontSize: '10px', fontFamily: 'monospace', color: '#ffd700' }).setOrigin(0.5);
+
+    // Quest markers
+    if (!GameState.brassPlatesObtained) {
+      this.questMarker = this.add.text(1300, 390, '❗', { fontSize: '24px' }).setOrigin(0.5);
+      this.tweens.add({ targets: this.questMarker, y: 380, duration: 600, yoyo: true, repeat: -1 });
+    }
+
+    // Iron Rod entrance
+    this.add.rectangle(50, 620, 60, 40, COLORS.iron, 0.5).setOrigin(0.5, 1)
+      .setStrokeStyle(1, COLORS.iron);
+    this.add.text(50, 585, '🌳 Iron Rod\n   Vision', {
+      fontSize: '9px', fontFamily: 'monospace', color: '#aaddaa', align: 'center'
+    }).setOrigin(0.5);
+    this.ironRodZone = this.add.zone(50, 600, 60, 60);
+    this.physics.add.existing(this.ironRodZone, true);
+
+    // Battle zone (random encounter area)
+    this.battleZone = this.add.zone(900, 620, 200, 60);
+    this.physics.add.existing(this.battleZone, true);
+    this.battleTriggered = false;
+
+    // NPCs interaction zones
+    this.nephiZone = this.add.zone(350, 610, 60, 60);
+    this.physics.add.existing(this.nephiZone, true);
+    this.lehiZone = this.add.zone(500, 610, 60, 60);
+    this.physics.add.existing(this.lehiZone, true);
+    this.labanZone = this.add.zone(1300, 530, 100, 60);
+    this.physics.add.existing(this.labanZone, true);
+
+    // Overlaps
+    this.physics.add.overlap(this.player, this.nephiZone, () => this.nearNephi = true);
+    this.physics.add.overlap(this.player, this.lehiZone, () => this.nearLehi = true);
+    this.physics.add.overlap(this.player, this.labanZone, () => this.nearLaban = true);
+    this.physics.add.overlap(this.player, this.ironRodZone, () => this.nearIronRod = true);
+    this.physics.add.overlap(this.player, this.battleZone, () => {
+      if (!this.battleTriggered && !GameState.battleWon) {
+        this.battleTriggered = true;
+        this.startBattle();
+      }
+    });
+
+    // Input
+    this.cursors = this.input.keyboard.createCursorKeys();
+    this.spaceKey = this.input.keyboard.addKey('SPACE');
+    this.interactCooldown = 0;
+
+    // HUD
+    this.hud = createHUD(this);
+
+    // Interaction prompt
+    this.interactPrompt = this.add.text(0, 0, 'Press SPACE', {
+      fontSize: '10px', fontFamily: 'monospace', color: '#ffd700',
+      backgroundColor: '#00000088', padding: { x: 4, y: 2 }
+    }).setOrigin(0.5).setDepth(80).setVisible(false);
+
+    // Opening dialogue
+    if (!GameState.questFlags.jerusalemIntro) {
+      GameState.questFlags.jerusalemIntro = true;
+      this.time.delayedCall(500, () => {
+        showDialogue(this, 'Narrator', 'Jerusalem, 600 BC. The prophet Lehi has been warned by God to take his family and flee into the wilderness. But first, his sons must return for the brass plates — the sacred records held by Laban.', () => {
+          showDialogue(this, 'Nephi', 'I know the Lord will provide a way for us to accomplish what He has commanded. Will you come with me to retrieve the plates from Laban?', () => {
+            showDialogue(this, '', 'Choose your response:', null, [
+              { text: 'I will go and do! Let\'s get those plates.', onSelect: () => {
+                GameState.faith = Math.min(GameState.faith + 10, GameState.maxFaith);
+                gainFP(15);
+                addJournal('Chose to follow Nephi with faith');
+                showDialogue(this, 'Nephi', 'That is the spirit! The Lord has commanded my father to send us, and I know He will prepare a way. Let us go to Laban\'s treasury to the east.', () => {});
+              }},
+              { text: 'I\'m a little scared, but I\'ll try...', onSelect: () => {
+                gainFP(10);
+                addJournal('Chose to follow Nephi despite fear');
+                showDialogue(this, 'Nephi', 'It is alright to be afraid. Courage is not the absence of fear — it is choosing to move forward in faith. Come, the Lord will be with us.', () => {});
+              }}
+            ]);
+          });
+        });
+      });
+    }
+  }
+
+  startBattle() {
+    this.cameras.main.flash(500, 255, 255, 255);
+    this.time.delayedCall(500, () => {
+      this.scene.pause();
+      this.scene.launch('Battle', { returnScene: 'Jerusalem' });
+    });
+  }
+
+  update(time, delta) {
+    this.nearNephi = false;
+    this.nearLehi = false;
+    this.nearLaban = false;
+    this.nearIronRod = false;
+
+    // Movement
+    const speed = 160;
+    this.player.body.setVelocity(0);
+    if (this.cursors.left.isDown) this.player.body.setVelocityX(-speed);
+    if (this.cursors.right.isDown) this.player.body.setVelocityX(speed);
+    if (this.cursors.up.isDown) this.player.body.setVelocityY(-speed);
+    if (this.cursors.down.isDown) this.player.body.setVelocityY(speed);
+
+    // Update player face position
+    this.playerFace.setPosition(this.player.x, this.player.y - 28);
+    this.playerEye1.setPosition(this.player.x - 3, this.player.y - 30);
+    this.playerEye2.setPosition(this.player.x + 3, this.player.y - 30);
+
+    // Interaction prompt
+    this.interactPrompt.setVisible(false);
+    if (this.nearNephi) {
+      this.interactPrompt.setPosition(350, 565).setVisible(true);
+    } else if (this.nearLehi) {
+      this.interactPrompt.setPosition(500, 565).setVisible(true);
+    } else if (this.nearLaban) {
+      this.interactPrompt.setPosition(1300, 410).setVisible(true);
+    } else if (this.nearIronRod) {
+      this.interactPrompt.setPosition(50, 570).setVisible(true);
+    }
+
+    // Interactions
+    if (this.interactCooldown > 0) this.interactCooldown -= delta;
+    if (Phaser.Input.Keyboard.JustDown(this.spaceKey) && this.interactCooldown <= 0) {
+      this.interactCooldown = 500;
+
+      if (this.nearNephi) {
+        if (!GameState.brassPlatesObtained) {
+          showDialogue(this, 'Nephi', 'We must go east to Laban\'s treasury and retrieve the brass plates. They contain the record of our fathers and the commandments of God. We cannot go into the wilderness without them.');
+        } else if (!GameState.ironRodComplete) {
+          showDialogue(this, 'Nephi', 'My father Lehi has had a vision — a dream of a tree whose fruit was most precious. Go to the west and experience the vision. Hold to the iron rod!');
+        } else {
+          showDialogue(this, 'Nephi', 'You have done well, friend. You have seen the power of faith. Soon we will build a ship and cross the great waters to the promised land!');
+        }
+      }
+
+      if (this.nearLehi) {
+        showDialogue(this, 'Lehi', 'My child, the Lord has commanded us to leave Jerusalem, for it will soon be destroyed for its wickedness. But we do not go empty-handed — we need the brass plates. Go with my son Nephi.', () => {
+          if (!GameState.questFlags.lehiTalked) {
+            GameState.questFlags.lehiTalked = true;
+            gainFP(10);
+          }
+        });
+      }
+
+      if (this.nearLaban && !GameState.brassPlatesObtained) {
+        this.scene.pause();
+        this.scene.launch('BrassPlates');
+      }
+
+      if (this.nearIronRod) {
+        this.cameras.main.fadeOut(500);
+        this.time.delayedCall(500, () => this.scene.start('IronRod'));
+      }
+    }
+
+    this.hud.update();
+  }
+}
+
+
+// ============================================================
+// SCENE: BRASS PLATES QUEST
+// ============================================================
+class BrassPlatesScene extends Phaser.Scene {
+  constructor() { super('BrassPlates'); }
+
+  create() {
+    this.cameras.main.fadeIn(500);
+
+    // Dark interior
+    this.add.rectangle(W/2, H/2, W, H, 0x1a0a0a);
+
+    // Room layout
+    this.add.rectangle(W/2, H/2, W - 40, H - 80, 0x2a1a0a).setStrokeStyle(2, 0x4a2a0a);
+
+    // Torches
+    [60, W - 60].forEach(tx => {
+      this.add.rectangle(tx, 200, 6, 30, COLORS.brown);
+      const flame = this.add.circle(tx, 185, 8, 0xff6600, 0.8);
+      this.tweens.add({ targets: flame, scale: 1.3, alpha: 0.5, duration: 300, yoyo: true, repeat: -1 });
+      // Light radius
+      this.add.circle(tx, 200, 60, 0xffaa00, 0.05);
+    });
+
+    // Guards (red rectangles)
+    this.guards = [];
+    const guardPositions = [
+      { x: 250, y: 250, patrol: 'h', range: 100 },
+      { x: 500, y: 350, patrol: 'v', range: 80 },
+      { x: 600, y: 200, patrol: 'h', range: 120 },
+    ];
+    guardPositions.forEach(gp => {
+      const guard = this.add.rectangle(gp.x, gp.y, 16, 24, COLORS.red);
+      this.add.text(gp.x, gp.y - 20, '⚔️', { fontSize: '12px' }).setOrigin(0.5);
+      // Vision cone
+      const vision = this.add.circle(gp.x, gp.y, 50, COLORS.red, 0.1);
+
+      if (gp.patrol === 'h') {
+        this.tweens.add({ targets: [guard, vision], x: gp.x + gp.range, duration: 2000, yoyo: true, repeat: -1 });
+      } else {
+        this.tweens.add({ targets: [guard, vision], y: gp.y + gp.range, duration: 2000, yoyo: true, repeat: -1 });
+      }
+      this.guards.push({ sprite: guard, vision });
+    });
+
+    // Brass plates (goal)
+    this.plates = this.add.rectangle(680, 120, 30, 40, COLORS.gold)
+      .setStrokeStyle(2, 0xb8860b);
+    this.add.text(680, 110, '📜', { fontSize: '20px' }).setOrigin(0.5);
+    const plateGlow = this.add.circle(680, 120, 25, COLORS.gold, 0.15);
+    this.tweens.add({ targets: plateGlow, scale: 2, alpha: 0, duration: 1500, repeat: -1 });
+
+    // Player
+    this.player = this.add.rectangle(100, H - 100, 16, 22, COLORS.green).setOrigin(0.5, 1);
+    this.physics.add.existing(this.player);
+
+    // Obstacles (tables, pillars)
+    [
+      { x: 200, y: 180, w: 80, h: 20 },
+      { x: 400, y: 280, w: 20, h: 80 },
+      { x: 350, y: 150, w: 60, h: 20 },
+      { x: 550, y: 300, w: 20, h: 60 },
+    ].forEach(ob => {
+      this.add.rectangle(ob.x, ob.y, ob.w, ob.h, 0x4a2a0a);
+    });
+
+    // Instructions
+    this.add.text(W/2, H - 30, 'Sneak past the guards to reach the brass plates! Arrow keys to move.', {
+      fontSize: '11px', fontFamily: 'monospace', color: '#aa8866'
+    }).setOrigin(0.5);
+
+    this.add.text(W/2, 60, 'LABAN\'S TREASURY', {
+      fontSize: '16px', fontFamily: 'monospace', color: '#8b4513', fontStyle: 'bold'
+    }).setOrigin(0.5);
+
+    // Status text
+    this.statusText = this.add.text(W/2, H - 50, '', {
+      fontSize: '12px', fontFamily: 'monospace', color: '#ff6666'
+    }).setOrigin(0.5);
+
+    this.cursors = this.input.keyboard.createCursorKeys();
+    this.caught = false;
+    this.won = false;
+  }
+
+  update() {
+    if (this.caught || this.won) return;
+
+    const speed = 120;
+    this.player.body.setVelocity(0);
+    if (this.cursors.left.isDown) this.player.body.setVelocityX(-speed);
+    if (this.cursors.right.isDown) this.player.body.setVelocityX(speed);
+    if (this.cursors.up.isDown) this.player.body.setVelocityY(-speed);
+    if (this.cursors.down.isDown) this.player.body.setVelocityY(speed);
+
+    // Check guard detection
+    this.guards.forEach(g => {
+      const dist = Phaser.Math.Distance.Between(
+        this.player.x, this.player.y, g.sprite.x, g.sprite.y
+      );
+      if (dist < 45) {
+        this.caught = true;
+        this.statusText.setText('Caught! The guards spotted you!');
+        this.cameras.main.shake(300, 0.01);
+        this.time.delayedCall(1500, () => {
+          this.statusText.setText('');
+          this.player.setPosition(100, H - 100);
+          this.caught = false;
+        });
+      }
+    });
+
+    // Check plate pickup
+    const plateDist = Phaser.Math.Distance.Between(
+      this.player.x, this.player.y, this.plates.x, this.plates.y
+    );
+    if (plateDist < 35) {
+      this.won = true;
+      GameState.brassPlatesObtained = true;
+      GameState.faith = Math.min(GameState.faith + 15, GameState.maxFaith);
+      gainFP(30);
+      addJournal('Retrieved the brass plates from Laban\'s treasury');
+
+      this.cameras.main.flash(500, 255, 215, 0);
+      showDialogue(this, 'Narrator', 'You have obtained the brass plates! These sacred records contain the scriptures and the genealogy of Lehi\'s family. The Lord has provided a way, just as Nephi said He would.', () => {
+        showScriptureUnlock(this,
+          '1 Nephi 3:7',
+          'I will go and do the things which the Lord hath commanded, for I know that the Lord giveth no commandments unto the children of men, save he shall prepare a way for them that they may accomplish the thing which he commandeth them.',
+          () => {
+            this.scene.stop();
+            this.scene.resume('Jerusalem');
+          }
+        );
+      });
+    }
+  }
+}
+
+
+// ============================================================
+// SCENE: BATTLE (Pokemon-style)
+// ============================================================
+class BattleScene extends Phaser.Scene {
+  constructor() { super('Battle'); }
+
+  init(data) {
+    this.returnScene = data.returnScene || 'Jerusalem';
+  }
+
+  create() {
+    this.cameras.main.fadeIn(300);
+
+    // Background
+    this.add.rectangle(W/2, H/2, W, H, 0x1a1a2e);
+    this.add.rectangle(W/2, H - 150, W, 300, COLORS.darkSand, 0.3);
+
+    // Enemy platform
+    this.add.ellipse(580, 220, 200, 40, COLORS.darkSand, 0.5);
+
+    // Player platform
+    this.add.ellipse(220, 380, 200, 40, COLORS.darkSand, 0.5);
+
+    // Enemy: Doubt
+    this.enemy = {
+      name: 'Doubt', hp: 80, maxHp: 80,
+      weakness: 'testimony',
+      sprite: this.add.rectangle(580, 180, 50, 60, COLORS.mist).setStrokeStyle(2, 0x556677)
+    };
+    // Doubt face
+    this.add.text(580, 160, '?', {
+      fontSize: '30px', fontFamily: 'monospace', color: '#334455', fontStyle: 'bold'
+    }).setOrigin(0.5);
+    // Shadow tendrils
+    for (let i = 0; i < 5; i++) {
+      const tendril = this.add.rectangle(
+        580 + Phaser.Math.Between(-30, 30), 210 + i * 5,
+        Phaser.Math.Between(8, 20), 4, COLORS.mist, 0.4
+      );
+      this.tweens.add({ targets: tendril, x: tendril.x + Phaser.Math.Between(-15, 15), alpha: 0.1, duration: 1000 + i * 200, yoyo: true, repeat: -1 });
+    }
+
+    // Doubt description
+    this.add.text(580, 250, 'A wild DOUBT appeared!', {
+      fontSize: '12px', fontFamily: 'monospace', color: '#aabbcc'
+    }).setOrigin(0.5);
+
+    // Player sprite
+    this.add.rectangle(220, 350, 30, 40, COLORS.green);
+    this.add.circle(220, 325, 12, 0xf5cba7);
+    // Nephi companion behind
+    this.add.rectangle(160, 370, 24, 32, COLORS.faithBlue).setAlpha(0.8);
+    this.add.circle(160, 350, 10, 0xf5cba7).setAlpha(0.8);
+
+    // Enemy HP bar
+    this.add.rectangle(580, 130, 160, 10, 0x333333).setStrokeStyle(1, 0x555555);
+    this.enemyHpBar = this.add.rectangle(502, 126, 156, 6, COLORS.red).setOrigin(0);
+    this.add.text(580, 115, 'DOUBT', {
+      fontSize: '12px', fontFamily: 'monospace', color: '#aabbcc', fontStyle: 'bold'
+    }).setOrigin(0.5);
+    this.enemyHpText = this.add.text(665, 126, `${this.enemy.hp}/${this.enemy.maxHp}`, {
+      fontSize: '10px', fontFamily: 'monospace', color: '#cccccc'
+    });
+
+    // Player HP bar
+    this.add.rectangle(220, 420, 160, 10, 0x333333).setStrokeStyle(1, 0x555555);
+    this.playerHpBar = this.add.rectangle(142, 416, 156, 6, COLORS.green).setOrigin(0);
+    this.add.text(220, 405, `${GameState.playerName} & Nephi`, {
+      fontSize: '12px', fontFamily: 'monospace', color: '#ffd700', fontStyle: 'bold'
+    }).setOrigin(0.5);
+    this.playerHpText = this.add.text(305, 416, `${GameState.faith}/${GameState.maxFaith}`, {
+      fontSize: '10px', fontFamily: 'monospace', color: '#cccccc'
+    });
+
+    // Battle menu
+    this.createBattleMenu();
+    this.battleLog = this.add.text(W/2, H - 30, '', {
+      fontSize: '11px', fontFamily: 'monospace', color: '#aaaaaa'
+    }).setOrigin(0.5).setDepth(50);
+
+    this.playerTurn = true;
+    this.animating = false;
+  }
+
+  createBattleMenu() {
+    const menuBg = this.add.rectangle(W/2, H - 95, W - 40, 120, 0x000000, 0.85)
+      .setStrokeStyle(2, COLORS.gold).setDepth(40);
+
+    this.menuItems = [];
+    const moves = [
+      { name: '⚔️ Faith Strike', desc: 'A faithful blow', stat: 'faith', power: 15, cost: 0 },
+      { name: '📖 Scripture Power', desc: 'Quote truth against doubt', stat: 'testimony', power: 25, cost: 0, superEffective: 'testimony' },
+      { name: '🛡️ Pray Always', desc: 'Restore faith', stat: 'charity', power: 0, heal: 20, cost: 0 },
+      { name: '✨ Nephi: "I Will Go"', desc: 'Never misses!', stat: 'courage', power: 20, cost: 0, neverMiss: true },
+    ];
+
+    moves.forEach((move, i) => {
+      const col = i % 2;
+      const row = Math.floor(i / 2);
+      const bx = 120 + col * 320;
+      const by = H - 130 + row * 40;
+
+      const btn = this.add.rectangle(bx + 130, by + 10, 290, 32, 0x16213e, 0.8)
+        .setStrokeStyle(1, 0x334455).setDepth(41).setInteractive({ useHandCursor: true });
+      const txt = this.add.text(bx + 10, by, move.name, {
+        fontSize: '13px', fontFamily: 'monospace', color: '#ffffff'
+      }).setDepth(42);
+      const descTxt = this.add.text(bx + 10, by + 16, move.desc, {
+        fontSize: '9px', fontFamily: 'monospace', color: '#888888'
+      }).setDepth(42);
+
+      btn.on('pointerover', () => btn.setFillStyle(0x2a3a5e));
+      btn.on('pointerout', () => btn.setFillStyle(0x16213e, 0.8));
+      btn.on('pointerdown', () => {
+        if (this.playerTurn && !this.animating) {
+          this.playerAttack(move);
+        }
+      });
+      this.menuItems.push({ btn, txt, descTxt });
+    });
+  }
+
+  playerAttack(move) {
+    this.animating = true;
+    this.playerTurn = false;
+
+    if (move.heal) {
+      // Healing move
+      GameState.faith = Math.min(GameState.faith + move.heal, GameState.maxFaith);
+      this.cameras.main.flash(300, 100, 200, 255);
+      this.battleLog.setText(`You prayed and restored ${move.heal} faith!`);
+      this.updateBars();
+      this.time.delayedCall(1200, () => this.enemyTurn());
+      return;
+    }
+
+    let damage = move.power + Math.floor(GameState[move.stat] / 5);
+    let message = `Used ${move.name}!`;
+
+    // Super effective against doubt (testimony moves)
+    if (move.superEffective === 'testimony') {
+      damage = Math.floor(damage * 1.8);
+      message += ' It\'s super effective against Doubt!';
+    }
+
+    // Random variance
+    damage = Math.floor(damage * (0.85 + Math.random() * 0.3));
+    if (damage < 1) damage = 1;
+
+    this.enemy.hp = Math.max(0, this.enemy.hp - damage);
+    this.battleLog.setText(`${message} Dealt ${damage} damage!`);
+
+    // Hit animation
+    this.tweens.add({
+      targets: this.enemy.sprite, x: this.enemy.sprite.x + 10, duration: 50,
+      yoyo: true, repeat: 3
+    });
+    this.cameras.main.flash(100, 255, 255, 255);
+    this.updateBars();
+
+    if (this.enemy.hp <= 0) {
+      this.time.delayedCall(800, () => this.victory());
+    } else {
+      this.time.delayedCall(1200, () => this.enemyTurn());
+    }
+  }
+
+  enemyTurn() {
+    const attacks = [
+      { name: 'Whisper of Doubt', damage: 8, msg: 'Doubt whispers: "Are you sure about this?"' },
+      { name: 'Cloud of Confusion', damage: 12, msg: 'Doubt clouds your mind with confusion!' },
+      { name: 'Fear Strike', damage: 15, msg: 'Doubt strikes with fear!' },
+    ];
+
+    const attack = attacks[Phaser.Math.Between(0, attacks.length - 1)];
+    let damage = attack.damage - Math.floor(GameState.courage / 10);
+    if (damage < 1) damage = 1;
+
+    GameState.faith = Math.max(0, GameState.faith - damage);
+    this.battleLog.setText(`${attack.msg} Lost ${damage} faith.`);
+
+    this.cameras.main.shake(200, 0.005);
+    this.updateBars();
+
+    if (GameState.faith <= 0) {
+      this.time.delayedCall(800, () => {
+        GameState.faith = Math.floor(GameState.maxFaith * 0.3);
+        showDialogue(this, 'Nephi', 'Do not give up! Remember, the Lord is with us. Let us try again with faith.', () => {
+          this.enemy.hp = this.enemy.maxHp;
+          this.updateBars();
+          this.playerTurn = true;
+          this.animating = false;
+        });
+      });
+    } else {
+      this.time.delayedCall(800, () => {
+        this.playerTurn = true;
+        this.animating = false;
+      });
+    }
+  }
+
+  updateBars() {
+    const enemyRatio = Math.max(0, this.enemy.hp / this.enemy.maxHp);
+    this.tweens.add({ targets: this.enemyHpBar, displayWidth: 156 * enemyRatio, duration: 300 });
+    this.enemyHpText.setText(`${this.enemy.hp}/${this.enemy.maxHp}`);
+
+    const playerRatio = Math.max(0, GameState.faith / GameState.maxFaith);
+    this.tweens.add({ targets: this.playerHpBar, displayWidth: 156 * playerRatio, duration: 300 });
+    this.playerHpText.setText(`${GameState.faith}/${GameState.maxFaith}`);
+  }
+
+  victory() {
+    GameState.battleWon = true;
+    gainFP(40);
+    addJournal('Overcame Doubt through faith and testimony');
+    GameState.faith = Math.min(GameState.faith + 20, GameState.maxFaith);
+
+    // Fade out enemy
+    this.tweens.add({ targets: this.enemy.sprite, alpha: 0, scale: 0, duration: 800 });
+
+    this.battleLog.setText('');
+    showDialogue(this, 'Narrator', 'Doubt has been vanquished! Your faith grew stronger through the trial. Remember — doubt is overcome not by ignoring it, but by choosing faith and seeking truth.', () => {
+      showDialogue(this, 'Nephi', 'Well fought! Doubt flees when we hold firm to what we know is true. The Lord has blessed us this day.', () => {
+        this.cameras.main.fadeOut(500);
+        this.time.delayedCall(500, () => {
+          this.scene.stop();
+          this.scene.resume(this.returnScene);
+        });
+      });
+    });
+  }
+}
+
+
+// ============================================================
+// SCENE: IRON ROD (Lehi's Vision)
+// ============================================================
+class IronRodScene extends Phaser.Scene {
+  constructor() { super('IronRod'); }
+
+  create() {
+    this.cameras.main.fadeIn(1000);
+
+    const worldW = 2400, worldH = H;
+    this.physics.world.setBounds(0, 0, worldW, worldH);
+    this.cameras.main.setBounds(0, 0, worldW, worldH);
+
+    // Dreamy dark background
+    this.add.rectangle(worldW/2, worldH/2, worldW, worldH, COLORS.nightBlue);
+
+    // Stars in the dream
+    for (let i = 0; i < 150; i++) {
+      const star = this.add.circle(
+        Phaser.Math.Between(0, worldW), Phaser.Math.Between(0, worldH/3),
+        Phaser.Math.Between(1, 2), 0xffffff, Phaser.Math.FloatBetween(0.2, 0.8)
+      );
+      this.tweens.add({ targets: star, alpha: 0.1, duration: Phaser.Math.Between(500, 2000), yoyo: true, repeat: -1 });
+    }
+
+    // The path
+    const ground = this.add.rectangle(worldW/2, worldH - 30, worldW, 60, COLORS.darkSand, 0.3);
+
+    // THE IRON ROD — running along the path
+    for (let rx = 0; rx < worldW - 200; rx += 4) {
+      this.add.rectangle(rx, worldH - 65, 4, 6, COLORS.iron, 0.7);
+    }
+    this.add.text(80, worldH - 85, '═══ The Iron Rod ═══', {
+      fontSize: '10px', fontFamily: 'monospace', color: '#708090'
+    });
+
+    // Mists of Darkness (obstacles)
+    this.mists = [];
+    const mistPositions = [400, 700, 1000, 1300, 1600, 1900];
+    mistPositions.forEach(mx => {
+      const mistGroup = [];
+      for (let i = 0; i < 8; i++) {
+        const mist = this.add.circle(
+          mx + Phaser.Math.Between(-80, 80),
+          Phaser.Math.Between(worldH - 200, worldH - 50),
+          Phaser.Math.Between(30, 70),
+          COLORS.mist, Phaser.Math.FloatBetween(0.15, 0.35)
+        );
+        this.tweens.add({
+          targets: mist, x: mist.x + Phaser.Math.Between(-40, 40),
+          alpha: mist.alpha * 0.3, duration: Phaser.Math.Between(2000, 4000),
+          yoyo: true, repeat: -1
+        });
+        mistGroup.push(mist);
+      }
+      this.mists.push({ x: mx, clouds: mistGroup });
+    });
+
+    // Distractions — "Great and spacious building"
+    const building = this.add.rectangle(1200, 150, 300, 180, 0x4a3728)
+      .setStrokeStyle(2, 0x6a5738);
+    for (let wy = 80; wy < 280; wy += 30) {
+      for (let wx = 1070; wx < 1330; wx += 35) {
+        this.add.rectangle(wx, wy, 12, 16, 0xffdd88, 0.5);
+      }
+    }
+    this.add.text(1200, 100, 'The Great &\nSpacious Building', {
+      fontSize: '11px', fontFamily: 'monospace', color: '#aa8866', align: 'center', fontStyle: 'italic'
+    }).setOrigin(0.5);
+    // People mocking
+    this.add.text(1200, 250, '🫵 😂 🫵', { fontSize: '16px' }).setOrigin(0.5);
+    const mockText = this.add.text(1200, 275, '"Come join us! This path is foolish!"', {
+      fontSize: '9px', fontFamily: 'monospace', color: '#cc9966', fontStyle: 'italic'
+    }).setOrigin(0.5);
+    this.tweens.add({ targets: mockText, alpha: 0.3, duration: 1500, yoyo: true, repeat: -1 });
+
+    // THE TREE OF LIFE — at the end
+    const treeX = worldW - 150;
+    // Trunk
+    this.add.rectangle(treeX, worldH - 120, 20, 100, 0x8B6914);
+    // Branches
+    this.add.circle(treeX, worldH - 180, 60, COLORS.treeGold, 0.3);
+    this.add.circle(treeX, worldH - 200, 45, COLORS.treeGold, 0.5);
+    this.add.circle(treeX, worldH - 190, 50, 0xffffff, 0.2);
+    // Glowing fruit
+    for (let i = 0; i < 12; i++) {
+      const angle = (i / 12) * Math.PI * 2;
+      const fr = this.add.circle(
+        treeX + Math.cos(angle) * 35,
+        worldH - 190 + Math.sin(angle) * 30,
+        5, 0xffffff, 0.9
+      );
+      this.tweens.add({ targets: fr, scale: 1.3, alpha: 0.4, duration: 1000 + i * 100, yoyo: true, repeat: -1 });
+    }
+    // Tree label
+    this.add.text(treeX, worldH - 260, '🌳 Tree of Life', {
+      fontSize: '14px', fontFamily: 'monospace', color: '#ffe066', fontStyle: 'bold'
+    }).setOrigin(0.5);
+    // Radiant glow
+    const treeGlow = this.add.circle(treeX, worldH - 180, 100, 0xffffff, 0.05);
+    this.tweens.add({ targets: treeGlow, scale: 2, alpha: 0, duration: 3000, repeat: -1 });
+
+    // Player
+    this.player = this.add.rectangle(60, worldH - 65, 16, 22, COLORS.green).setOrigin(0.5, 1);
+    this.physics.add.existing(this.player);
+    this.player.body.setCollideWorldBounds(true);
+    this.cameras.main.startFollow(this.player, true, 0.08, 0.08);
+
+    // Faith meter for this level
+    this.visionFaith = 100;
+    this.holdingRod = true;
+    this.faithLabel = this.add.text(10, 10, 'Hold to the Rod: ✦ 100', {
+      fontSize: '14px', fontFamily: 'monospace', color: '#ffd700', fontStyle: 'bold'
+    }).setScrollFactor(0).setDepth(100);
+
+    this.rodHint = this.add.text(W/2, H - 15, 'Stay on the lower path near the rod! Arrow keys to move.', {
+      fontSize: '10px', fontFamily: 'monospace', color: '#aaaaaa'
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(100);
+
+    // Tree zone
+    this.treeZone = this.add.zone(treeX, worldH - 150, 80, 120);
+    this.physics.add.existing(this.treeZone, true);
+    this.reachedTree = false;
+
+    this.cursors = this.input.keyboard.createCursorKeys();
+
+    // Intro dialogue
+    showDialogue(this, 'Lehi', 'In my dream, I saw a tree whose fruit was most desirable above all things. Hold to the iron rod — the word of God — and it will lead you through the mists of darkness to the tree of life. Do not let go!');
+  }
+
+  update() {
+    if (this.reachedTree) return;
+
+    const speed = 140;
+    this.player.body.setVelocity(0);
+    if (this.cursors.left.isDown) this.player.body.setVelocityX(-speed);
+    if (this.cursors.right.isDown) this.player.body.setVelocityX(speed);
+    if (this.cursors.up.isDown) this.player.body.setVelocityY(-speed * 0.7);
+    if (this.cursors.down.isDown) this.player.body.setVelocityY(speed * 0.7);
+
+    // Check if near the rod (bottom of screen)
+    this.holdingRod = this.player.y > H - 100;
+
+    // In mist?
+    let inMist = false;
+    this.mists.forEach(m => {
+      if (Math.abs(this.player.x - m.x) < 100) inMist = true;
+    });
+
+    // Faith drain in mist without rod
+    if (inMist && !this.holdingRod) {
+      this.visionFaith -= 0.3;
+      this.faithLabel.setColor('#ff6666');
+    } else if (this.holdingRod) {
+      this.visionFaith = Math.min(100, this.visionFaith + 0.15);
+      this.faithLabel.setColor('#ffd700');
+    }
+
+    this.faithLabel.setText(`Hold to the Rod: ✦ ${Math.floor(this.visionFaith)}`);
+
+    if (this.visionFaith <= 0) {
+      this.visionFaith = 50;
+      this.player.setPosition(this.player.x - 200, H - 65);
+      this.cameras.main.flash(500, 100, 100, 100);
+      showDialogue(this, 'Narrator', 'You lost your way in the mist! Hold to the iron rod — stay near the bottom of the path.');
+    }
+
+    // Check tree reached
+    const treeDist = Phaser.Math.Distance.Between(this.player.x, this.player.y, 2250, H - 150);
+    if (treeDist < 60) {
+      this.reachedTree = true;
+      GameState.ironRodComplete = true;
+      GameState.faith = Math.min(GameState.faith + 25, GameState.maxFaith);
+      gainFP(50);
+      addJournal('Held to the iron rod and reached the Tree of Life');
+
+      this.cameras.main.flash(1000, 255, 255, 230);
+      this.time.delayedCall(500, () => {
+        showDialogue(this, 'Narrator', 'You have reached the Tree of Life! Its fruit is the love of God — the most joyous thing the soul can experience. Lehi reached out and partook, and his joy was full.', () => {
+          showDialogue(this, 'Lehi', 'This fruit is most sweet, above all that I ever tasted. It filled my soul with exceeding great joy. I want all of my family to taste of it.', () => {
+            showScriptureUnlock(this,
+              '1 Nephi 11:25',
+              'The love of God, which sheddeth itself abroad in the hearts of the children of men; wherefore, it is the most desirable above all things.',
+              () => {
+                this.cameras.main.fadeOut(800);
+                this.time.delayedCall(800, () => this.scene.start('Jerusalem'));
+              }
+            );
+          });
+        });
+      });
+    }
+  }
+}
+
+
+// ============================================================
+// PHASER CONFIG
+// ============================================================
+const config = {
+  type: Phaser.AUTO,
+  width: W,
+  height: H,
+  backgroundColor: '#1a1a2e',
+  parent: document.body,
+  physics: {
+    default: 'arcade',
+    arcade: { gravity: { y: 0 }, debug: false }
+  },
+  scene: [BootScene, TitleScene, WorldMapScene, JerusalemScene, BrassPlatesScene, BattleScene, IronRodScene],
+  scale: {
+    mode: Phaser.Scale.FIT,
+    autoCenter: Phaser.Scale.CENTER_BOTH,
+  },
+  pixelArt: true,
+};
+
+const game = new Phaser.Game(config);
+</script>
+</body>
+</html>
