@@ -17,6 +17,44 @@ canvas { image-rendering: pixelated; }
 // BOOK OF MORMON RPG — PHASER.JS GAME
 // ============================================================
 
+// If a scene crashes on GitHub Pages, show the actual exception on-screen (not just in DevTools).
+(function initErrorOverlay() {
+  const el = document.createElement('pre');
+  el.id = 'bom_debug_overlay';
+  el.style.cssText = [
+    'position:fixed',
+    'left:12px',
+    'top:12px',
+    'right:12px',
+    'max-height:45vh',
+    'overflow:auto',
+    'padding:10px 12px',
+    'background:rgba(0,0,0,0.85)',
+    'color:#ffd27a',
+    'border:1px solid rgba(255,215,0,0.5)',
+    'border-radius:8px',
+    'font:12px/1.35 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+    'z-index:99999',
+    'display:none',
+    'white-space:pre-wrap',
+  ].join(';');
+  document.body.appendChild(el);
+
+  function show(msg) {
+    el.style.display = 'block';
+    el.textContent = String(msg || 'Unknown error');
+  }
+
+  window.addEventListener('error', (e) => {
+    const err = e.error;
+    show(`JS ERROR:\n${e.message}\n\n${(err && (err.stack || err.message)) || ''}`);
+  });
+  window.addEventListener('unhandledrejection', (e) => {
+    const r = e.reason;
+    show(`UNHANDLED PROMISE:\n${(r && (r.stack || r.message)) || String(r)}`);
+  });
+})();
+
 // --- CONSTANTS ---
 const W = 800, H = 600;
 const TILE = 32;
