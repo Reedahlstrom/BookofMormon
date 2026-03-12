@@ -761,9 +761,11 @@ const FX = {
   createLightingRig(scene, opts = {}) {
     const rig = { lights: [], pulse: 0, enabled: true };
 
+    // Darkness overlay: NORMAL blend so we never fully black-screen the scene.
+    // Light sprites (SCREEN blend) sit above this to "carve" brightness back in.
     rig.darkness = scene.add.rectangle(0, 0, W, H, 0x000000, 0.0)
       .setOrigin(0).setScrollFactor(0).setDepth(80);
-    rig.darkness.setBlendMode(Phaser.BlendModes.MULTIPLY);
+    rig.darkness.setBlendMode(Phaser.BlendModes.NORMAL);
 
     const worldSpace = (opts.space || 'world') !== 'screen';
     rig.overlay = scene.add.container(0, 0).setScrollFactor(worldSpace ? 1 : 0).setDepth(81);
@@ -819,10 +821,11 @@ const FX = {
     };
 
     // Default ambient tuning per scene type.
-    if (opts.mode === 'night') rig.setAmbient(0.45);
-    if (opts.mode === 'interior') rig.setAmbient(0.7);
-    if (opts.mode === 'dream') rig.setAmbient(0.35);
-    if (opts.mode === 'day') rig.setAmbient(0.18);
+    // Tuned to avoid crushing contrast on dark palettes.
+    if (opts.mode === 'night') rig.setAmbient(0.32);
+    if (opts.mode === 'interior') rig.setAmbient(0.58);
+    if (opts.mode === 'dream') rig.setAmbient(0.28);
+    if (opts.mode === 'day') rig.setAmbient(0.12);
 
     return rig;
   },
