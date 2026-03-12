@@ -794,6 +794,29 @@ function initPremiumTextures(scene) {
   makeIconTextures(scene);
 }
 
+// Phaser particle API changed around 3.60; this helper supports both old/new factories.
+function createEmitterCompat(scene, x, y, key, config, depth = null) {
+  const obj = scene.add.particles(x, y, key, config);
+  if (obj && depth != null && typeof obj.setDepth === 'function') obj.setDepth(depth);
+
+  // Old style: ParticleEmitterManager with createEmitter/addEmitter
+  if (obj && typeof obj.createEmitter === 'function') {
+    try {
+      const emitter = obj.createEmitter(config);
+      return { particles: obj, emitter };
+    } catch (e) {
+      if (typeof obj.addEmitter === 'function') {
+        const emitter = obj.addEmitter(config);
+        return { particles: obj, emitter };
+      }
+      throw e;
+    }
+  }
+
+  // New style: factory returns an emitter directly.
+  return { particles: obj, emitter: obj };
+}
+
 const FX = {
   // Creates an overlay-based lighting rig that works with generated textures (no external assets).
   createLightingRig(scene, opts = {}) {
@@ -869,8 +892,7 @@ const FX = {
   },
 
   createWindDust(scene, area = { x: 0, y: 0, w: W, h: H }, intensity = 1) {
-    const mgr = scene.add.particles(0, 0, 'particle_dot').setDepth(20);
-    const emitter = mgr.createEmitter({
+    const { particles: mgr, emitter } = createEmitterCompat(scene, 0, 0, 'particle_dot', {
       x: { min: area.x - 20, max: area.x + area.w + 20 },
       y: { min: area.y + 30, max: area.y + area.h - 40 },
       lifespan: { min: 2200, max: 3800 },
@@ -881,14 +903,13 @@ const FX = {
       scale: { start: 0.12, end: 0.0 },
       alpha: { start: 0.15, end: 0 },
       tint: 0xd7c3a3,
-    });
+    }, 20);
     return { mgr, emitter };
   },
 
   createCampfire(scene, x, y) {
     const light = scene._lighting?.addLight(x, y + 2, 'light_warm_256', 0.55, 0.55, 0.28);
-    const sparks = scene.add.particles(x, y, 'particle_spark').setDepth(25);
-    sparks.createEmitter({
+    const { particles: sparksMgr } = createEmitterCompat(scene, x, y, 'particle_spark', {
       x: x, y: y,
       lifespan: { min: 450, max: 900 },
       speedY: { min: -55, max: -95 },
@@ -899,9 +920,8 @@ const FX = {
       frequency: 60,
       blendMode: 'ADD',
       tint: [0xffdd88, 0xffaa44, 0xff6622],
-    });
-    const smoke = scene.add.particles(x, y - 10, 'particle_smoke').setDepth(24);
-    smoke.createEmitter({
+    }, 25);
+    const { particles: smokeMgr } = createEmitterCompat(scene, x, y - 10, 'particle_smoke', {
       x: x, y: y - 10,
       lifespan: { min: 1800, max: 2800 },
       speedY: { min: -15, max: -30 },
@@ -910,8 +930,8 @@ const FX = {
       alpha: { start: 0.18, end: 0 },
       frequency: 140,
       tint: 0xaab6c4,
-    });
-    return { light, sparks, smoke };
+    }, 24);
+    return { light, sparks: sparksMgr, smoke: smokeMgr };
   },
 };
 
@@ -1373,8 +1393,7 @@ function showScriptureUnlock(scene, ref, text, onDone) {
   toast.add(quill);
 
   // Burst particles
-  const burst = scene.add.particles(W / 2, H - 30, 'particle_spark').setDepth(221);
-  burst.createEmitter({
+  const { particles: burst, emitter: burstEmitter } = createEmitterCompat(scene, W / 2, H - 30, 'particle_spark', {
     speed: { min: 80, max: 220 },
     angle: { min: 200, max: 340 },
     lifespan: { min: 450, max: 900 },
@@ -1383,7 +1402,8 @@ function showScriptureUnlock(scene, ref, text, onDone) {
     quantity: 18,
     blendMode: 'ADD',
     tint: [0xffe066, 0xffd27a, 0xffffff],
-  }).explode(22, W / 2, H - 40);
+  }, 221);
+  if (burstEmitter && typeof burstEmitter.explode === 'function') burstEmitter.explode(22, W / 2, H - 40);
 
   AudioEngine.sfx.chime();
 
@@ -2056,8 +2076,7 @@ class JerusalemScene extends Phaser.Scene {
       flame.setBlendMode(Phaser.BlendModes.SCREEN);
       this.tweens.add({ targets: flame, scale: 1.35, alpha: 0.6, duration: 220, yoyo: true, repeat: -1 });
       this._lighting.addLight(p.x, p.y - 20, 'light_warm_256', 0.7, 0.45, 0.28);
-      const smoke = this.add.particles(p.x, p.y - 22, 'particle_smoke').setDepth(5);
-      smoke.createEmitter({
+      createEmitterCompat(this, p.x, p.y - 22, 'particle_smoke', {
         speedY: { min: -10, max: -22 },
         speedX: { min: -6, max: 6 },
         lifespan: { min: 1400, max: 2200 },
@@ -2065,7 +2084,7 @@ class JerusalemScene extends Phaser.Scene {
         alpha: { start: 0.12, end: 0 },
         frequency: 220,
         tint: 0xaab6c4,
-      });
+      }, 5);
     });
 
     // Laban's house
@@ -2402,8 +2421,7 @@ class BrassPlatesScene extends Phaser.Scene {
 
       // Lighting + particles
       this._lighting.addLight(tx, 120, 'light_warm_256', 0.95, 0.55, 0.35);
-      const smoke = this.add.particles(tx, 110, 'particle_smoke').setDepth(5);
-      smoke.createEmitter({
+      createEmitterCompat(this, tx, 110, 'particle_smoke', {
         speedY: { min: -10, max: -26 },
         speedX: { min: -8, max: 8 },
         lifespan: { min: 1400, max: 2400 },
@@ -2411,7 +2429,7 @@ class BrassPlatesScene extends Phaser.Scene {
         alpha: { start: 0.14, end: 0 },
         frequency: 210,
         tint: 0xaab6c4,
-      });
+      }, 5);
     });
 
     // Shadow-safe pockets (darker floor regions).
@@ -2539,8 +2557,7 @@ class BrassPlatesScene extends Phaser.Scene {
       AudioEngine.sfx.whoosh();
       const px = this.input.activePointer.x;
       const py = this.input.activePointer.y;
-      const spark = this.add.particles(px, py, 'particle_spark').setDepth(50);
-      spark.createEmitter({
+      const { particles: spark, emitter: sparkEmitter } = createEmitterCompat(this, px, py, 'particle_spark', {
         speed: { min: 40, max: 140 },
         lifespan: { min: 300, max: 650 },
         scale: { start: 0.35, end: 0 },
@@ -2548,7 +2565,8 @@ class BrassPlatesScene extends Phaser.Scene {
         quantity: 10,
         blendMode: 'ADD',
         tint: [0xffffff, 0xffdd88],
-      }).explode(12, px, py);
+      }, 50);
+      if (sparkEmitter && typeof sparkEmitter.explode === 'function') sparkEmitter.explode(12, px, py);
       this.time.delayedCall(700, () => spark.destroy());
 
       // Nearest guard investigates (pauses patrol briefly).
@@ -2810,7 +2828,7 @@ class BattleScene extends Phaser.Scene {
       this.cameras.main.flash(300, 100, 200, 255);
       this.battleLog.setText(`You prayed and restored ${move.heal} faith!`);
       const glow = this.add.particles(220, 360, 'particle_spark').setDepth(60);
-      glow.createEmitter({
+      const { emitter: glowEmitter } = createEmitterCompat(this, 220, 360, 'particle_spark', {
         speed: { min: 40, max: 140 },
         angle: { min: 220, max: 320 },
         lifespan: { min: 450, max: 950 },
@@ -2819,7 +2837,8 @@ class BattleScene extends Phaser.Scene {
         quantity: 10,
         blendMode: 'ADD',
         tint: [0xffe066, 0xffffff],
-      }).explode(18, 220, 360);
+      }, 60);
+      if (glowEmitter && typeof glowEmitter.explode === 'function') glowEmitter.explode(18, 220, 360);
       this.time.delayedCall(900, () => glow.destroy());
       this.updateBars();
       this.time.delayedCall(1200, () => this.enemyTurn());
@@ -2841,8 +2860,7 @@ class BattleScene extends Phaser.Scene {
     this.battleLog.setText(`${message} Dealt ${damage} damage!`);
     AudioEngine.sfx.whoosh();
 
-    const hit = this.add.particles(this.enemy.sprite.x, this.enemy.sprite.y, 'particle_spark').setDepth(60);
-    hit.createEmitter({
+    const { particles: hit, emitter: hitEmitter } = createEmitterCompat(this, this.enemy.sprite.x, this.enemy.sprite.y, 'particle_spark', {
       speed: { min: 80, max: 240 },
       lifespan: { min: 280, max: 650 },
       scale: { start: 0.45, end: 0 },
@@ -2850,7 +2868,8 @@ class BattleScene extends Phaser.Scene {
       quantity: 14,
       blendMode: 'ADD',
       tint: [0xffe066, 0xffffff, 0xffaa44],
-    }).explode(18, this.enemy.sprite.x, this.enemy.sprite.y);
+    }, 60);
+    if (hitEmitter && typeof hitEmitter.explode === 'function') hitEmitter.explode(18, this.enemy.sprite.x, this.enemy.sprite.y);
     this.time.delayedCall(700, () => hit.destroy());
 
     this.tweens.add({
@@ -2882,8 +2901,7 @@ class BattleScene extends Phaser.Scene {
     this.battleLog.setText(`${attack.msg} Lost ${damage} faith.`);
 
     this.cameras.main.shake(200, 0.005);
-    const m = this.add.particles(220, 380, 'particle_smoke').setDepth(55);
-    m.createEmitter({
+    const { particles: m, emitter: mEmitter } = createEmitterCompat(this, 220, 380, 'particle_smoke', {
       speed: { min: 40, max: 90 },
       angle: { min: 20, max: 160 },
       lifespan: { min: 600, max: 1200 },
@@ -2891,7 +2909,8 @@ class BattleScene extends Phaser.Scene {
       alpha: { start: 0.18, end: 0 },
       quantity: 10,
       tint: 0x99aacc,
-    }).explode(12, 220, 380);
+    }, 55);
+    if (mEmitter && typeof mEmitter.explode === 'function') mEmitter.explode(12, 220, 380);
     this.time.delayedCall(900, () => m.destroy());
     this.updateBars();
 
@@ -2969,8 +2988,7 @@ class IronRodScene extends Phaser.Scene {
     this._lighting.setAmbient(0.48);
 
     // Dream-world particles (soft blue drift).
-    const ether = this.add.particles(0, 0, 'particle_dot').setDepth(2);
-    ether.createEmitter({
+    createEmitterCompat(this, 0, 0, 'particle_dot', {
       x: { min: 0, max: worldW },
       y: { min: 0, max: worldH },
       lifespan: { min: 4000, max: 6500 },
@@ -2981,7 +2999,7 @@ class IronRodScene extends Phaser.Scene {
       frequency: 80,
       tint: [0xbfdcff, 0x99bbff, 0xffffff],
       blendMode: 'ADD',
-    });
+    }, 2);
 
     // Dreamy dark background
     this.add.rectangle(worldW/2, worldH/2, worldW, worldH, COLORS.nightBlue);
@@ -3032,8 +3050,7 @@ class IronRodScene extends Phaser.Scene {
       this.mists.push({ x: mx, clouds: mistGroup });
 
       // Flowing mist layer (breathing motion).
-      const flow = this.add.particles(mx, worldH - 130, 'particle_smoke').setDepth(3);
-      flow.createEmitter({
+      createEmitterCompat(this, mx, worldH - 130, 'particle_smoke', {
         x: { min: mx - 140, max: mx + 140 },
         y: { min: worldH - 230, max: worldH - 40 },
         lifespan: { min: 2600, max: 5200 },
@@ -3044,7 +3061,7 @@ class IronRodScene extends Phaser.Scene {
         frequency: 140,
         tint: 0x99aacc,
         blendMode: 'NORMAL',
-      });
+      }, 3);
     });
 
     // Great and spacious building
@@ -3113,8 +3130,7 @@ class IronRodScene extends Phaser.Scene {
     // Tree of Life constant shimmer (white/silver particles).
     this._lighting.addLight(treeX, worldH - 190, 'light_white_256', 1.8, 0.16, 0.03);
     this._lighting.addLight(treeX, worldH - 190, 'light_gold_256', 1.5, 0.08, 0.02);
-    const treeParts = this.add.particles(treeX, worldH - 210, 'particle_dot').setDepth(6);
-    treeParts.createEmitter({
+    createEmitterCompat(this, treeX, worldH - 210, 'particle_dot', {
       x: { min: treeX - 40, max: treeX + 40 },
       y: { min: worldH - 220, max: worldH - 160 },
       lifespan: { min: 2200, max: 3800 },
@@ -3125,7 +3141,7 @@ class IronRodScene extends Phaser.Scene {
       frequency: 70,
       tint: [0xffffff, 0xe6f2ff, 0xfff4cc],
       blendMode: 'ADD',
-    });
+    }, 6);
 
     // Player sprite
     if (this.textures.exists('player')) {
