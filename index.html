@@ -73,45 +73,502 @@ function gainFP(amount) {
   }
 }
 
-// --- HELPER: Draw pixel character ---
-function drawCharacter(scene, x, y, color, hairColor, size = 1) {
-  const g = scene.add.graphics();
-  const s = size;
-  // Body
-  g.fillStyle(color); g.fillRect(x - 6*s, y - 8*s, 12*s, 16*s);
-  // Head
-  g.fillStyle(0xf5cba7); g.fillRect(x - 5*s, y - 20*s, 10*s, 12*s);
-  // Hair
-  g.fillStyle(hairColor); g.fillRect(x - 6*s, y - 22*s, 12*s, 5*s);
-  // Eyes
-  g.fillStyle(0x000000); g.fillRect(x - 3*s, y - 16*s, 2*s, 2*s);
-  g.fillRect(x + 1*s, y - 16*s, 2*s, 2*s);
-  // Legs
-  g.fillStyle(COLORS.brown); g.fillRect(x - 5*s, y + 8*s, 4*s, 6*s);
-  g.fillRect(x + 1*s, y + 8*s, 4*s, 6*s);
-  return g;
+// ============================================================
+// PIXEL ART SPRITE GENERATION SYSTEM
+// Characters are drawn onto canvas textures at 2x pixel scale
+// for a chunky retro RPG look with 600 BC clothing
+// ============================================================
+
+function hexToRGB(hex) {
+  return { r: (hex >> 16) & 0xff, g: (hex >> 8) & 0xff, b: hex & 0xff };
 }
+
+function darken(hex, amt = 40) {
+  const c = hexToRGB(hex);
+  return Phaser.Display.Color.GetColor(
+    Math.max(0, c.r - amt), Math.max(0, c.g - amt), Math.max(0, c.b - amt)
+  );
+}
+
+function lighten(hex, amt = 40) {
+  const c = hexToRGB(hex);
+  return Phaser.Display.Color.GetColor(
+    Math.min(255, c.r + amt), Math.min(255, c.g + amt), Math.min(255, c.b + amt)
+  );
+}
+
+// Draw a pixel on a graphics object at 2x scale
+function px(g, x, y, color, alpha = 1) {
+  g.fillStyle(color, alpha);
+  g.fillRect(x * 2, y * 2, 2, 2);
+}
+
+// Generate a character texture and register it with the scene
+function generateCharacterTexture(scene, key, config) {
+  const {
+    skinTone = 0xd4a574,     // Middle Eastern olive/tan skin
+    hairColor = 0x2c1810,    // Dark brown/black hair
+    hairStyle = 'short',     // short, long, bald
+    beardStyle = 'none',     // none, short, long, prophet
+    robeColor = 0x8B7355,    // Main robe color
+    robeAccent = 0x6B5335,   // Robe trim/belt
+    cloakColor = null,       // Optional outer cloak
+    headwear = 'none',       // none, headband, turban, hood
+    headwearColor = 0xffd700,
+    sandals = 0x8B6914,
+    hasStaff = false,
+    staffColor = 0x8B6914,
+    hasSword = false,
+    isArmored = false,
+    armorColor = 0x708090,
+    eyeColor = 0x3D2B1F,
+    expression = 'neutral',  // neutral, brave, wise, kind
+    accessory = 'none',      // none, scroll, plates
+    accessoryColor = 0xffd700,
+  } = config;
+
+  const sprW = 32, sprH = 48; // sprite dimensions in 2x pixels
+  const g = scene.make.graphics({ x: 0, y: 0, add: false });
+
+  const skinDark = darken(skinTone, 30);
+  const skinLight = lighten(skinTone, 20);
+  const robeDark = darken(robeColor, 30);
+  const robeLight = lighten(robeColor, 30);
+  const hairDark = darken(hairColor, 20);
+
+  // === SANDALS (bottom) ===
+  px(g, 5, 22, sandals); px(g, 6, 22, sandals); px(g, 7, 22, sandals);
+  px(g, 9, 22, sandals); px(g, 10, 22, sandals); px(g, 11, 22, sandals);
+  px(g, 5, 23, darken(sandals)); px(g, 6, 23, sandals); px(g, 7, 23, darken(sandals));
+  px(g, 9, 23, darken(sandals)); px(g, 10, 23, sandals); px(g, 11, 23, darken(sandals));
+
+  // === LEGS (showing below robe) ===
+  px(g, 6, 20, skinTone); px(g, 7, 20, skinTone);
+  px(g, 6, 21, skinTone); px(g, 7, 21, skinDark);
+  px(g, 9, 20, skinTone); px(g, 10, 20, skinTone);
+  px(g, 9, 21, skinDark); px(g, 10, 21, skinTone);
+
+  // === ROBE (main body) ===
+  // Lower robe (wider, flowing)
+  for (let y = 16; y <= 19; y++) {
+    for (let x = 4; x <= 12; x++) {
+      const c = (x === 4 || x === 12) ? robeDark : (x === 8 ? robeLight : robeColor);
+      px(g, x, y, c);
+    }
+  }
+  // Robe hem detail
+  for (let x = 4; x <= 12; x++) {
+    px(g, x, 19, (x % 2 === 0) ? robeAccent : robeDark);
+  }
+
+  // Upper robe / torso
+  for (let y = 10; y <= 15; y++) {
+    for (let x = 5; x <= 11; x++) {
+      const c = (x === 5 || x === 11) ? robeDark : robeColor;
+      px(g, x, y, c);
+    }
+  }
+
+  // Belt/sash
+  for (let x = 5; x <= 11; x++) {
+    px(g, x, 14, robeAccent);
+  }
+  px(g, 8, 15, robeAccent); // belt hanging bit
+
+  // Neckline / collar
+  px(g, 7, 10, skinTone); px(g, 8, 10, skinTone); px(g, 9, 10, skinTone);
+
+  // === CLOAK (if specified) ===
+  if (cloakColor) {
+    const cloakDark = darken(cloakColor, 25);
+    // Left cloak drape
+    px(g, 3, 11, cloakColor); px(g, 4, 11, cloakColor);
+    px(g, 3, 12, cloakColor); px(g, 3, 13, cloakDark);
+    px(g, 3, 14, cloakColor); px(g, 3, 15, cloakDark);
+    px(g, 3, 16, cloakColor); px(g, 4, 16, cloakDark);
+    // Right cloak drape
+    px(g, 12, 11, cloakColor); px(g, 13, 11, cloakColor);
+    px(g, 13, 12, cloakColor); px(g, 13, 13, cloakDark);
+    px(g, 13, 14, cloakColor); px(g, 13, 15, cloakDark);
+    px(g, 13, 16, cloakColor); px(g, 12, 16, cloakDark);
+    // Shoulders
+    px(g, 4, 10, cloakColor); px(g, 5, 10, cloakColor);
+    px(g, 11, 10, cloakColor); px(g, 12, 10, cloakColor);
+  }
+
+  // === ARMS ===
+  // Left arm
+  px(g, 4, 11, robeColor); px(g, 3, 12, robeColor); px(g, 3, 13, robeColor);
+  px(g, 3, 14, skinTone); // hand
+  // Right arm
+  px(g, 12, 11, robeColor); px(g, 13, 12, robeColor); px(g, 13, 13, robeColor);
+  px(g, 13, 14, skinTone); // hand
+
+  // === ARMOR (if specified) ===
+  if (isArmored) {
+    const armorLight = lighten(armorColor, 30);
+    for (let y = 11; y <= 13; y++) {
+      for (let x = 6; x <= 10; x++) {
+        px(g, x, y, (y === 12 && x === 8) ? armorLight : armorColor);
+      }
+    }
+    // Shoulder guards
+    px(g, 4, 10, armorColor); px(g, 5, 10, armorLight);
+    px(g, 11, 10, armorLight); px(g, 12, 10, armorColor);
+  }
+
+  // === HEAD ===
+  // Face shape (round-ish)
+  for (let y = 4; y <= 9; y++) {
+    for (let x = 6; x <= 10; x++) {
+      if (y === 4 && (x === 6 || x === 10)) continue; // round top corners
+      if (y === 9 && (x === 6 || x === 10)) continue; // round chin
+      px(g, x, y, skinTone);
+    }
+  }
+  // Jaw/chin shading
+  px(g, 7, 9, skinDark); px(g, 8, 9, skinTone); px(g, 9, 9, skinDark);
+
+  // === EYES ===
+  // Eye whites
+  px(g, 7, 6, 0xffffff); px(g, 9, 6, 0xffffff);
+  // Pupils
+  px(g, 7, 6, eyeColor); px(g, 9, 6, eyeColor);
+  // Eyebrows
+  px(g, 7, 5, hairColor); px(g, 9, 5, hairColor);
+
+  // Expression variations
+  if (expression === 'brave') {
+    px(g, 6, 5, hairColor); px(g, 10, 5, hairColor); // strong brows
+  } else if (expression === 'wise') {
+    px(g, 7, 5, hairDark); px(g, 9, 5, hairDark);
+  } else if (expression === 'kind') {
+    // slight smile
+    px(g, 7, 8, darken(skinTone, 50)); px(g, 8, 8, darken(skinTone, 60)); px(g, 9, 8, darken(skinTone, 50));
+  }
+
+  // Nose
+  px(g, 8, 7, skinDark);
+
+  // Mouth
+  px(g, 8, 8, darken(skinTone, 45));
+
+  // Ears
+  px(g, 6, 6, skinDark); px(g, 10, 6, skinDark);
+
+  // === HAIR ===
+  if (hairStyle === 'short') {
+    for (let x = 6; x <= 10; x++) px(g, x, 3, hairColor);
+    px(g, 6, 4, hairColor); px(g, 10, 4, hairColor);
+    px(g, 6, 5, hairDark); px(g, 10, 5, hairDark);
+  } else if (hairStyle === 'long') {
+    for (let x = 5; x <= 11; x++) px(g, x, 3, hairColor);
+    px(g, 5, 4, hairColor); px(g, 6, 4, hairColor); px(g, 10, 4, hairColor); px(g, 11, 4, hairColor);
+    px(g, 5, 5, hairDark); px(g, 11, 5, hairDark);
+    px(g, 5, 6, hairColor); px(g, 11, 6, hairColor);
+    px(g, 5, 7, hairDark); px(g, 11, 7, hairDark);
+    px(g, 5, 8, hairColor); px(g, 11, 8, hairColor);
+  } else if (hairStyle === 'bald') {
+    for (let x = 7; x <= 9; x++) px(g, x, 3, skinLight);
+    px(g, 6, 4, skinLight); px(g, 10, 4, skinLight);
+  }
+
+  // === BEARD ===
+  if (beardStyle === 'short') {
+    px(g, 7, 9, hairColor); px(g, 8, 9, hairColor); px(g, 9, 9, hairColor);
+    px(g, 8, 10, hairColor);
+  } else if (beardStyle === 'long') {
+    px(g, 7, 9, hairColor); px(g, 8, 9, hairColor); px(g, 9, 9, hairColor);
+    px(g, 7, 10, hairColor); px(g, 8, 10, hairColor); px(g, 9, 10, hairColor);
+    px(g, 8, 11, hairDark);
+  } else if (beardStyle === 'prophet') {
+    px(g, 6, 8, hairColor); px(g, 10, 8, hairColor);
+    px(g, 6, 9, hairColor); px(g, 7, 9, hairColor); px(g, 8, 9, hairColor);
+    px(g, 9, 9, hairColor); px(g, 10, 9, hairColor);
+    px(g, 7, 10, hairColor); px(g, 8, 10, hairColor); px(g, 9, 10, hairColor);
+    px(g, 7, 11, hairDark); px(g, 8, 11, hairColor); px(g, 9, 11, hairDark);
+    px(g, 8, 12, hairDark);
+  }
+
+  // === HEADWEAR ===
+  if (headwear === 'headband') {
+    for (let x = 6; x <= 10; x++) px(g, x, 4, headwearColor);
+    px(g, 5, 4, headwearColor);
+    px(g, 11, 4, headwearColor);
+  } else if (headwear === 'turban') {
+    for (let x = 5; x <= 11; x++) px(g, x, 2, headwearColor);
+    for (let x = 5; x <= 11; x++) px(g, x, 3, lighten(headwearColor, 15));
+    for (let x = 6; x <= 10; x++) px(g, x, 4, headwearColor);
+    px(g, 5, 4, darken(headwearColor, 15)); px(g, 11, 4, darken(headwearColor, 15));
+  } else if (headwear === 'hood') {
+    for (let x = 5; x <= 11; x++) px(g, x, 2, headwearColor);
+    for (let x = 5; x <= 11; x++) px(g, x, 3, darken(headwearColor, 15));
+    px(g, 5, 4, headwearColor); px(g, 11, 4, headwearColor);
+    px(g, 5, 5, darken(headwearColor, 15)); px(g, 11, 5, darken(headwearColor, 15));
+    px(g, 5, 6, headwearColor);
+  }
+
+  // === STAFF ===
+  if (hasStaff) {
+    for (let y = 3; y <= 22; y++) {
+      px(g, 14, y, staffColor);
+    }
+    px(g, 14, 2, lighten(staffColor, 30));
+    px(g, 15, 2, lighten(staffColor, 30));
+  }
+
+  // === SWORD ===
+  if (hasSword) {
+    // Sword on hip
+    px(g, 13, 14, 0xaaaaaa); px(g, 14, 15, 0xcccccc); px(g, 14, 16, 0xcccccc);
+    px(g, 14, 17, 0xdddddd); px(g, 14, 18, 0xcccccc);
+    px(g, 13, 13, 0x8B6914); px(g, 14, 13, 0x8B6914); // hilt
+  }
+
+  // === ACCESSORY ===
+  if (accessory === 'scroll') {
+    px(g, 2, 13, accessoryColor); px(g, 2, 14, accessoryColor);
+    px(g, 2, 15, lighten(accessoryColor, 30));
+  } else if (accessory === 'plates') {
+    px(g, 1, 13, accessoryColor); px(g, 2, 13, accessoryColor);
+    px(g, 1, 14, darken(accessoryColor)); px(g, 2, 14, accessoryColor);
+    px(g, 1, 15, accessoryColor); px(g, 2, 15, darken(accessoryColor));
+    px(g, 1, 16, darken(accessoryColor)); px(g, 2, 16, accessoryColor);
+  }
+
+  g.generateTexture(key, sprW, sprH);
+  g.destroy();
+}
+
+// Generate the "Doubt" enemy sprite
+function generateDoubtTexture(scene, key) {
+  const g = scene.make.graphics({ x: 0, y: 0, add: false });
+  const sprW = 48, sprH = 56;
+
+  // Shadowy amorphous body
+  const base = 0x556677;
+  const dark = 0x334455;
+  const light = 0x778899;
+
+  // Main ghostly body
+  for (let y = 8; y <= 24; y++) {
+    const width = Math.floor(8 + Math.sin((y - 8) / 16 * Math.PI) * 6);
+    for (let x = 12 - width/2; x <= 12 + width/2; x++) {
+      const wobble = Math.sin(x * 0.5 + y * 0.3) > 0 ? base : dark;
+      px(g, Math.floor(x), y, wobble, 0.8);
+    }
+  }
+
+  // Wisps/tendrils at bottom
+  for (let t = 0; t < 5; t++) {
+    const tx = 8 + t * 3;
+    for (let y = 22; y <= 26; y++) {
+      px(g, tx + (y % 2), y, dark, 0.4 - (y - 22) * 0.08);
+    }
+  }
+
+  // Face - hollow eyes
+  px(g, 10, 13, 0x000000); px(g, 11, 13, 0x000000);
+  px(g, 14, 13, 0x000000); px(g, 15, 13, 0x000000);
+  px(g, 10, 14, 0x111122); px(g, 11, 14, 0x000000);
+  px(g, 14, 14, 0x000000); px(g, 15, 14, 0x111122);
+
+  // Eerie glowing pupils
+  px(g, 10, 13, 0x99aacc); px(g, 14, 13, 0x99aacc);
+
+  // Gaping question-mark mouth
+  px(g, 11, 17, dark); px(g, 12, 17, 0x223344); px(g, 13, 17, dark);
+  px(g, 12, 18, 0x223344);
+  px(g, 12, 16, light);
+
+  // ? symbol faintly
+  px(g, 12, 9, light); px(g, 13, 9, light);
+  px(g, 13, 10, light); px(g, 12, 11, light);
+  px(g, 12, 12, 0x000000); // gap
+  // dot
+  px(g, 12, 13, 0x000000);
+
+  // Horns/dark wisps on top
+  px(g, 9, 7, dark); px(g, 8, 6, dark);
+  px(g, 15, 7, dark); px(g, 16, 6, dark);
+
+  g.generateTexture(key, sprW, sprH);
+  g.destroy();
+}
+
+// Generate guard sprite (armored)
+function generateGuardTexture(scene, key) {
+  generateCharacterTexture(scene, key, {
+    skinTone: 0xc49a6c,
+    hairColor: 0x1a1a1a,
+    hairStyle: 'short',
+    beardStyle: 'short',
+    robeColor: 0x8B0000,
+    robeAccent: 0x5c0000,
+    isArmored: true,
+    armorColor: 0x808080,
+    hasSword: true,
+    headwear: 'headband',
+    headwearColor: 0x8B0000,
+    expression: 'brave',
+  });
+}
+
+// Pre-generate all character textures
+function generateAllSprites(scene) {
+  // Player (young traveler)
+  generateCharacterTexture(scene, 'player', {
+    skinTone: 0xd4a574,
+    hairColor: 0x3d2b1f,
+    hairStyle: 'short',
+    beardStyle: 'none',
+    robeColor: 0x5b8c5a,    // Green tunic
+    robeAccent: 0x3d6b3c,
+    headwear: 'headband',
+    headwearColor: 0x8B7355,
+    expression: 'brave',
+  });
+
+  // Nephi (young, strong, faithful)
+  generateCharacterTexture(scene, 'nephi', {
+    skinTone: 0xc49a6c,
+    hairColor: 0x1a1208,
+    hairStyle: 'short',
+    beardStyle: 'short',
+    robeColor: 0x2c6fbb,    // Blue robe
+    robeAccent: 0x1a4d8f,
+    headwear: 'headband',
+    headwearColor: 0xdaa520,
+    hasSword: true,
+    expression: 'brave',
+  });
+
+  // Lehi (elderly prophet)
+  generateCharacterTexture(scene, 'lehi', {
+    skinTone: 0xc49a6c,
+    hairColor: 0xaaaaaa,     // Gray hair
+    hairStyle: 'long',
+    beardStyle: 'prophet',
+    robeColor: 0x6b4e8a,    // Purple/royal robe
+    robeAccent: 0x4a3568,
+    cloakColor: 0x8B7355,
+    hasStaff: true,
+    expression: 'wise',
+  });
+
+  // Guard
+  generateGuardTexture(scene, 'guard');
+
+  // Battle-size player (larger)
+  generateCharacterTexture(scene, 'player_battle', {
+    skinTone: 0xd4a574,
+    hairColor: 0x3d2b1f,
+    hairStyle: 'short',
+    beardStyle: 'none',
+    robeColor: 0x5b8c5a,
+    robeAccent: 0x3d6b3c,
+    headwear: 'headband',
+    headwearColor: 0x8B7355,
+    expression: 'brave',
+  });
+
+  // Battle-size Nephi
+  generateCharacterTexture(scene, 'nephi_battle', {
+    skinTone: 0xc49a6c,
+    hairColor: 0x1a1208,
+    hairStyle: 'short',
+    beardStyle: 'short',
+    robeColor: 0x2c6fbb,
+    robeAccent: 0x1a4d8f,
+    headwear: 'headband',
+    headwearColor: 0xdaa520,
+    hasSword: true,
+    expression: 'brave',
+  });
+
+  // Doubt enemy
+  generateDoubtTexture(scene, 'doubt');
+
+  // Sariah (Lehi's wife)
+  generateCharacterTexture(scene, 'sariah', {
+    skinTone: 0xd4a574,
+    hairColor: 0x2c1810,
+    hairStyle: 'long',
+    beardStyle: 'none',
+    robeColor: 0xb87333,    // Copper-colored robe
+    robeAccent: 0x8b5a2b,
+    headwear: 'hood',
+    headwearColor: 0xdeb887,
+    expression: 'kind',
+  });
+
+  // Sam (Nephi's brother)
+  generateCharacterTexture(scene, 'sam', {
+    skinTone: 0xc49a6c,
+    hairColor: 0x1a1208,
+    hairStyle: 'short',
+    beardStyle: 'none',
+    robeColor: 0x8b7355,
+    robeAccent: 0x6b5335,
+    expression: 'kind',
+  });
+
+  // Laman (rebellious brother)
+  generateCharacterTexture(scene, 'laman', {
+    skinTone: 0xc49a6c,
+    hairColor: 0x1a1208,
+    hairStyle: 'short',
+    beardStyle: 'short',
+    robeColor: 0x8b2500,    // Dark red robe
+    robeAccent: 0x5c1a00,
+    expression: 'brave',
+    headwear: 'headband',
+    headwearColor: 0x5c1a00,
+  });
+}
+
 
 // --- HELPER: Dialogue box ---
 function showDialogue(scene, speaker, text, onComplete, options) {
-  const bg = scene.add.rectangle(W/2, H - 80, W - 40, 140, 0x000000, 0.85)
-    .setStrokeStyle(2, COLORS.gold).setDepth(100);
-  const nameText = scene.add.text(40, H - 145, speaker, {
+  // Speaker portrait
+  const portraitMap = {
+    'Nephi': 'nephi', 'Lehi': 'lehi', 'Sariah': 'sariah',
+    'Sam': 'sam', 'Laman': 'laman',
+  };
+
+  const bg = scene.add.rectangle(W/2, H - 80, W - 40, 140, 0x000000, 0.9)
+    .setStrokeStyle(2, COLORS.gold).setDepth(100).setScrollFactor(0);
+
+  let portraitSprite = null;
+  const portraitKey = portraitMap[speaker];
+  if (portraitKey && scene.textures.exists(portraitKey)) {
+    // Portrait background
+    const pBg = scene.add.rectangle(55, H - 80, 70, 70, 0x16213e, 0.8)
+      .setStrokeStyle(1, COLORS.gold).setDepth(101).setScrollFactor(0);
+    portraitSprite = scene.add.image(55, H - 80, portraitKey)
+      .setScale(1.4).setDepth(102).setScrollFactor(0);
+  }
+
+  const textX = portraitKey ? 100 : 40;
+  const nameText = scene.add.text(textX, H - 145, speaker, {
     fontSize: '16px', fontFamily: 'monospace', color: '#ffd700', fontStyle: 'bold'
-  }).setDepth(101);
+  }).setDepth(101).setScrollFactor(0);
 
   if (options) {
-    const lines = [];
     const optTexts = [];
+    const extraEls = [portraitSprite].filter(Boolean);
     options.forEach((opt, i) => {
-      const t = scene.add.text(60, H - 115 + i * 28, `► ${opt.text}`, {
+      const t = scene.add.text(textX + 10, H - 115 + i * 28, `► ${opt.text}`, {
         fontSize: '14px', fontFamily: 'monospace', color: '#ffffff'
-      }).setDepth(101).setInteractive({ useHandCursor: true });
+      }).setDepth(101).setInteractive({ useHandCursor: true }).setScrollFactor(0);
       t.on('pointerover', () => t.setColor('#ffd700'));
       t.on('pointerout', () => t.setColor('#ffffff'));
       t.on('pointerdown', () => {
         bg.destroy(); nameText.destroy();
         optTexts.forEach(ot => ot.destroy());
+        extraEls.forEach(e => e.destroy());
+        // destroy portrait bg
+        if (portraitKey) bg.parentContainer; // handled by destroying all
         if (opt.onSelect) opt.onSelect();
       });
       optTexts.push(t);
@@ -119,12 +576,11 @@ function showDialogue(scene, speaker, text, onComplete, options) {
     return { bg, nameText, optTexts };
   }
 
-  const msgText = scene.add.text(40, H - 120, '', {
+  const msgText = scene.add.text(textX, H - 120, '', {
     fontSize: '14px', fontFamily: 'monospace', color: '#ffffff',
-    wordWrap: { width: W - 80 }, lineSpacing: 4
-  }).setDepth(101);
+    wordWrap: { width: W - textX - 60 }, lineSpacing: 4
+  }).setDepth(101).setScrollFactor(0);
 
-  // Typewriter effect
   let charIndex = 0;
   let typing = true;
   const timer = scene.time.addEvent({
@@ -137,11 +593,12 @@ function showDialogue(scene, speaker, text, onComplete, options) {
         timer.remove();
         const cont = scene.add.text(W - 80, H - 25, '▼ Continue', {
           fontSize: '12px', fontFamily: 'monospace', color: '#ffd700'
-        }).setDepth(101);
+        }).setDepth(101).setScrollFactor(0);
         scene.tweens.add({ targets: cont, alpha: 0.3, duration: 500, yoyo: true, repeat: -1 });
 
         const handler = () => {
           bg.destroy(); nameText.destroy(); msgText.destroy(); cont.destroy();
+          if (portraitSprite) portraitSprite.destroy();
           scene.input.off('pointerdown', handler);
           scene.input.keyboard.off('keydown-SPACE', handler);
           if (onComplete) onComplete();
@@ -153,12 +610,8 @@ function showDialogue(scene, speaker, text, onComplete, options) {
     loop: true
   });
 
-  // Click to skip typewriter
   const skipHandler = () => {
-    if (typing) {
-      charIndex = text.length;
-      msgText.setText(text);
-    }
+    if (typing) { charIndex = text.length; msgText.setText(text); }
   };
   scene.input.once('pointerdown', skipHandler);
 
@@ -170,29 +623,28 @@ function showScriptureUnlock(scene, ref, text, onDone) {
   if (!addScripture(ref, text)) { if (onDone) onDone(); return; }
   gainFP(25);
 
-  const overlay = scene.add.rectangle(W/2, H/2, W, H, 0x000000, 0.7).setDepth(200);
+  const overlay = scene.add.rectangle(W/2, H/2, W, H, 0x000000, 0.7).setDepth(200).setScrollFactor(0);
   const scroll = scene.add.rectangle(W/2, H/2, 500, 280, COLORS.cream, 0.95)
-    .setStrokeStyle(3, COLORS.gold).setDepth(201);
+    .setStrokeStyle(3, COLORS.gold).setDepth(201).setScrollFactor(0);
   const icon = scene.add.text(W/2, H/2 - 110, '📜', { fontSize: '40px' })
-    .setOrigin(0.5).setDepth(202);
+    .setOrigin(0.5).setDepth(202).setScrollFactor(0);
   const title = scene.add.text(W/2, H/2 - 70, 'SCRIPTURE UNLOCKED', {
     fontSize: '20px', fontFamily: 'monospace', color: '#b8860b', fontStyle: 'bold'
-  }).setOrigin(0.5).setDepth(202);
+  }).setOrigin(0.5).setDepth(202).setScrollFactor(0);
   const refText = scene.add.text(W/2, H/2 - 40, ref, {
     fontSize: '16px', fontFamily: 'monospace', color: '#8b4513', fontStyle: 'bold'
-  }).setOrigin(0.5).setDepth(202);
+  }).setOrigin(0.5).setDepth(202).setScrollFactor(0);
   const verseText = scene.add.text(W/2, H/2 + 10, `"${text}"`, {
     fontSize: '13px', fontFamily: 'monospace', color: '#333333',
     wordWrap: { width: 440 }, align: 'center', fontStyle: 'italic', lineSpacing: 4
-  }).setOrigin(0.5).setDepth(202);
+  }).setOrigin(0.5).setDepth(202).setScrollFactor(0);
   const fpText = scene.add.text(W/2, H/2 + 80, '+25 Faith Points', {
     fontSize: '14px', fontFamily: 'monospace', color: '#3498db'
-  }).setOrigin(0.5).setDepth(202);
+  }).setOrigin(0.5).setDepth(202).setScrollFactor(0);
   const cont = scene.add.text(W/2, H/2 + 115, 'Click to continue', {
     fontSize: '12px', fontFamily: 'monospace', color: '#888888'
-  }).setOrigin(0.5).setDepth(202);
+  }).setOrigin(0.5).setDepth(202).setScrollFactor(0);
 
-  // Animate in
   const els = [overlay, scroll, icon, title, refText, verseText, fpText, cont];
   scroll.setScale(0); icon.setAlpha(0);
   scene.tweens.add({ targets: scroll, scale: 1, duration: 400, ease: 'Back.easeOut' });
@@ -212,7 +664,6 @@ function createHUD(scene) {
   const hud = {};
   hud.bg = scene.add.rectangle(0, 0, W, 50, 0x000000, 0.7).setOrigin(0).setDepth(90).setScrollFactor(0);
 
-  // Faith meter
   hud.faithLabel = scene.add.text(10, 8, '✦ Faith', {
     fontSize: '11px', fontFamily: 'monospace', color: '#ffd700'
   }).setDepth(91).setScrollFactor(0);
@@ -223,7 +674,6 @@ function createHUD(scene) {
     fontSize: '11px', fontFamily: 'monospace', color: '#3498db'
   }).setDepth(91).setScrollFactor(0);
 
-  // Level & FP
   hud.levelText = scene.add.text(280, 8, `Lv.${GameState.level}`, {
     fontSize: '12px', fontFamily: 'monospace', color: '#ffd700', fontStyle: 'bold'
   }).setDepth(91).setScrollFactor(0);
@@ -231,21 +681,21 @@ function createHUD(scene) {
     fontSize: '10px', fontFamily: 'monospace', color: '#aaaaaa'
   }).setDepth(91).setScrollFactor(0);
 
-  // Companion
+  // Companion portrait in HUD
   if (GameState.companion) {
     hud.compBg = scene.add.rectangle(W - 160, 5, 150, 40, 0x16213e, 0.8)
       .setOrigin(0).setDepth(91).setScrollFactor(0).setStrokeStyle(1, COLORS.gold);
-    hud.compIcon = scene.add.rectangle(W - 148, 25, 20, 20, GameState.companion.color)
-      .setDepth(92).setScrollFactor(0);
-    hud.compName = scene.add.text(W - 132, 10, GameState.companion.name, {
+    if (scene.textures.exists('nephi')) {
+      hud.compIcon = scene.add.image(W - 140, 25, 'nephi').setDepth(92).setScrollFactor(0);
+    }
+    hud.compName = scene.add.text(W - 120, 10, GameState.companion.name, {
       fontSize: '11px', fontFamily: 'monospace', color: '#ffd700'
     }).setDepth(92).setScrollFactor(0);
-    hud.compTitle = scene.add.text(W - 132, 26, GameState.companion.title, {
+    hud.compTitle = scene.add.text(W - 120, 26, GameState.companion.title, {
       fontSize: '9px', fontFamily: 'monospace', color: '#aaaaaa'
     }).setDepth(92).setScrollFactor(0);
   }
 
-  // Scripture count
   hud.scriptureIcon = scene.add.text(W/2 - 40, 8, `📜 ${GameState.scriptures.length}`, {
     fontSize: '12px', fontFamily: 'monospace', color: '#ffd700'
   }).setDepth(91).setScrollFactor(0);
@@ -263,12 +713,18 @@ function createHUD(scene) {
 
 
 // ============================================================
-// SCENE: BOOT
+// SCENE: BOOT — Generate all sprite textures
 // ============================================================
 class BootScene extends Phaser.Scene {
   constructor() { super('Boot'); }
   create() {
-    // Quick fade in
+    this.add.text(W/2, H/2, 'Preparing the journey...', {
+      fontSize: '14px', fontFamily: 'monospace', color: '#aaaaaa'
+    }).setOrigin(0.5);
+
+    // Generate all pixel art character textures
+    generateAllSprites(this);
+
     this.cameras.main.fadeIn(500, 0, 0, 0);
     this.time.delayedCall(600, () => this.scene.start('Title'));
   }
@@ -283,7 +739,7 @@ class TitleScene extends Phaser.Scene {
 
   create() {
     this.cameras.main.fadeIn(1000, 0, 0, 0);
-    const bg = this.add.rectangle(W/2, H/2, W, H, COLORS.deepBlue);
+    this.add.rectangle(W/2, H/2, W, H, COLORS.deepBlue);
 
     // Stars
     for (let i = 0; i < 100; i++) {
@@ -301,42 +757,48 @@ class TitleScene extends Phaser.Scene {
     const mountains = this.add.graphics();
     mountains.fillStyle(0x1a1a3e);
     mountains.beginPath();
-    mountains.moveTo(0, H);
-    mountains.lineTo(0, 380); mountains.lineTo(100, 320); mountains.lineTo(200, 370);
-    mountains.lineTo(280, 290); mountains.lineTo(380, 350); mountains.lineTo(450, 280);
-    mountains.lineTo(550, 340); mountains.lineTo(620, 300); mountains.lineTo(720, 360);
-    mountains.lineTo(800, 330); mountains.lineTo(800, H);
+    mountains.moveTo(0, H); mountains.lineTo(0, 380); mountains.lineTo(100, 320);
+    mountains.lineTo(200, 370); mountains.lineTo(280, 290); mountains.lineTo(380, 350);
+    mountains.lineTo(450, 280); mountains.lineTo(550, 340); mountains.lineTo(620, 300);
+    mountains.lineTo(720, 360); mountains.lineTo(800, 330); mountains.lineTo(800, H);
     mountains.closePath(); mountains.fill();
 
     // Ground
-    const ground = this.add.graphics();
-    ground.fillStyle(COLORS.darkSand, 0.3);
-    ground.fillRect(0, H - 100, W, 100);
+    this.add.rectangle(W/2, H - 50, W, 100, COLORS.darkSand, 0.3);
+
+    // Character lineup on title screen
+    const chars = ['lehi', 'nephi', 'player', 'sam', 'sariah'];
+    chars.forEach((c, i) => {
+      if (this.textures.exists(c)) {
+        const spr = this.add.image(240 + i * 80, 420, c).setScale(2.5);
+        spr.setAlpha(0);
+        this.tweens.add({ targets: spr, alpha: 0.7, duration: 500, delay: 800 + i * 200 });
+        this.tweens.add({ targets: spr, y: 418, duration: 2000 + i * 300, yoyo: true, repeat: -1 });
+      }
+    });
 
     // Golden plate effect
-    const plate = this.add.rectangle(W/2, 180, 200, 240, COLORS.gold, 0.15)
+    const plate = this.add.rectangle(W/2, 180, 200, 240, COLORS.gold, 0.12)
       .setStrokeStyle(2, COLORS.gold);
-    this.tweens.add({ targets: plate, alpha: 0.3, duration: 2000, yoyo: true, repeat: -1 });
+    this.tweens.add({ targets: plate, alpha: 0.25, duration: 2000, yoyo: true, repeat: -1 });
 
     // Title
-    const titleMain = this.add.text(W/2, 140, 'THE BOOK OF MORMON', {
+    this.add.text(W/2, 140, 'THE BOOK OF MORMON', {
       fontSize: '36px', fontFamily: 'monospace', color: '#ffd700', fontStyle: 'bold',
       stroke: '#8b6914', strokeThickness: 3
     }).setOrigin(0.5);
 
-    const subtitle = this.add.text(W/2, 185, 'An Interactive Journey', {
+    this.add.text(W/2, 185, 'An Interactive Journey', {
       fontSize: '18px', fontFamily: 'monospace', color: '#c0a060', fontStyle: 'italic'
     }).setOrigin(0.5);
 
-    const subtitle2 = this.add.text(W/2, 215, 'Another Testament of Jesus Christ', {
+    this.add.text(W/2, 215, 'Another Testament of Jesus Christ', {
       fontSize: '13px', fontFamily: 'monospace', color: '#8899aa'
     }).setOrigin(0.5);
 
-    // Glowing line
     const line = this.add.rectangle(W/2, 245, 300, 2, COLORS.gold, 0.5);
     this.tweens.add({ targets: line, scaleX: 0.5, duration: 2000, yoyo: true, repeat: -1 });
 
-    // World info
     this.add.text(W/2, 290, 'WORLD 1: THE FAMILY OF LEHI', {
       fontSize: '14px', fontFamily: 'monospace', color: '#6b8e23'
     }).setOrigin(0.5);
@@ -344,26 +806,19 @@ class TitleScene extends Phaser.Scene {
       fontSize: '11px', fontFamily: 'monospace', color: '#888888'
     }).setOrigin(0.5);
 
-    // Press Start
-    const startText = this.add.text(W/2, 400, '► PRESS START ◄', {
+    const startText = this.add.text(W/2, 500, '► PRESS START ◄', {
       fontSize: '22px', fontFamily: 'monospace', color: '#ffffff', fontStyle: 'bold'
     }).setOrigin(0.5).setInteractive({ useHandCursor: true });
     this.tweens.add({ targets: startText, alpha: 0.3, duration: 800, yoyo: true, repeat: -1 });
 
-    startText.on('pointerdown', () => {
+    const startGame = () => {
       this.cameras.main.fadeOut(500, 0, 0, 0);
       this.time.delayedCall(500, () => this.scene.start('WorldMap'));
-    });
-    this.input.keyboard.on('keydown-SPACE', () => {
-      this.cameras.main.fadeOut(500, 0, 0, 0);
-      this.time.delayedCall(500, () => this.scene.start('WorldMap'));
-    });
-    this.input.keyboard.on('keydown-ENTER', () => {
-      this.cameras.main.fadeOut(500, 0, 0, 0);
-      this.time.delayedCall(500, () => this.scene.start('WorldMap'));
-    });
+    };
+    startText.on('pointerdown', startGame);
+    this.input.keyboard.on('keydown-SPACE', startGame);
+    this.input.keyboard.on('keydown-ENTER', startGame);
 
-    // Bottom credits
     this.add.text(W/2, H - 50, 'A faithful retelling of the sacred record', {
       fontSize: '10px', fontFamily: 'monospace', color: '#556677'
     }).setOrigin(0.5);
@@ -383,8 +838,6 @@ class WorldMapScene extends Phaser.Scene {
   create() {
     this.cameras.main.fadeIn(500);
     this.add.rectangle(W/2, H/2, W, H, COLORS.deepBlue);
-
-    // Map background - ancient parchment style
     this.add.rectangle(W/2, H/2, W - 60, H - 60, COLORS.sand, 0.2)
       .setStrokeStyle(2, COLORS.gold);
 
@@ -392,7 +845,6 @@ class WorldMapScene extends Phaser.Scene {
       fontSize: '20px', fontFamily: 'monospace', color: '#ffd700', fontStyle: 'bold'
     }).setOrigin(0.5);
 
-    // World locations
     const worlds = [
       { x: 600, y: 120, name: 'Jerusalem', sub: 'World 1: The Family of Lehi', active: true, scene: 'Jerusalem' },
       { x: 200, y: 200, name: 'Wilderness', sub: 'The journey south', active: false },
@@ -402,7 +854,6 @@ class WorldMapScene extends Phaser.Scene {
       { x: 650, y: 400, name: 'Land of Nephi', sub: 'World 5+', active: false },
     ];
 
-    // Draw paths
     const paths = this.add.graphics();
     paths.lineStyle(2, COLORS.gold, 0.3);
     paths.beginPath();
@@ -411,7 +862,6 @@ class WorldMapScene extends Phaser.Scene {
     paths.lineTo(500, 350); paths.lineTo(650, 400);
     paths.strokePath();
 
-    // Draw dotted sea path
     paths.lineStyle(1, COLORS.skyBlue, 0.3);
     for (let i = 0; i < 20; i++) {
       const t = i / 20;
@@ -433,27 +883,25 @@ class WorldMapScene extends Phaser.Scene {
           this.cameras.main.fadeOut(500);
           this.time.delayedCall(500, () => this.scene.start(w.scene));
         });
+        // Show player character on active world
+        if (this.textures.exists('player')) {
+          const p = this.add.image(w.x + 20, w.y, 'player').setScale(1.5);
+          this.tweens.add({ targets: p, y: w.y - 3, duration: 800, yoyo: true, repeat: -1 });
+        }
       }
 
-      const nameText = this.add.text(w.x, w.y + 22, w.name, {
+      this.add.text(w.x, w.y + 22, w.name, {
         fontSize: '12px', fontFamily: 'monospace', color: w.active ? '#ffd700' : '#666666', fontStyle: 'bold'
       }).setOrigin(0.5);
-
       this.add.text(w.x, w.y + 36, w.sub, {
         fontSize: '9px', fontFamily: 'monospace', color: w.active ? '#aaaaaa' : '#444444'
       }).setOrigin(0.5);
     });
 
-    // Player dot on Jerusalem
-    const playerDot = this.add.circle(600, 120, 6, COLORS.green);
-    this.tweens.add({ targets: playerDot, scale: 1.5, alpha: 0.5, duration: 600, yoyo: true, repeat: -1 });
-
-    // Instructions
     this.add.text(W/2, H - 40, 'Click on Jerusalem to begin your journey', {
       fontSize: '12px', fontFamily: 'monospace', color: '#aaaaaa'
     }).setOrigin(0.5);
 
-    // Compass rose
     this.add.text(W - 60, 80, '✦ N', { fontSize: '12px', fontFamily: 'monospace', color: '#ffd70066' }).setOrigin(0.5);
     this.add.text(W - 60, 110, 'S', { fontSize: '10px', fontFamily: 'monospace', color: '#ffd70033' }).setOrigin(0.5);
     this.add.text(W - 80, 95, 'W', { fontSize: '10px', fontFamily: 'monospace', color: '#ffd70033' }).setOrigin(0.5);
@@ -472,19 +920,24 @@ class JerusalemScene extends Phaser.Scene {
     this.cameras.main.fadeIn(800);
     GameState.companion = { name: 'Nephi', title: 'Son of Lehi', color: COLORS.faithBlue };
 
-    // Create world bounds
     const worldW = 1600, worldH = 900;
     this.physics.world.setBounds(0, 0, worldW, worldH);
     this.cameras.main.setBounds(0, 0, worldW, worldH);
 
-    // Sky gradient
+    // Sky
     this.add.rectangle(worldW/2, 0, worldW, 300, COLORS.nightBlue).setOrigin(0.5, 0);
     this.add.rectangle(worldW/2, 200, worldW, 200, 0x2c3e50).setOrigin(0.5, 0);
+
+    // Stars in sky
+    for (let i = 0; i < 50; i++) {
+      this.add.circle(Phaser.Math.Between(0, worldW), Phaser.Math.Between(0, 250),
+        1, 0xffffff, Phaser.Math.FloatBetween(0.3, 0.8));
+    }
 
     // Ground
     this.add.rectangle(worldW/2, worldH/2 + 100, worldW, worldH - 200, COLORS.sand).setOrigin(0.5, 0);
 
-    // Buildings - Jerusalem cityscape
+    // Buildings
     const buildings = [
       { x: 100, y: 400, w: 120, h: 160, color: COLORS.lightBrown },
       { x: 250, y: 350, w: 80, h: 210, color: COLORS.darkSand },
@@ -498,60 +951,105 @@ class JerusalemScene extends Phaser.Scene {
     ];
 
     buildings.forEach(b => {
-      const bld = this.add.rectangle(b.x, b.y, b.w, b.h, b.color).setOrigin(0, 0);
-      // Windows
+      this.add.rectangle(b.x, b.y, b.w, b.h, b.color).setOrigin(0, 0);
+      // Flat roof top
+      this.add.rectangle(b.x - 3, b.y, b.w + 6, 6, darken(b.color, 20)).setOrigin(0, 0);
       for (let wy = b.y + 20; wy < b.y + b.h - 20; wy += 35) {
         for (let wx = b.x + 15; wx < b.x + b.w - 15; wx += 25) {
           this.add.rectangle(wx, wy, 10, 14, 0xffdd88, 0.6);
         }
       }
+      // Doorway
+      this.add.rectangle(b.x + b.w/2, b.y + b.h - 20, 16, 24, darken(b.color, 40)).setOrigin(0.5, 0);
     });
 
-    // Temple of Solomon (big gold-topped building)
+    // Temple of Solomon
     this.add.rectangle(750, 280, 200, 280, 0xcdb891).setOrigin(0.5, 0);
     this.add.rectangle(750, 260, 220, 30, COLORS.gold).setOrigin(0.5, 0);
-    this.add.text(750, 270, 'Temple', { fontSize: '10px', fontFamily: 'monospace', color: '#333' }).setOrigin(0.5);
+    // Temple pillars
+    this.add.rectangle(660, 290, 10, 260, 0xb8a07a).setOrigin(0.5, 0);
+    this.add.rectangle(840, 290, 10, 260, 0xb8a07a).setOrigin(0.5, 0);
+    this.add.text(750, 270, 'Temple of Solomon', { fontSize: '10px', fontFamily: 'monospace', color: '#333' }).setOrigin(0.5);
 
-    // Laban's house (quest target)
-    const labansHouse = this.add.rectangle(1300, 420, 100, 140, 0x8B0000).setOrigin(0.5, 0);
+    // Laban's house
+    this.add.rectangle(1300, 420, 100, 140, 0x8B0000).setOrigin(0.5, 0);
     this.add.rectangle(1300, 410, 110, 15, COLORS.darkRed).setOrigin(0.5, 0);
-    const labanSign = this.add.text(1300, 500, 'Laban\'s\nTreasury', {
+    this.add.text(1300, 500, 'Laban\'s\nTreasury', {
       fontSize: '10px', fontFamily: 'monospace', color: '#ffaaaa', align: 'center'
     }).setOrigin(0.5);
+    // Guard at Laban's door
+    if (this.textures.exists('guard')) {
+      this.add.image(1260, 555, 'guard').setScale(1.5);
+      this.add.image(1340, 555, 'guard').setScale(1.5).setFlipX(true);
+    }
 
     // Ground path
     this.add.rectangle(worldW/2, 620, worldW, 40, COLORS.darkSand, 0.5);
 
-    // Trees / palms
+    // Palm trees (better drawn)
     [150, 480, 850, 1100, 1450].forEach(tx => {
-      this.add.rectangle(tx, 560, 8, 50, COLORS.brown);
-      this.add.circle(tx, 540, 20, COLORS.olive, 0.8);
+      // Trunk (curved)
+      const trunk = this.add.graphics();
+      trunk.fillStyle(0x8B6914);
+      trunk.fillRect(tx - 3, 530, 6, 60);
+      trunk.fillRect(tx - 2, 525, 4, 10);
+      // Palm fronds
+      const fronds = this.add.graphics();
+      fronds.fillStyle(COLORS.olive);
+      for (let f = 0; f < 6; f++) {
+        const angle = (f / 6) * Math.PI * 2;
+        const fx = tx + Math.cos(angle) * 22;
+        const fy = 520 + Math.sin(angle) * 10;
+        fronds.fillEllipse(fx, fy, 18, 6);
+      }
     });
 
-    // Player
-    this.player = this.add.rectangle(200, 620, 20, 28, COLORS.green).setOrigin(0.5, 1);
+    // === NPC: Nephi (with proper sprite) ===
+    if (this.textures.exists('nephi')) {
+      this.nephiSprite = this.add.image(350, 610, 'nephi').setScale(2).setDepth(10);
+      const nephiGlow = this.add.circle(350, 612, 22, COLORS.faithBlue, 0.08);
+      this.tweens.add({ targets: nephiGlow, scale: 1.8, alpha: 0, duration: 2000, repeat: -1 });
+    }
+    this.add.text(350, 580, 'Nephi', { fontSize: '10px', fontFamily: 'monospace', color: '#ffd700' }).setOrigin(0.5).setDepth(11);
+
+    // === NPC: Lehi ===
+    if (this.textures.exists('lehi')) {
+      this.lehiSprite = this.add.image(500, 610, 'lehi').setScale(2).setDepth(10);
+    }
+    this.add.text(500, 580, 'Lehi', { fontSize: '10px', fontFamily: 'monospace', color: '#ffd700' }).setOrigin(0.5).setDepth(11);
+
+    // === NPC: Sariah ===
+    if (this.textures.exists('sariah')) {
+      this.add.image(560, 610, 'sariah').setScale(2).setDepth(10);
+      this.add.text(560, 580, 'Sariah', { fontSize: '9px', fontFamily: 'monospace', color: '#ccaa88' }).setOrigin(0.5).setDepth(11);
+    }
+
+    // === NPC: Sam ===
+    if (this.textures.exists('sam')) {
+      this.add.image(420, 610, 'sam').setScale(2).setDepth(10);
+      this.add.text(420, 580, 'Sam', { fontSize: '9px', fontFamily: 'monospace', color: '#ccaa88' }).setOrigin(0.5).setDepth(11);
+    }
+
+    // === NPC: Laman (in distance, brooding) ===
+    if (this.textures.exists('laman')) {
+      const lamanSpr = this.add.image(650, 612, 'laman').setScale(1.8).setDepth(9).setAlpha(0.75);
+      this.add.text(650, 582, 'Laman', { fontSize: '9px', fontFamily: 'monospace', color: '#cc6666' }).setOrigin(0.5).setDepth(11);
+    }
+
+    // === PLAYER (with sprite) ===
+    if (this.textures.exists('player')) {
+      this.player = this.add.image(200, 612, 'player').setScale(2).setDepth(15);
+    } else {
+      this.player = this.add.rectangle(200, 620, 20, 28, COLORS.green).setOrigin(0.5, 1);
+    }
     this.physics.add.existing(this.player);
     this.player.body.setCollideWorldBounds(true);
+    // Adjust physics body for sprite
+    this.player.body.setSize(20, 30);
+    this.player.body.setOffset(this.player.width/2 - 10, this.player.height/2 - 10);
     this.cameras.main.startFollow(this.player, true, 0.08, 0.08);
 
-    // Player face
-    this.playerFace = this.add.circle(200, 592, 8, 0xf5cba7).setDepth(5);
-    this.playerEye1 = this.add.rectangle(197, 590, 2, 2, 0x000000).setDepth(6);
-    this.playerEye2 = this.add.rectangle(203, 590, 2, 2, 0x000000).setDepth(6);
-
-    // Nephi NPC
-    this.nephi = this.add.rectangle(350, 620, 20, 28, COLORS.faithBlue).setOrigin(0.5, 1);
-    this.add.circle(350, 592, 8, 0xf5cba7);
-    this.add.text(350, 575, 'Nephi', { fontSize: '10px', fontFamily: 'monospace', color: '#ffd700' }).setOrigin(0.5);
-    const nephiGlow = this.add.circle(350, 610, 30, COLORS.faithBlue, 0.1);
-    this.tweens.add({ targets: nephiGlow, scale: 1.5, alpha: 0, duration: 1500, repeat: -1 });
-
-    // Lehi NPC
-    this.add.rectangle(500, 620, 20, 28, COLORS.purple).setOrigin(0.5, 1);
-    this.add.circle(500, 592, 8, 0xf5cba7);
-    this.add.text(500, 575, 'Lehi', { fontSize: '10px', fontFamily: 'monospace', color: '#ffd700' }).setOrigin(0.5);
-
-    // Quest markers
+    // Quest marker
     if (!GameState.brassPlatesObtained) {
       this.questMarker = this.add.text(1300, 390, '❗', { fontSize: '24px' }).setOrigin(0.5);
       this.tweens.add({ targets: this.questMarker, y: 380, duration: 600, yoyo: true, repeat: -1 });
@@ -566,12 +1064,11 @@ class JerusalemScene extends Phaser.Scene {
     this.ironRodZone = this.add.zone(50, 600, 60, 60);
     this.physics.add.existing(this.ironRodZone, true);
 
-    // Battle zone (random encounter area)
+    // Zones
     this.battleZone = this.add.zone(900, 620, 200, 60);
     this.physics.add.existing(this.battleZone, true);
     this.battleTriggered = false;
 
-    // NPCs interaction zones
     this.nephiZone = this.add.zone(350, 610, 60, 60);
     this.physics.add.existing(this.nephiZone, true);
     this.lehiZone = this.add.zone(500, 610, 60, 60);
@@ -579,7 +1076,6 @@ class JerusalemScene extends Phaser.Scene {
     this.labanZone = this.add.zone(1300, 530, 100, 60);
     this.physics.add.existing(this.labanZone, true);
 
-    // Overlaps
     this.physics.add.overlap(this.player, this.nephiZone, () => this.nearNephi = true);
     this.physics.add.overlap(this.player, this.lehiZone, () => this.nearLehi = true);
     this.physics.add.overlap(this.player, this.labanZone, () => this.nearLaban = true);
@@ -591,15 +1087,12 @@ class JerusalemScene extends Phaser.Scene {
       }
     });
 
-    // Input
     this.cursors = this.input.keyboard.createCursorKeys();
     this.spaceKey = this.input.keyboard.addKey('SPACE');
     this.interactCooldown = 0;
 
-    // HUD
     this.hud = createHUD(this);
 
-    // Interaction prompt
     this.interactPrompt = this.add.text(0, 0, 'Press SPACE', {
       fontSize: '10px', fontFamily: 'monospace', color: '#ffd700',
       backgroundColor: '#00000088', padding: { x: 4, y: 2 }
@@ -644,20 +1137,26 @@ class JerusalemScene extends Phaser.Scene {
     this.nearLaban = false;
     this.nearIronRod = false;
 
-    // Movement
     const speed = 160;
     this.player.body.setVelocity(0);
-    if (this.cursors.left.isDown) this.player.body.setVelocityX(-speed);
-    if (this.cursors.right.isDown) this.player.body.setVelocityX(speed);
+    if (this.cursors.left.isDown) {
+      this.player.body.setVelocityX(-speed);
+      this.player.setFlipX(true);
+    }
+    if (this.cursors.right.isDown) {
+      this.player.body.setVelocityX(speed);
+      this.player.setFlipX(false);
+    }
     if (this.cursors.up.isDown) this.player.body.setVelocityY(-speed);
     if (this.cursors.down.isDown) this.player.body.setVelocityY(speed);
 
-    // Update player face position
-    this.playerFace.setPosition(this.player.x, this.player.y - 28);
-    this.playerEye1.setPosition(this.player.x - 3, this.player.y - 30);
-    this.playerEye2.setPosition(this.player.x + 3, this.player.y - 30);
+    // Walking bob animation
+    if (this.player.body.velocity.x !== 0 || this.player.body.velocity.y !== 0) {
+      this.player.setScale(2, 2 + Math.sin(time * 0.01) * 0.05);
+    } else {
+      this.player.setScale(2);
+    }
 
-    // Interaction prompt
     this.interactPrompt.setVisible(false);
     if (this.nearNephi) {
       this.interactPrompt.setPosition(350, 565).setVisible(true);
@@ -669,7 +1168,6 @@ class JerusalemScene extends Phaser.Scene {
       this.interactPrompt.setPosition(50, 570).setVisible(true);
     }
 
-    // Interactions
     if (this.interactCooldown > 0) this.interactCooldown -= delta;
     if (Phaser.Input.Keyboard.JustDown(this.spaceKey) && this.interactCooldown <= 0) {
       this.interactCooldown = 500;
@@ -720,20 +1218,26 @@ class BrassPlatesScene extends Phaser.Scene {
 
     // Dark interior
     this.add.rectangle(W/2, H/2, W, H, 0x1a0a0a);
-
-    // Room layout
     this.add.rectangle(W/2, H/2, W - 40, H - 80, 0x2a1a0a).setStrokeStyle(2, 0x4a2a0a);
 
+    // Stone floor tiles
+    for (let fy = 80; fy < H - 40; fy += 40) {
+      for (let fx = 30; fx < W - 30; fx += 40) {
+        this.add.rectangle(fx + 20, fy + 20, 38, 38, 0x332211, 0.3).setStrokeStyle(1, 0x221100, 0.2);
+      }
+    }
+
     // Torches
-    [60, W - 60].forEach(tx => {
-      this.add.rectangle(tx, 200, 6, 30, COLORS.brown);
-      const flame = this.add.circle(tx, 185, 8, 0xff6600, 0.8);
-      this.tweens.add({ targets: flame, scale: 1.3, alpha: 0.5, duration: 300, yoyo: true, repeat: -1 });
-      // Light radius
-      this.add.circle(tx, 200, 60, 0xffaa00, 0.05);
+    [60, W - 60, W/2].forEach(tx => {
+      this.add.rectangle(tx, 130, 4, 24, COLORS.brown);
+      const flame = this.add.circle(tx, 118, 6, 0xff6600, 0.9);
+      const flameInner = this.add.circle(tx, 116, 3, 0xffdd00, 0.9);
+      this.tweens.add({ targets: flame, scale: 1.4, alpha: 0.5, duration: 250, yoyo: true, repeat: -1 });
+      this.tweens.add({ targets: flameInner, scale: 1.3, alpha: 0.6, duration: 200, yoyo: true, repeat: -1, delay: 100 });
+      this.add.circle(tx, 140, 50, 0xffaa00, 0.04);
     });
 
-    // Guards (red rectangles)
+    // Guards with proper sprites
     this.guards = [];
     const guardPositions = [
       { x: 250, y: 250, patrol: 'h', range: 100 },
@@ -741,10 +1245,14 @@ class BrassPlatesScene extends Phaser.Scene {
       { x: 600, y: 200, patrol: 'h', range: 120 },
     ];
     guardPositions.forEach(gp => {
-      const guard = this.add.rectangle(gp.x, gp.y, 16, 24, COLORS.red);
-      this.add.text(gp.x, gp.y - 20, '⚔️', { fontSize: '12px' }).setOrigin(0.5);
-      // Vision cone
-      const vision = this.add.circle(gp.x, gp.y, 50, COLORS.red, 0.1);
+      let guard;
+      if (this.textures.exists('guard')) {
+        guard = this.add.image(gp.x, gp.y, 'guard').setScale(1.5);
+      } else {
+        guard = this.add.rectangle(gp.x, gp.y, 16, 24, COLORS.red);
+      }
+      // Vision cone (subtle red glow)
+      const vision = this.add.circle(gp.x, gp.y, 45, COLORS.red, 0.08);
 
       if (gp.patrol === 'h') {
         this.tweens.add({ targets: [guard, vision], x: gp.x + gp.range, duration: 2000, yoyo: true, repeat: -1 });
@@ -761,21 +1269,25 @@ class BrassPlatesScene extends Phaser.Scene {
     const plateGlow = this.add.circle(680, 120, 25, COLORS.gold, 0.15);
     this.tweens.add({ targets: plateGlow, scale: 2, alpha: 0, duration: 1500, repeat: -1 });
 
-    // Player
-    this.player = this.add.rectangle(100, H - 100, 16, 22, COLORS.green).setOrigin(0.5, 1);
+    // Player sprite
+    if (this.textures.exists('player')) {
+      this.player = this.add.image(100, H - 100, 'player').setScale(1.5);
+    } else {
+      this.player = this.add.rectangle(100, H - 100, 16, 22, COLORS.green).setOrigin(0.5, 1);
+    }
     this.physics.add.existing(this.player);
+    this.player.body.setSize(16, 22);
 
-    // Obstacles (tables, pillars)
+    // Obstacles (pillars and tables)
     [
       { x: 200, y: 180, w: 80, h: 20 },
       { x: 400, y: 280, w: 20, h: 80 },
       { x: 350, y: 150, w: 60, h: 20 },
       { x: 550, y: 300, w: 20, h: 60 },
     ].forEach(ob => {
-      this.add.rectangle(ob.x, ob.y, ob.w, ob.h, 0x4a2a0a);
+      this.add.rectangle(ob.x, ob.y, ob.w, ob.h, 0x4a2a0a).setStrokeStyle(1, 0x3a1a00);
     });
 
-    // Instructions
     this.add.text(W/2, H - 30, 'Sneak past the guards to reach the brass plates! Arrow keys to move.', {
       fontSize: '11px', fontFamily: 'monospace', color: '#aa8866'
     }).setOrigin(0.5);
@@ -784,7 +1296,6 @@ class BrassPlatesScene extends Phaser.Scene {
       fontSize: '16px', fontFamily: 'monospace', color: '#8b4513', fontStyle: 'bold'
     }).setOrigin(0.5);
 
-    // Status text
     this.statusText = this.add.text(W/2, H - 50, '', {
       fontSize: '12px', fontFamily: 'monospace', color: '#ff6666'
     }).setOrigin(0.5);
@@ -799,12 +1310,11 @@ class BrassPlatesScene extends Phaser.Scene {
 
     const speed = 120;
     this.player.body.setVelocity(0);
-    if (this.cursors.left.isDown) this.player.body.setVelocityX(-speed);
-    if (this.cursors.right.isDown) this.player.body.setVelocityX(speed);
+    if (this.cursors.left.isDown) { this.player.body.setVelocityX(-speed); this.player.setFlipX && this.player.setFlipX(true); }
+    if (this.cursors.right.isDown) { this.player.body.setVelocityX(speed); this.player.setFlipX && this.player.setFlipX(false); }
     if (this.cursors.up.isDown) this.player.body.setVelocityY(-speed);
     if (this.cursors.down.isDown) this.player.body.setVelocityY(speed);
 
-    // Check guard detection
     this.guards.forEach(g => {
       const dist = Phaser.Math.Distance.Between(
         this.player.x, this.player.y, g.sprite.x, g.sprite.y
@@ -821,7 +1331,6 @@ class BrassPlatesScene extends Phaser.Scene {
       }
     });
 
-    // Check plate pickup
     const plateDist = Phaser.Math.Distance.Between(
       this.player.x, this.player.y, this.plates.x, this.plates.y
     );
@@ -861,68 +1370,76 @@ class BattleScene extends Phaser.Scene {
   create() {
     this.cameras.main.fadeIn(300);
 
-    // Background
+    // Background - desert battlefield
     this.add.rectangle(W/2, H/2, W, H, 0x1a1a2e);
-    this.add.rectangle(W/2, H - 150, W, 300, COLORS.darkSand, 0.3);
+    // Sandy ground with gradient
+    this.add.rectangle(W/2, H - 150, W, 300, COLORS.darkSand, 0.4);
+    this.add.rectangle(W/2, H - 200, W, 100, COLORS.sand, 0.15);
 
     // Enemy platform
-    this.add.ellipse(580, 220, 200, 40, COLORS.darkSand, 0.5);
+    this.add.ellipse(580, 240, 180, 35, COLORS.darkSand, 0.6);
 
     // Player platform
-    this.add.ellipse(220, 380, 200, 40, COLORS.darkSand, 0.5);
+    this.add.ellipse(220, 400, 180, 35, COLORS.darkSand, 0.6);
 
-    // Enemy: Doubt
+    // Enemy: Doubt (use generated sprite)
     this.enemy = {
       name: 'Doubt', hp: 80, maxHp: 80,
       weakness: 'testimony',
-      sprite: this.add.rectangle(580, 180, 50, 60, COLORS.mist).setStrokeStyle(2, 0x556677)
     };
-    // Doubt face
-    this.add.text(580, 160, '?', {
-      fontSize: '30px', fontFamily: 'monospace', color: '#334455', fontStyle: 'bold'
-    }).setOrigin(0.5);
-    // Shadow tendrils
-    for (let i = 0; i < 5; i++) {
-      const tendril = this.add.rectangle(
-        580 + Phaser.Math.Between(-30, 30), 210 + i * 5,
-        Phaser.Math.Between(8, 20), 4, COLORS.mist, 0.4
-      );
-      this.tweens.add({ targets: tendril, x: tendril.x + Phaser.Math.Between(-15, 15), alpha: 0.1, duration: 1000 + i * 200, yoyo: true, repeat: -1 });
+
+    if (this.textures.exists('doubt')) {
+      this.enemy.sprite = this.add.image(580, 200, 'doubt').setScale(2.5);
+    } else {
+      this.enemy.sprite = this.add.rectangle(580, 200, 50, 60, COLORS.mist).setStrokeStyle(2, 0x556677);
     }
 
-    // Doubt description
-    this.add.text(580, 250, 'A wild DOUBT appeared!', {
+    // Shadow tendrils around doubt
+    for (let i = 0; i < 8; i++) {
+      const tendril = this.add.ellipse(
+        580 + Phaser.Math.Between(-40, 40), 230 + i * 4,
+        Phaser.Math.Between(10, 25), 4, COLORS.mist, 0.3
+      );
+      this.tweens.add({
+        targets: tendril,
+        x: tendril.x + Phaser.Math.Between(-20, 20),
+        alpha: 0.05, duration: 1200 + i * 200,
+        yoyo: true, repeat: -1
+      });
+    }
+
+    this.add.text(580, 270, 'A wild DOUBT appeared!', {
       fontSize: '12px', fontFamily: 'monospace', color: '#aabbcc'
     }).setOrigin(0.5);
 
-    // Player sprite
-    this.add.rectangle(220, 350, 30, 40, COLORS.green);
-    this.add.circle(220, 325, 12, 0xf5cba7);
-    // Nephi companion behind
-    this.add.rectangle(160, 370, 24, 32, COLORS.faithBlue).setAlpha(0.8);
-    this.add.circle(160, 350, 10, 0xf5cba7).setAlpha(0.8);
+    // Player characters in battle (larger sprites)
+    if (this.textures.exists('player_battle')) {
+      this.add.image(230, 370, 'player_battle').setScale(3);
+    }
+    if (this.textures.exists('nephi_battle')) {
+      this.add.image(170, 375, 'nephi_battle').setScale(2.5).setAlpha(0.9);
+    }
 
     // Enemy HP bar
-    this.add.rectangle(580, 130, 160, 10, 0x333333).setStrokeStyle(1, 0x555555);
-    this.enemyHpBar = this.add.rectangle(502, 126, 156, 6, COLORS.red).setOrigin(0);
-    this.add.text(580, 115, 'DOUBT', {
+    this.add.rectangle(580, 140, 164, 14, 0x222222).setStrokeStyle(1, 0x555555);
+    this.enemyHpBar = this.add.rectangle(500, 134, 156, 8, COLORS.red).setOrigin(0);
+    this.add.text(580, 122, 'DOUBT', {
       fontSize: '12px', fontFamily: 'monospace', color: '#aabbcc', fontStyle: 'bold'
     }).setOrigin(0.5);
-    this.enemyHpText = this.add.text(665, 126, `${this.enemy.hp}/${this.enemy.maxHp}`, {
+    this.enemyHpText = this.add.text(665, 131, `${this.enemy.hp}/${this.enemy.maxHp}`, {
       fontSize: '10px', fontFamily: 'monospace', color: '#cccccc'
     });
 
     // Player HP bar
-    this.add.rectangle(220, 420, 160, 10, 0x333333).setStrokeStyle(1, 0x555555);
-    this.playerHpBar = this.add.rectangle(142, 416, 156, 6, COLORS.green).setOrigin(0);
-    this.add.text(220, 405, `${GameState.playerName} & Nephi`, {
+    this.add.rectangle(220, 430, 164, 14, 0x222222).setStrokeStyle(1, 0x555555);
+    this.playerHpBar = this.add.rectangle(140, 424, 156, 8, COLORS.green).setOrigin(0);
+    this.add.text(220, 415, `${GameState.playerName} & Nephi`, {
       fontSize: '12px', fontFamily: 'monospace', color: '#ffd700', fontStyle: 'bold'
     }).setOrigin(0.5);
-    this.playerHpText = this.add.text(305, 416, `${GameState.faith}/${GameState.maxFaith}`, {
+    this.playerHpText = this.add.text(305, 421, `${GameState.faith}/${GameState.maxFaith}`, {
       fontSize: '10px', fontFamily: 'monospace', color: '#cccccc'
     });
 
-    // Battle menu
     this.createBattleMenu();
     this.battleLog = this.add.text(W/2, H - 30, '', {
       fontSize: '11px', fontFamily: 'monospace', color: '#aaaaaa'
@@ -933,7 +1450,7 @@ class BattleScene extends Phaser.Scene {
   }
 
   createBattleMenu() {
-    const menuBg = this.add.rectangle(W/2, H - 95, W - 40, 120, 0x000000, 0.85)
+    this.add.rectangle(W/2, H - 95, W - 40, 120, 0x000000, 0.85)
       .setStrokeStyle(2, COLORS.gold).setDepth(40);
 
     this.menuItems = [];
@@ -962,9 +1479,7 @@ class BattleScene extends Phaser.Scene {
       btn.on('pointerover', () => btn.setFillStyle(0x2a3a5e));
       btn.on('pointerout', () => btn.setFillStyle(0x16213e, 0.8));
       btn.on('pointerdown', () => {
-        if (this.playerTurn && !this.animating) {
-          this.playerAttack(move);
-        }
+        if (this.playerTurn && !this.animating) this.playerAttack(move);
       });
       this.menuItems.push({ btn, txt, descTxt });
     });
@@ -975,7 +1490,6 @@ class BattleScene extends Phaser.Scene {
     this.playerTurn = false;
 
     if (move.heal) {
-      // Healing move
       GameState.faith = Math.min(GameState.faith + move.heal, GameState.maxFaith);
       this.cameras.main.flash(300, 100, 200, 255);
       this.battleLog.setText(`You prayed and restored ${move.heal} faith!`);
@@ -987,20 +1501,17 @@ class BattleScene extends Phaser.Scene {
     let damage = move.power + Math.floor(GameState[move.stat] / 5);
     let message = `Used ${move.name}!`;
 
-    // Super effective against doubt (testimony moves)
     if (move.superEffective === 'testimony') {
       damage = Math.floor(damage * 1.8);
       message += ' It\'s super effective against Doubt!';
     }
 
-    // Random variance
     damage = Math.floor(damage * (0.85 + Math.random() * 0.3));
     if (damage < 1) damage = 1;
 
     this.enemy.hp = Math.max(0, this.enemy.hp - damage);
     this.battleLog.setText(`${message} Dealt ${damage} damage!`);
 
-    // Hit animation
     this.tweens.add({
       targets: this.enemy.sprite, x: this.enemy.sprite.x + 10, duration: 50,
       yoyo: true, repeat: 3
@@ -1066,7 +1577,6 @@ class BattleScene extends Phaser.Scene {
     addJournal('Overcame Doubt through faith and testimony');
     GameState.faith = Math.min(GameState.faith + 20, GameState.maxFaith);
 
-    // Fade out enemy
     this.tweens.add({ targets: this.enemy.sprite, alpha: 0, scale: 0, duration: 800 });
 
     this.battleLog.setText('');
@@ -1108,32 +1618,36 @@ class IronRodScene extends Phaser.Scene {
       this.tweens.add({ targets: star, alpha: 0.1, duration: Phaser.Math.Between(500, 2000), yoyo: true, repeat: -1 });
     }
 
-    // The path
-    const ground = this.add.rectangle(worldW/2, worldH - 30, worldW, 60, COLORS.darkSand, 0.3);
+    // Ground path
+    this.add.rectangle(worldW/2, worldH - 30, worldW, 60, COLORS.darkSand, 0.3);
 
-    // THE IRON ROD — running along the path
+    // THE IRON ROD
     for (let rx = 0; rx < worldW - 200; rx += 4) {
       this.add.rectangle(rx, worldH - 65, 4, 6, COLORS.iron, 0.7);
     }
-    this.add.text(80, worldH - 85, '═══ The Iron Rod ═══', {
+    // Iron rod posts
+    for (let rx = 0; rx < worldW - 200; rx += 80) {
+      this.add.rectangle(rx, worldH - 75, 4, 20, COLORS.iron, 0.8);
+    }
+    this.add.text(80, worldH - 90, '═══ The Iron Rod (Word of God) ═══', {
       fontSize: '10px', fontFamily: 'monospace', color: '#708090'
     });
 
-    // Mists of Darkness (obstacles)
+    // Mists of Darkness
     this.mists = [];
     const mistPositions = [400, 700, 1000, 1300, 1600, 1900];
     mistPositions.forEach(mx => {
       const mistGroup = [];
-      for (let i = 0; i < 8; i++) {
-        const mist = this.add.circle(
-          mx + Phaser.Math.Between(-80, 80),
-          Phaser.Math.Between(worldH - 200, worldH - 50),
-          Phaser.Math.Between(30, 70),
-          COLORS.mist, Phaser.Math.FloatBetween(0.15, 0.35)
+      for (let i = 0; i < 10; i++) {
+        const mist = this.add.ellipse(
+          mx + Phaser.Math.Between(-90, 90),
+          Phaser.Math.Between(worldH - 220, worldH - 40),
+          Phaser.Math.Between(40, 100), Phaser.Math.Between(20, 50),
+          COLORS.mist, Phaser.Math.FloatBetween(0.12, 0.3)
         );
         this.tweens.add({
-          targets: mist, x: mist.x + Phaser.Math.Between(-40, 40),
-          alpha: mist.alpha * 0.3, duration: Phaser.Math.Between(2000, 4000),
+          targets: mist, x: mist.x + Phaser.Math.Between(-50, 50),
+          alpha: mist.alpha * 0.2, duration: Phaser.Math.Between(2000, 5000),
           yoyo: true, repeat: -1
         });
         mistGroup.push(mist);
@@ -1141,57 +1655,79 @@ class IronRodScene extends Phaser.Scene {
       this.mists.push({ x: mx, clouds: mistGroup });
     });
 
-    // Distractions — "Great and spacious building"
-    const building = this.add.rectangle(1200, 150, 300, 180, 0x4a3728)
-      .setStrokeStyle(2, 0x6a5738);
+    // Great and spacious building
+    const bldg = this.add.rectangle(1200, 150, 300, 180, 0x4a3728).setStrokeStyle(2, 0x6a5738);
+    // Windows with people silhouettes
     for (let wy = 80; wy < 280; wy += 30) {
       for (let wx = 1070; wx < 1330; wx += 35) {
         this.add.rectangle(wx, wy, 12, 16, 0xffdd88, 0.5);
+        // Tiny person silhouette in window
+        if (Math.random() > 0.5) {
+          this.add.rectangle(wx, wy + 4, 4, 8, 0x2a1a0a, 0.4);
+        }
       }
     }
-    this.add.text(1200, 100, 'The Great &\nSpacious Building', {
+    // Pillars
+    this.add.rectangle(1055, 150, 8, 180, 0x6a5738);
+    this.add.rectangle(1345, 150, 8, 180, 0x6a5738);
+
+    this.add.text(1200, 70, 'The Great &\nSpacious Building', {
       fontSize: '11px', fontFamily: 'monospace', color: '#aa8866', align: 'center', fontStyle: 'italic'
     }).setOrigin(0.5);
-    // People mocking
-    this.add.text(1200, 250, '🫵 😂 🫵', { fontSize: '16px' }).setOrigin(0.5);
-    const mockText = this.add.text(1200, 275, '"Come join us! This path is foolish!"', {
+
+    // People mocking from building
+    const mockText = this.add.text(1200, 270, '"Come join us! This path is foolish!"', {
       fontSize: '9px', fontFamily: 'monospace', color: '#cc9966', fontStyle: 'italic'
     }).setOrigin(0.5);
     this.tweens.add({ targets: mockText, alpha: 0.3, duration: 1500, yoyo: true, repeat: -1 });
 
-    // THE TREE OF LIFE — at the end
+    // People who wandered off the path (lost souls)
+    if (this.textures.exists('laman')) {
+      const lost1 = this.add.image(1180, 300, 'laman').setScale(1.2).setAlpha(0.4);
+      this.add.text(1180, 320, '(lost in mist)', { fontSize: '8px', fontFamily: 'monospace', color: '#666666' }).setOrigin(0.5);
+    }
+
+    // THE TREE OF LIFE
     const treeX = worldW - 150;
     // Trunk
-    this.add.rectangle(treeX, worldH - 120, 20, 100, 0x8B6914);
+    this.add.rectangle(treeX, worldH - 120, 16, 80, 0xB8860B);
+    this.add.rectangle(treeX - 4, worldH - 130, 8, 20, 0x8B6914);
+    this.add.rectangle(treeX + 4, worldH - 125, 6, 15, 0x8B6914);
     // Branches
-    this.add.circle(treeX, worldH - 180, 60, COLORS.treeGold, 0.3);
-    this.add.circle(treeX, worldH - 200, 45, COLORS.treeGold, 0.5);
-    this.add.circle(treeX, worldH - 190, 50, 0xffffff, 0.2);
+    this.add.rectangle(treeX - 20, worldH - 165, 30, 6, 0x8B6914);
+    this.add.rectangle(treeX + 15, worldH - 175, 25, 5, 0x8B6914);
+    // Canopy (radiant white/gold)
+    this.add.circle(treeX, worldH - 190, 55, COLORS.treeGold, 0.25);
+    this.add.circle(treeX - 15, worldH - 200, 35, 0xffffff, 0.2);
+    this.add.circle(treeX + 15, worldH - 185, 40, COLORS.treeGold, 0.3);
+    this.add.circle(treeX, worldH - 210, 30, 0xffffff, 0.25);
     // Glowing fruit
-    for (let i = 0; i < 12; i++) {
-      const angle = (i / 12) * Math.PI * 2;
+    for (let i = 0; i < 15; i++) {
+      const angle = (i / 15) * Math.PI * 2;
       const fr = this.add.circle(
-        treeX + Math.cos(angle) * 35,
-        worldH - 190 + Math.sin(angle) * 30,
-        5, 0xffffff, 0.9
+        treeX + Math.cos(angle) * (20 + Math.random() * 20),
+        worldH - 195 + Math.sin(angle) * (15 + Math.random() * 15),
+        4, 0xffffff, 0.95
       );
-      this.tweens.add({ targets: fr, scale: 1.3, alpha: 0.4, duration: 1000 + i * 100, yoyo: true, repeat: -1 });
+      this.tweens.add({ targets: fr, scale: 1.5, alpha: 0.3, duration: 800 + i * 120, yoyo: true, repeat: -1 });
     }
-    // Tree label
-    this.add.text(treeX, worldH - 260, '🌳 Tree of Life', {
+    this.add.text(treeX, worldH - 265, '🌳 Tree of Life', {
       fontSize: '14px', fontFamily: 'monospace', color: '#ffe066', fontStyle: 'bold'
     }).setOrigin(0.5);
-    // Radiant glow
-    const treeGlow = this.add.circle(treeX, worldH - 180, 100, 0xffffff, 0.05);
-    this.tweens.add({ targets: treeGlow, scale: 2, alpha: 0, duration: 3000, repeat: -1 });
+    const treeGlow = this.add.circle(treeX, worldH - 190, 90, 0xffffff, 0.06);
+    this.tweens.add({ targets: treeGlow, scale: 2.5, alpha: 0, duration: 3000, repeat: -1 });
 
-    // Player
-    this.player = this.add.rectangle(60, worldH - 65, 16, 22, COLORS.green).setOrigin(0.5, 1);
+    // Player sprite
+    if (this.textures.exists('player')) {
+      this.player = this.add.image(60, worldH - 65, 'player').setScale(2).setDepth(10);
+    } else {
+      this.player = this.add.rectangle(60, worldH - 65, 16, 22, COLORS.green).setOrigin(0.5, 1);
+    }
     this.physics.add.existing(this.player);
     this.player.body.setCollideWorldBounds(true);
+    this.player.body.setSize(16, 22);
     this.cameras.main.startFollow(this.player, true, 0.08, 0.08);
 
-    // Faith meter for this level
     this.visionFaith = 100;
     this.holdingRod = true;
     this.faithLabel = this.add.text(10, 10, 'Hold to the Rod: ✦ 100', {
@@ -1202,14 +1738,12 @@ class IronRodScene extends Phaser.Scene {
       fontSize: '10px', fontFamily: 'monospace', color: '#aaaaaa'
     }).setOrigin(0.5).setScrollFactor(0).setDepth(100);
 
-    // Tree zone
     this.treeZone = this.add.zone(treeX, worldH - 150, 80, 120);
     this.physics.add.existing(this.treeZone, true);
     this.reachedTree = false;
 
     this.cursors = this.input.keyboard.createCursorKeys();
 
-    // Intro dialogue
     showDialogue(this, 'Lehi', 'In my dream, I saw a tree whose fruit was most desirable above all things. Hold to the iron rod — the word of God — and it will lead you through the mists of darkness to the tree of life. Do not let go!');
   }
 
@@ -1218,21 +1752,18 @@ class IronRodScene extends Phaser.Scene {
 
     const speed = 140;
     this.player.body.setVelocity(0);
-    if (this.cursors.left.isDown) this.player.body.setVelocityX(-speed);
-    if (this.cursors.right.isDown) this.player.body.setVelocityX(speed);
+    if (this.cursors.left.isDown) { this.player.body.setVelocityX(-speed); this.player.setFlipX && this.player.setFlipX(true); }
+    if (this.cursors.right.isDown) { this.player.body.setVelocityX(speed); this.player.setFlipX && this.player.setFlipX(false); }
     if (this.cursors.up.isDown) this.player.body.setVelocityY(-speed * 0.7);
     if (this.cursors.down.isDown) this.player.body.setVelocityY(speed * 0.7);
 
-    // Check if near the rod (bottom of screen)
     this.holdingRod = this.player.y > H - 100;
 
-    // In mist?
     let inMist = false;
     this.mists.forEach(m => {
       if (Math.abs(this.player.x - m.x) < 100) inMist = true;
     });
 
-    // Faith drain in mist without rod
     if (inMist && !this.holdingRod) {
       this.visionFaith -= 0.3;
       this.faithLabel.setColor('#ff6666');
@@ -1250,7 +1781,6 @@ class IronRodScene extends Phaser.Scene {
       showDialogue(this, 'Narrator', 'You lost your way in the mist! Hold to the iron rod — stay near the bottom of the path.');
     }
 
-    // Check tree reached
     const treeDist = Phaser.Math.Distance.Between(this.player.x, this.player.y, 2250, H - 150);
     if (treeDist < 60) {
       this.reachedTree = true;
