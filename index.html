@@ -70,6 +70,11 @@ const COLORS = {
 // --- GAME STATE ---
 const GameState = {
   playerName: 'Traveler',
+  playerAppearance: {
+    skinTone: 0xd4a574, hairColor: 0x3d2b1f, hairStyle: 'short',
+    robeColor: 0x5b8c5a, robeAccent: 0x3d6b3c, headwear: 'headband',
+    headwearColor: 0x8B7355, beardStyle: 'none', expression: 'brave',
+  },
   faith: 50, courage: 30, testimony: 20, charity: 25, wisdom: 15,
   maxFaith: 100, level: 1, faithPoints: 0, fpToNext: 100,
   scriptures: [],
@@ -574,6 +579,8 @@ function generateAllSprites(scene) {
     headwear: 'headband',
     headwearColor: 0xdaa520,
     hasSword: true,
+    isArmored: true,
+    armorColor: 0x708090,
     expression: 'brave',
   });
 
@@ -606,7 +613,7 @@ function generateAllSprites(scene) {
     expression: 'brave',
   });
 
-  // Battle-size Nephi
+  // Battle-size Nephi (armored)
   generateCharacterTexture(scene, 'nephi_battle', {
     skinTone: 0xc49a6c,
     hairColor: 0x1a1208,
@@ -617,16 +624,18 @@ function generateAllSprites(scene) {
     headwear: 'headband',
     headwearColor: 0xdaa520,
     hasSword: true,
+    isArmored: true,
+    armorColor: 0x708090,
     expression: 'brave',
   });
 
   // Doubt enemy
   generateDoubtTexture(scene, 'doubt');
 
-  // Sariah (Lehi's wife)
+  // Sariah (Lehi's wife, elderly)
   generateCharacterTexture(scene, 'sariah', {
     skinTone: 0xd4a574,
-    hairColor: 0x2c1810,
+    hairColor: 0xaaaaaa,     // Gray hair to show age
     hairStyle: 'long',
     beardStyle: 'none',
     robeColor: 0xb87333,    // Copper-colored robe
@@ -636,7 +645,7 @@ function generateAllSprites(scene) {
     expression: 'kind',
   });
 
-  // Sam (Nephi's brother)
+  // Sam (Nephi's brother, strong)
   generateCharacterTexture(scene, 'sam', {
     skinTone: 0xc49a6c,
     hairColor: 0x1a1208,
@@ -644,10 +653,11 @@ function generateAllSprites(scene) {
     beardStyle: 'none',
     robeColor: 0x8b7355,
     robeAccent: 0x6b5335,
+    hasSword: true,
     expression: 'kind',
   });
 
-  // Laman (rebellious brother)
+  // Laman (rebellious brother, armored)
   generateCharacterTexture(scene, 'laman', {
     skinTone: 0xc49a6c,
     hairColor: 0x1a1208,
@@ -655,12 +665,14 @@ function generateAllSprites(scene) {
     beardStyle: 'short',
     robeColor: 0x8b2500,
     robeAccent: 0x5c1a00,
+    isArmored: true,
+    armorColor: 0x5c1a00,
     expression: 'brave',
     headwear: 'headband',
     headwearColor: 0x5c1a00,
   });
 
-  // Lemuel
+  // Lemuel (armored)
   generateCharacterTexture(scene, 'lemuel', {
     skinTone: 0xc49a6c,
     hairColor: 0x1a1208,
@@ -668,6 +680,8 @@ function generateAllSprites(scene) {
     beardStyle: 'none',
     robeColor: 0x7a3300,
     robeAccent: 0x5a2200,
+    isArmored: true,
+    armorColor: 0x5a2200,
     expression: 'neutral',
   });
 
@@ -1816,125 +1830,357 @@ class TitleScene extends Phaser.Scene {
 
   create() {
     this.cameras.main.fadeIn(1000, 0, 0, 0);
-    this.add.rectangle(W/2, H/2, W, H, COLORS.deepBlue);
 
-    // Stars
-    for (let i = 0; i < 100; i++) {
-      const star = this.add.circle(
-        Phaser.Math.Between(0, W), Phaser.Math.Between(0, H/2 + 100),
-        Phaser.Math.Between(1, 2), 0xffffff, Phaser.Math.FloatBetween(0.3, 1)
-      );
-      this.tweens.add({
-        targets: star, alpha: 0.1, duration: Phaser.Math.Between(1000, 3000),
-        yoyo: true, repeat: -1, delay: Phaser.Math.Between(0, 2000)
-      });
+    // Bright daytime sky gradient
+    const sky = this.add.graphics();
+    const skyColors = [0x4a90d9, 0x6aade0, 0x8ec5e8, 0xb0d8f0, 0xd4eaf8, 0xe8f4fc];
+    const bandH = Math.ceil(H / skyColors.length);
+    skyColors.forEach((c, i) => {
+      sky.fillStyle(c);
+      sky.fillRect(0, i * bandH, W, bandH + 1);
+    });
+
+    // Sun with glow in upper right
+    const sunX = W - 120, sunY = 80;
+    for (let r = 60; r > 0; r -= 8) {
+      this.add.circle(sunX, sunY, r, 0xfff8a0, 0.08);
+    }
+    this.add.circle(sunX, sunY, 28, 0xfff44f);
+    this.add.circle(sunX, sunY, 22, 0xffff99, 0.7);
+
+    // Floating clouds
+    const drawCloud = (cx, cy, scale) => {
+      const cg = this.add.graphics();
+      cg.fillStyle(0xffffff, 0.85);
+      const s = scale;
+      cg.fillEllipse(cx, cy, 80 * s, 30 * s);
+      cg.fillEllipse(cx - 25 * s, cy - 8 * s, 50 * s, 25 * s);
+      cg.fillEllipse(cx + 20 * s, cy - 5 * s, 55 * s, 22 * s);
+      this.tweens.add({ targets: cg, x: 15, duration: Phaser.Math.Between(6000, 10000), yoyo: true, repeat: -1 });
+    };
+    drawCloud(150, 70, 1);
+    drawCloud(450, 50, 0.8);
+    drawCloud(650, 90, 0.6);
+    drawCloud(80, 120, 0.5);
+
+    // Distant blue-green mountains
+    const mtns = this.add.graphics();
+    mtns.fillStyle(0x5b8faa, 0.6);
+    mtns.beginPath();
+    mtns.moveTo(0, H); mtns.lineTo(0, 340); mtns.lineTo(80, 300); mtns.lineTo(160, 330);
+    mtns.lineTo(250, 280); mtns.lineTo(340, 320); mtns.lineTo(420, 270); mtns.lineTo(520, 310);
+    mtns.lineTo(600, 275); mtns.lineTo(700, 320); mtns.lineTo(800, 295); mtns.lineTo(800, H);
+    mtns.closePath(); mtns.fill();
+
+    mtns.fillStyle(0x6a9f7a, 0.5);
+    mtns.beginPath();
+    mtns.moveTo(0, H); mtns.lineTo(0, 370); mtns.lineTo(100, 340); mtns.lineTo(200, 360);
+    mtns.lineTo(300, 320); mtns.lineTo(400, 355); mtns.lineTo(500, 330); mtns.lineTo(600, 350);
+    mtns.lineTo(700, 335); mtns.lineTo(800, 360); mtns.lineTo(800, H);
+    mtns.closePath(); mtns.fill();
+
+    // 3 layers of rolling green hills using sine waves
+    const hills = this.add.graphics();
+    const hillLayers = [
+      { baseY: 400, amp: 25, freq: 0.008, color: 0x5a9e4b },
+      { baseY: 430, amp: 20, freq: 0.012, color: 0x4a8e3b },
+      { baseY: 455, amp: 15, freq: 0.015, color: 0x3a7e2b },
+    ];
+    hillLayers.forEach(({ baseY, amp, freq, color }) => {
+      hills.fillStyle(color);
+      hills.beginPath();
+      hills.moveTo(0, H);
+      for (let x = 0; x <= W; x += 2) {
+        const y = baseY + Math.sin(x * freq) * amp + Math.sin(x * freq * 2.3 + 1) * amp * 0.4;
+        hills.lineTo(x, y);
+      }
+      hills.lineTo(W, H);
+      hills.closePath();
+      hills.fill();
+    });
+
+    // Green ground
+    this.add.rectangle(W/2, H - 35, W, 70, 0x2d6e1e);
+
+    // Grass tufts
+    const grassG = this.add.graphics();
+    grassG.fillStyle(0x3a8528);
+    for (let i = 0; i < 40; i++) {
+      const gx = Phaser.Math.Between(0, W);
+      const gy = Phaser.Math.Between(H - 65, H - 10);
+      grassG.fillRect(gx, gy, 2, 6);
+      grassG.fillRect(gx + 3, gy + 1, 2, 5);
+      grassG.fillRect(gx - 2, gy + 2, 2, 4);
     }
 
-    // Mountain silhouettes
-    const mountains = this.add.graphics();
-    mountains.fillStyle(0x1a1a3e);
-    mountains.beginPath();
-    mountains.moveTo(0, H); mountains.lineTo(0, 380); mountains.lineTo(100, 320);
-    mountains.lineTo(200, 370); mountains.lineTo(280, 290); mountains.lineTo(380, 350);
-    mountains.lineTo(450, 280); mountains.lineTo(550, 340); mountains.lineTo(620, 300);
-    mountains.lineTo(720, 360); mountains.lineTo(800, 330); mountains.lineTo(800, H);
-    mountains.closePath(); mountains.fill();
+    // Simple trees on hills
+    const treeG = this.add.graphics();
+    const treePositions = [60, 180, 350, 520, 680, 760];
+    treePositions.forEach(tx => {
+      const ty = 440 + Math.sin(tx * 0.012) * 20;
+      treeG.fillStyle(0x5a3a1a);
+      treeG.fillRect(tx - 3, ty - 20, 6, 25);
+      treeG.fillStyle(0x2d7a1e);
+      treeG.fillTriangle(tx, ty - 45, tx - 18, ty - 15, tx + 18, ty - 15);
+      treeG.fillStyle(0x3a8e28);
+      treeG.fillTriangle(tx, ty - 55, tx - 14, ty - 25, tx + 14, ty - 25);
+    });
 
-    // Ground
-    this.add.rectangle(W/2, H - 50, W, 100, COLORS.darkSand, 0.3);
-
-    // Character lineup on title screen
+    // Character lineup walking on the hills
     const chars = ['lehi', 'nephi', 'player', 'sam', 'sariah'];
     chars.forEach((c, i) => {
       if (this.textures.exists(c)) {
-        const spr = this.add.image(240 + i * 80, 420, c).setScale(2.5);
+        const cx = 200 + i * 90;
+        const cy = 430 + Math.sin(cx * 0.012) * 20 - 30;
+        const spr = this.add.image(cx, cy, c).setScale(2.5);
         spr.setAlpha(0);
-        this.tweens.add({ targets: spr, alpha: 0.7, duration: 500, delay: 800 + i * 200 });
-        this.tweens.add({ targets: spr, y: 418, duration: 2000 + i * 300, yoyo: true, repeat: -1 });
+        this.tweens.add({ targets: spr, alpha: 1, duration: 500, delay: 800 + i * 200 });
+        this.tweens.add({ targets: spr, y: cy - 3, duration: 1800 + i * 300, yoyo: true, repeat: -1 });
       }
     });
 
-    // Golden plate effect
-    const plate = this.add.rectangle(W/2, 180, 200, 240, COLORS.gold, 0.12)
-      .setStrokeStyle(2, COLORS.gold);
-    this.tweens.add({ targets: plate, alpha: 0.25, duration: 2000, yoyo: true, repeat: -1 });
-
-    // Title
+    // Title text with brown stroke for contrast on light bg
     this.add.text(W/2, 140, 'THE BOOK OF MORMON', {
       fontSize: '36px', fontFamily: 'monospace', color: '#ffd700', fontStyle: 'bold',
-      stroke: '#8b6914', strokeThickness: 3
+      stroke: '#5a3a1a', strokeThickness: 4
     }).setOrigin(0.5);
 
     this.add.text(W/2, 185, 'An Interactive Journey', {
-      fontSize: '18px', fontFamily: 'monospace', color: '#c0a060', fontStyle: 'italic'
+      fontSize: '18px', fontFamily: 'monospace', color: '#8b6914', fontStyle: 'italic',
+      stroke: '#ffffff', strokeThickness: 2
     }).setOrigin(0.5);
 
     this.add.text(W/2, 215, 'Another Testament of Jesus Christ', {
-      fontSize: '13px', fontFamily: 'monospace', color: '#8899aa'
+      fontSize: '13px', fontFamily: 'monospace', color: '#5a4a2a',
+      stroke: '#ffffff', strokeThickness: 1
     }).setOrigin(0.5);
 
-    const line = this.add.rectangle(W/2, 245, 300, 2, COLORS.gold, 0.5);
+    const line = this.add.rectangle(W/2, 245, 300, 2, COLORS.gold, 0.7);
     this.tweens.add({ targets: line, scaleX: 0.5, duration: 2000, yoyo: true, repeat: -1 });
 
-    this.add.text(W/2, 290, 'WORLD 1: THE FAMILY OF LEHI', {
-      fontSize: '14px', fontFamily: 'monospace', color: '#6b8e23'
+    this.add.text(W/2, 275, 'WORLD 1: THE FAMILY OF LEHI', {
+      fontSize: '14px', fontFamily: 'monospace', color: '#3a6e1e',
+      stroke: '#ffffff', strokeThickness: 1
     }).setOrigin(0.5);
-    this.add.text(W/2, 310, '1 Nephi — 600 BC', {
-      fontSize: '11px', fontFamily: 'monospace', color: '#888888'
+    this.add.text(W/2, 295, '1 Nephi \u2014 600 BC', {
+      fontSize: '11px', fontFamily: 'monospace', color: '#5a5a5a',
+      stroke: '#ffffff', strokeThickness: 1
     }).setOrigin(0.5);
 
     const hasSave = hasSaveGame();
 
     if (hasSave) {
       const last = GameState.journal[GameState.journal.length - 1]?.entry || 'The journey continues...';
-      this.add.text(W/2, 360, 'Previously in 1 Nephi...', {
-        fontSize: '14px', fontFamily: 'Palatino Linotype, Book Antiqua, Palatino, serif', color: '#c0a060', fontStyle: 'italic'
+      this.add.text(W/2, 330, 'Previously in 1 Nephi...', {
+        fontSize: '14px', fontFamily: 'Palatino Linotype, Book Antiqua, Palatino, serif', color: '#6b4e1a', fontStyle: 'italic',
+        stroke: '#ffffff', strokeThickness: 1
       }).setOrigin(0.5);
-      this.add.text(W/2, 385, last, {
-        fontSize: '12px', fontFamily: 'Georgia, serif', color: '#aab3c0', wordWrap: { width: 620 }, align: 'center', lineSpacing: 4
+      this.add.text(W/2, 355, last, {
+        fontSize: '12px', fontFamily: 'Georgia, serif', color: '#4a4a4a', wordWrap: { width: 620 }, align: 'center', lineSpacing: 4,
+        stroke: '#ffffff', strokeThickness: 1
       }).setOrigin(0.5);
-      this.add.text(W/2, 430, `Scriptures found: ${GameState.scriptures.length}`, {
-        fontSize: '11px', fontFamily: 'monospace', color: '#8899aa'
+      this.add.text(W/2, 395, `Scriptures found: ${GameState.scriptures.length}`, {
+        fontSize: '11px', fontFamily: 'monospace', color: '#5a5a5a',
+        stroke: '#ffffff', strokeThickness: 1
       }).setOrigin(0.5);
     }
 
+    // Green-colored buttons
     const mkButton = (y, label) => {
-      const btn = this.add.rectangle(W/2, y, 360, 44, 0x16213e, 0.7)
-        .setStrokeStyle(2, COLORS.gold, 0.6).setInteractive({ useHandCursor: true });
+      const btn = this.add.rectangle(W/2, y, 360, 44, 0x2d7a1e, 0.85)
+        .setStrokeStyle(2, 0x1a5c10, 0.8).setInteractive({ useHandCursor: true });
       const txt = this.add.text(W/2, y, label, {
-        fontSize: '18px', fontFamily: 'monospace', color: '#ffffff', fontStyle: 'bold'
+        fontSize: '18px', fontFamily: 'monospace', color: '#ffffff', fontStyle: 'bold',
+        stroke: '#1a4a0e', strokeThickness: 2
       }).setOrigin(0.5);
-      btn.on('pointerover', () => btn.setFillStyle(0x223055, 0.85));
-      btn.on('pointerout', () => btn.setFillStyle(0x16213e, 0.7));
+      btn.on('pointerover', () => btn.setFillStyle(0x3a9e2b, 0.95));
+      btn.on('pointerout', () => btn.setFillStyle(0x2d7a1e, 0.85));
       return { btn, txt };
     };
 
     const continueBtn = hasSave ? mkButton(500, 'CONTINUE') : null;
     const newBtn = mkButton(hasSave ? 552 : 500, hasSave ? 'NEW JOURNEY' : 'START');
 
-    const begin = (mode) => {
+    const beginContinue = () => {
       AudioEngine.unlock();
       AudioEngine.setVolumes();
       AudioEngine.setTheme('spiritual');
       AudioEngine.sfx.click();
-      if (mode === 'new') resetGameState();
       saveGame({ scene: 'WorldMap' });
       this.cameras.main.fadeOut(500, 0, 0, 0);
       this.time.delayedCall(500, () => this.scene.start('WorldMap'));
     };
 
-    if (continueBtn) continueBtn.btn.on('pointerdown', () => begin('continue'));
-    newBtn.btn.on('pointerdown', () => begin('new'));
+    const beginNew = () => {
+      AudioEngine.unlock();
+      AudioEngine.setVolumes();
+      AudioEngine.setTheme('spiritual');
+      AudioEngine.sfx.click();
+      resetGameState();
+      this.cameras.main.fadeOut(500, 0, 0, 0);
+      this.time.delayedCall(500, () => this.scene.start('CharacterCreate'));
+    };
 
-    this.input.keyboard.on('keydown-ENTER', () => begin(hasSave ? 'continue' : 'new'));
-    this.input.keyboard.on('keydown-SPACE', () => begin(hasSave ? 'continue' : 'new'));
+    if (continueBtn) continueBtn.btn.on('pointerdown', () => beginContinue());
+    newBtn.btn.on('pointerdown', () => beginNew());
+
+    this.input.keyboard.on('keydown-ENTER', () => hasSave ? beginContinue() : beginNew());
+    this.input.keyboard.on('keydown-SPACE', () => hasSave ? beginContinue() : beginNew());
 
     this.add.text(W/2, H - 50, 'A faithful retelling of the sacred record', {
-      fontSize: '10px', fontFamily: 'monospace', color: '#556677'
+      fontSize: '10px', fontFamily: 'monospace', color: '#3a5a2a',
+      stroke: '#ffffff', strokeThickness: 1
     }).setOrigin(0.5);
     this.add.text(W/2, H - 30, 'Arrow Keys: move  \u2022  Space/Click: interact  \u2022  Esc: pause', {
-      fontSize: '10px', fontFamily: 'monospace', color: '#445566'
+      fontSize: '10px', fontFamily: 'monospace', color: '#4a6a3a',
+      stroke: '#ffffff', strokeThickness: 1
     }).setOrigin(0.5);
+  }
+}
+
+
+// ============================================================
+// SCENE: CHARACTER CREATE
+// ============================================================
+class CharacterCreateScene extends Phaser.Scene {
+  constructor() { super('CharacterCreate'); }
+
+  create() {
+    this.cameras.main.fadeIn(500, 0, 0, 0);
+    this.add.rectangle(W/2, H/2, W, H, 0xf5f0e1);
+
+    const options = {
+      skinTone:  { values: [0xfce4c7, 0xe8c8a0, 0xd4a574, 0xc49a6c, 0x8d5524, 0x5c3a1a], idx: 2, type: 'color' },
+      hairColor: { values: [0x1a1208, 0x3d2b1f, 0x8b4513, 0xdaa520, 0xaaaaaa, 0xffffff], idx: 1, type: 'color' },
+      hairStyle: { values: ['short', 'long', 'bald'], idx: 0, type: 'text' },
+      beardStyle:{ values: ['none', 'short', 'long', 'prophet'], idx: 0, type: 'text' },
+      robeColor: { values: [0x5b8c5a, 0x2c6fbb, 0x8b2500, 0x6b4e8a, 0x8b7355, 0xb87333, 0xd4a574], idx: 0, type: 'color' },
+      headwear:  { values: ['none', 'headband', 'turban', 'hood'], idx: 1, type: 'text' },
+    };
+
+    const labels = { skinTone: 'Skin Tone', hairColor: 'Hair Color', hairStyle: 'Hair Style', beardStyle: 'Beard', robeColor: 'Robe Color', headwear: 'Headwear' };
+    const keys = Object.keys(options);
+    const rowH = 52;
+    const startY = 80;
+
+    this.add.text(W/2, 30, 'CREATE YOUR TRAVELER', {
+      fontSize: '24px', fontFamily: 'monospace', color: '#5a3a1a', fontStyle: 'bold'
+    }).setOrigin(0.5);
+
+    const displayElements = {};
+
+    const updatePreview = () => {
+      const app = {
+        skinTone: options.skinTone.values[options.skinTone.idx],
+        hairColor: options.hairColor.values[options.hairColor.idx],
+        hairStyle: options.hairStyle.values[options.hairStyle.idx],
+        beardStyle: options.beardStyle.values[options.beardStyle.idx],
+        robeColor: options.robeColor.values[options.robeColor.idx],
+        robeAccent: darken(options.robeColor.values[options.robeColor.idx], 30),
+        headwear: options.headwear.values[options.headwear.idx],
+        headwearColor: 0x8B7355,
+        expression: 'brave',
+      };
+      if (this.textures.exists('player_preview')) this.textures.remove('player_preview');
+      generateCharacterTexture(this, 'player_preview', app);
+      if (this.previewSprite) this.previewSprite.destroy();
+      this.previewSprite = this.add.image(W - 140, 250, 'player_preview').setScale(6);
+
+      // Update display elements
+      keys.forEach(k => {
+        const opt = options[k];
+        const el = displayElements[k];
+        if (!el) return;
+        if (opt.type === 'color') {
+          el.swatch.setFillStyle(opt.values[opt.idx]);
+        } else {
+          el.label.setText(opt.values[opt.idx].toUpperCase());
+        }
+      });
+    };
+
+    keys.forEach((k, i) => {
+      const y = startY + i * rowH;
+      const opt = options[k];
+
+      this.add.text(60, y, labels[k], {
+        fontSize: '14px', fontFamily: 'monospace', color: '#5a3a1a', fontStyle: 'bold'
+      }).setOrigin(0, 0.5);
+
+      // Left arrow
+      const leftBtn = this.add.text(220, y, '\u25C0', {
+        fontSize: '20px', fontFamily: 'monospace', color: '#5a3a1a'
+      }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+      leftBtn.on('pointerdown', () => {
+        opt.idx = (opt.idx - 1 + opt.values.length) % opt.values.length;
+        updatePreview();
+      });
+
+      // Right arrow
+      const rightBtn = this.add.text(380, y, '\u25B6', {
+        fontSize: '20px', fontFamily: 'monospace', color: '#5a3a1a'
+      }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+      rightBtn.on('pointerdown', () => {
+        opt.idx = (opt.idx + 1) % opt.values.length;
+        updatePreview();
+      });
+
+      // Display: swatch or text
+      if (opt.type === 'color') {
+        const swatch = this.add.rectangle(300, y, 40, 24, opt.values[opt.idx])
+          .setStrokeStyle(1, 0x5a3a1a);
+        displayElements[k] = { swatch };
+      } else {
+        const lbl = this.add.text(300, y, opt.values[opt.idx].toUpperCase(), {
+          fontSize: '13px', fontFamily: 'monospace', color: '#3a2a1a'
+        }).setOrigin(0.5);
+        displayElements[k] = { label: lbl };
+      }
+    });
+
+    // Preview label
+    this.add.text(W - 140, 140, 'PREVIEW', {
+      fontSize: '12px', fontFamily: 'monospace', color: '#8a7a5a'
+    }).setOrigin(0.5);
+
+    updatePreview();
+
+    // BEGIN JOURNEY button
+    const btnY = H - 60;
+    const beginBtn = this.add.rectangle(W/2, btnY, 360, 50, 0x2d7a1e, 0.9)
+      .setStrokeStyle(2, 0x1a5c10).setInteractive({ useHandCursor: true });
+    this.add.text(W/2, btnY, 'BEGIN JOURNEY', {
+      fontSize: '22px', fontFamily: 'monospace', color: '#ffffff', fontStyle: 'bold',
+      stroke: '#1a4a0e', strokeThickness: 2
+    }).setOrigin(0.5);
+    beginBtn.on('pointerover', () => beginBtn.setFillStyle(0x3a9e2b, 0.95));
+    beginBtn.on('pointerout', () => beginBtn.setFillStyle(0x2d7a1e, 0.9));
+
+    beginBtn.on('pointerdown', () => {
+      // Save appearance to GameState
+      GameState.playerAppearance = {
+        skinTone: options.skinTone.values[options.skinTone.idx],
+        hairColor: options.hairColor.values[options.hairColor.idx],
+        hairStyle: options.hairStyle.values[options.hairStyle.idx],
+        beardStyle: options.beardStyle.values[options.beardStyle.idx],
+        robeColor: options.robeColor.values[options.robeColor.idx],
+        robeAccent: darken(options.robeColor.values[options.robeColor.idx], 30),
+        headwear: options.headwear.values[options.headwear.idx],
+        headwearColor: 0x8B7355,
+        expression: 'brave',
+      };
+
+      // Regenerate player textures with chosen appearance
+      if (this.textures.exists('player')) this.textures.remove('player');
+      if (this.textures.exists('player_battle')) this.textures.remove('player_battle');
+      generateCharacterTexture(this, 'player', GameState.playerAppearance);
+      generateCharacterTexture(this, 'player_battle', GameState.playerAppearance);
+
+      saveGame({ scene: 'WorldMap' });
+      AudioEngine.sfx.click();
+      this.cameras.main.fadeOut(500, 0, 0, 0);
+      this.time.delayedCall(500, () => this.scene.start('WorldMap'));
+    });
   }
 }
 
@@ -4441,7 +4687,7 @@ const config = {
     default: 'arcade',
     arcade: { gravity: { y: 0 }, debug: false }
   },
-  scene: [BootScene, TitleScene, WorldMapScene, JerusalemScene, BrassPlatesScene, BattleScene, IronRodScene, ChapterTransition, WildernessCamp, BountifulScene, OceanStorm, PromisedLand, FinalScene],
+  scene: [BootScene, TitleScene, CharacterCreateScene, WorldMapScene, JerusalemScene, BrassPlatesScene, BattleScene, IronRodScene, ChapterTransition, WildernessCamp, BountifulScene, OceanStorm, PromisedLand, FinalScene],
   scale: {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
