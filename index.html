@@ -82,6 +82,9 @@ const GameState = {
   battleWon: false,
   ironRodComplete: false,
   brassPlatesObtained: false,
+  completedScenes: [],
+  shipProgress: 0,
+  liahonaActive: false,
   // Premium systems
   alignment: { faithVsDoubt: 0, compassionVsHarshness: 0, choices: [] },
   chapter: { book: '1 Nephi', chapter: 3, label: '1 Nephi \u00b7 Ch. 3' },
@@ -151,6 +154,9 @@ function resetGameState() {
     battleWon: false,
     ironRodComplete: false,
     brassPlatesObtained: false,
+    completedScenes: [],
+    shipProgress: 0,
+    liahonaActive: false,
     alignment: { faithVsDoubt: 0, compassionVsHarshness: 0, choices: [] },
     chapter: { book: '1 Nephi', chapter: 3, label: '1 Nephi \u00b7 Ch. 3' },
     time: { t: 0.72 },
@@ -647,11 +653,61 @@ function generateAllSprites(scene) {
     hairColor: 0x1a1208,
     hairStyle: 'short',
     beardStyle: 'short',
-    robeColor: 0x8b2500,    // Dark red robe
+    robeColor: 0x8b2500,
     robeAccent: 0x5c1a00,
     expression: 'brave',
     headwear: 'headband',
     headwearColor: 0x5c1a00,
+  });
+
+  // Lemuel
+  generateCharacterTexture(scene, 'lemuel', {
+    skinTone: 0xc49a6c,
+    hairColor: 0x1a1208,
+    hairStyle: 'short',
+    beardStyle: 'none',
+    robeColor: 0x7a3300,
+    robeAccent: 0x5a2200,
+    expression: 'neutral',
+  });
+
+  // Zoram
+  generateCharacterTexture(scene, 'zoram', {
+    skinTone: 0xc49a6c,
+    hairColor: 0x2c1810,
+    hairStyle: 'short',
+    beardStyle: 'none',
+    robeColor: 0x8b7355,
+    robeAccent: 0x6b5335,
+    expression: 'kind',
+  });
+
+  // Mormon (narrator, old, writing)
+  generateCharacterTexture(scene, 'mormon', {
+    skinTone: 0xc49a6c,
+    hairColor: 0xcccccc,
+    hairStyle: 'bald',
+    beardStyle: 'prophet',
+    robeColor: 0x6b6b8a,
+    robeAccent: 0x4a4a68,
+    cloakColor: 0x555570,
+    hasStaff: false,
+    accessory: 'plates',
+    accessoryColor: 0xffd700,
+    expression: 'wise',
+  });
+
+  // Angel (white, glowing)
+  generateCharacterTexture(scene, 'angel', {
+    skinTone: 0xfff5e6,
+    hairColor: 0xffffff,
+    hairStyle: 'long',
+    beardStyle: 'none',
+    robeColor: 0xffffff,
+    robeAccent: 0xeeeedd,
+    cloakColor: 0xffffee,
+    expression: 'kind',
+    eyeColor: 0x8899bb,
   });
 }
 
@@ -1141,7 +1197,8 @@ function showDialogue(scene, speaker, text, onComplete, optionsOrOpts) {
   const opts = Array.isArray(optionsOrOpts) ? { choices: optionsOrOpts } : (optionsOrOpts || {});
   const portraitMap = {
     'Nephi': 'nephi', 'Lehi': 'lehi', 'Sariah': 'sariah',
-    'Sam': 'sam', 'Laman': 'laman',
+    'Sam': 'sam', 'Laman': 'laman', 'Lemuel': 'lemuel',
+    'Zoram': 'zoram', 'Mormon': 'mormon', 'Angel': 'angel',
     'Narrator': null,
   };
   const portraitKey = portraitMap[speaker] || null;
@@ -1903,39 +1960,60 @@ class WorldMapScene extends Phaser.Scene {
       fontSize: '20px', fontFamily: 'monospace', color: '#ffd700', fontStyle: 'bold'
     }).setOrigin(0.5);
 
+    // Determine which scenes are accessible based on progress
+    const hasPlatesAndRod = GameState.brassPlatesObtained && GameState.ironRodComplete;
+    const hasLiahona = GameState.liahonaActive;
+    const hasShip = GameState.questFlags.shipDone;
+    const reachedPromised = GameState.completedScenes?.includes('1Nephi') || GameState.questFlags.reachedPromised;
+
     const worlds = [
-      { x: 600, y: 120, name: 'Jerusalem', sub: 'World 1: The Family of Lehi', active: true, scene: 'Jerusalem' },
-      { x: 200, y: 200, name: 'Wilderness', sub: 'The journey south', active: false },
-      { x: 120, y: 350, name: 'Bountiful', sub: 'By the sea', active: false },
-      { x: 400, y: 450, name: 'Promised Land', sub: 'World 2: A New Home', active: false },
-      { x: 500, y: 350, name: 'Zarahemla', sub: 'World 4+', active: false },
-      { x: 650, y: 400, name: 'Land of Nephi', sub: 'World 5+', active: false },
+      { x: 600, y: 120, name: 'Jerusalem', sub: 'Obtain the Brass Plates', active: true, scene: 'Jerusalem', done: hasPlatesAndRod },
+      { x: 350, y: 200, name: 'Wilderness', sub: 'The Valley of Lemuel', active: hasPlatesAndRod, scene: 'WildernessCamp', done: hasLiahona },
+      { x: 150, y: 320, name: 'Bountiful', sub: 'Build the Ship', active: hasLiahona, scene: 'BountifulScene', done: hasShip },
+      { x: 300, y: 450, name: 'Great Deep', sub: 'Cross the Ocean', active: hasShip, scene: 'OceanStorm', done: reachedPromised },
+      { x: 550, y: 480, name: 'Promised Land', sub: 'A Land of Promise', active: reachedPromised, scene: 'PromisedLand', done: false },
     ];
 
     const paths = this.add.graphics();
     paths.lineStyle(2, COLORS.gold, 0.3);
     paths.beginPath();
-    paths.moveTo(600, 120); paths.lineTo(200, 200); paths.lineTo(120, 350);
-    paths.moveTo(120, 350); paths.lineTo(400, 450);
-    paths.lineTo(500, 350); paths.lineTo(650, 400);
+    paths.moveTo(600, 120); paths.lineTo(350, 200); paths.lineTo(150, 320);
     paths.strokePath();
 
+    // Sea path (dotted)
     paths.lineStyle(1, COLORS.skyBlue, 0.3);
-    for (let i = 0; i < 20; i++) {
-      const t = i / 20;
-      const cx = 120 + (400 - 120) * t + Math.sin(t * Math.PI * 3) * 40;
-      const cy = 350 + (450 - 350) * t + Math.cos(t * Math.PI * 2) * 30 + 50;
+    for (let i = 0; i < 25; i++) {
+      const t = i / 25;
+      const cx = 150 + (300 - 150) * t + Math.sin(t * Math.PI * 3) * 30;
+      const cy = 320 + (450 - 320) * t + Math.cos(t * Math.PI * 2) * 20 + 30;
       paths.fillStyle(COLORS.skyBlue, 0.3);
       paths.fillCircle(cx, cy, 2);
     }
+    // Path from ocean to promised land
+    paths.lineStyle(2, COLORS.gold, 0.2);
+    paths.beginPath();
+    paths.moveTo(300, 450); paths.lineTo(550, 480);
+    paths.strokePath();
+
+    // Find the furthest active (non-done) world for player position
+    let playerWorld = worlds[0];
+    worlds.forEach(w => { if (w.active && !w.done) playerWorld = w; });
 
     worlds.forEach(w => {
-      const color = w.active ? COLORS.gold : COLORS.gray;
-      const node = this.add.circle(w.x, w.y, w.active ? 14 : 10, color, w.active ? 0.9 : 0.3)
-        .setStrokeStyle(2, w.active ? COLORS.gold : COLORS.darkGray);
+      const isDone = w.done;
+      const isActive = w.active;
+      const color = isDone ? COLORS.green : isActive ? COLORS.gold : COLORS.gray;
+      const node = this.add.circle(w.x, w.y, isActive ? 14 : 10, color, isActive ? 0.9 : 0.3)
+        .setStrokeStyle(2, isActive ? (isDone ? COLORS.green : COLORS.gold) : COLORS.darkGray);
 
-      if (w.active) {
-        this.tweens.add({ targets: node, scale: 1.2, duration: 800, yoyo: true, repeat: -1 });
+      if (isDone) {
+        this.add.text(w.x, w.y - 2, '✓', {
+          fontSize: '14px', fontFamily: 'monospace', color: '#ffffff', fontStyle: 'bold'
+        }).setOrigin(0.5);
+      }
+
+      if (isActive) {
+        if (!isDone) this.tweens.add({ targets: node, scale: 1.2, duration: 800, yoyo: true, repeat: -1 });
         node.setInteractive({ useHandCursor: true });
         node.on('pointerdown', () => {
           AudioEngine.unlock();
@@ -1944,22 +2022,23 @@ class WorldMapScene extends Phaser.Scene {
           this.cameras.main.fadeOut(500);
           this.time.delayedCall(500, () => this.scene.start(w.scene));
         });
-        // Show player character on active world
-        if (this.textures.exists('player')) {
-          const p = this.add.image(w.x + 20, w.y, 'player').setScale(1.5);
-          this.tweens.add({ targets: p, y: w.y - 3, duration: 800, yoyo: true, repeat: -1 });
-        }
       }
 
       this.add.text(w.x, w.y + 22, w.name, {
-        fontSize: '12px', fontFamily: 'monospace', color: w.active ? '#ffd700' : '#666666', fontStyle: 'bold'
+        fontSize: '12px', fontFamily: 'monospace', color: isActive ? '#ffd700' : '#666666', fontStyle: 'bold'
       }).setOrigin(0.5);
       this.add.text(w.x, w.y + 36, w.sub, {
-        fontSize: '9px', fontFamily: 'monospace', color: w.active ? '#aaaaaa' : '#444444'
+        fontSize: '9px', fontFamily: 'monospace', color: isActive ? '#aaaaaa' : '#444444'
       }).setOrigin(0.5);
     });
 
-    this.add.text(W/2, H - 40, 'Click on Jerusalem to begin your journey', {
+    // Player character on current world
+    if (this.textures.exists('player')) {
+      const p = this.add.image(playerWorld.x + 20, playerWorld.y, 'player').setScale(1.5);
+      this.tweens.add({ targets: p, y: playerWorld.y - 3, duration: 800, yoyo: true, repeat: -1 });
+    }
+
+    this.add.text(W/2, H - 40, 'Select a location to travel there', {
       fontSize: '12px', fontFamily: 'monospace', color: '#aaaaaa'
     }).setOrigin(0.5);
 
@@ -2336,7 +2415,23 @@ class JerusalemScene extends Phaser.Scene {
         } else if (!GameState.ironRodComplete) {
           showDialogue(this, 'Nephi', 'My father Lehi has had a vision — a dream of a tree whose fruit was most precious. Go to the west and experience the vision. Hold to the iron rod!');
         } else {
-          showDialogue(this, 'Nephi', 'You have done well, friend. You have seen the power of faith. Soon we will build a ship and cross the great waters to the promised land!');
+          showDialogue(this, 'Nephi', 'We have the plates and Father has shared his vision. It is time to leave Jerusalem and journey into the wilderness. Are you ready?', () => {
+            showDialogue(this, 'Traveler', '', null, {
+              choices: [
+                { id: 'leave_jerusalem', text: 'Let us go. The Lord will guide us.', faithVsDoubt: 1, onSelect: () => {
+                  GameState.faith = Math.min(GameState.faith + 5, GameState.maxFaith);
+                  gainFP(10);
+                  saveGame({ scene: 'ChapterTransition' });
+                  this.cameras.main.fadeOut(800);
+                  this.time.delayedCall(800, () => this.scene.start('ChapterTransition', {
+                    chapter: 'II', title: 'Into the Wilderness', quote: '"And my father dwelt in a tent."  — 1 Nephi 2:15',
+                    nextScene: 'WildernessCamp'
+                  }));
+                }},
+                { id: 'not_ready', text: 'Not yet — let me look around more.', faithVsDoubt: 0, onSelect: () => {} }
+              ]
+            });
+          });
         }
       }
 
@@ -3280,6 +3375,1056 @@ class IronRodScene extends Phaser.Scene {
 
 
 // ============================================================
+// SCENE: CHAPTER TRANSITION
+// ============================================================
+class ChapterTransition extends Phaser.Scene {
+  constructor() { super('ChapterTransition'); }
+  init(data) {
+    this.chapterNum = data.chapter || 'I';
+    this.chapterTitle = data.title || '';
+    this.quote = data.quote || '';
+    this.nextScene = data.nextScene || 'WorldMap';
+    this.nextData = data.nextData || {};
+  }
+  create() {
+    AudioEngine.stopTheme();
+    this.cameras.main.fadeIn(800);
+    this.add.rectangle(W/2, H/2, W, H, 0x000000);
+
+    const numText = this.add.text(W/2, H/2 - 60, `Chapter ${this.chapterNum}`, {
+      fontSize: '42px', fontFamily: 'Palatino Linotype, Book Antiqua, Palatino, serif',
+      color: '#ffd700', fontStyle: 'bold'
+    }).setOrigin(0.5).setAlpha(0);
+
+    const titleText = this.add.text(W/2, H/2, this.chapterTitle, {
+      fontSize: '22px', fontFamily: 'Palatino Linotype, Book Antiqua, Palatino, serif',
+      color: '#c0a060', fontStyle: 'italic'
+    }).setOrigin(0.5).setAlpha(0);
+
+    const quoteText = this.add.text(W/2, H/2 + 50, this.quote, {
+      fontSize: '14px', fontFamily: 'Georgia, serif',
+      color: '#8899aa', fontStyle: 'italic', wordWrap: { width: 500 }, align: 'center'
+    }).setOrigin(0.5).setAlpha(0);
+
+    const goldLine = this.add.rectangle(W/2, H/2 + 90, 0, 2, COLORS.gold, 0.7);
+
+    this.tweens.add({ targets: numText, alpha: 1, duration: 800, delay: 300 });
+    this.tweens.add({ targets: titleText, alpha: 1, duration: 800, delay: 800 });
+    this.tweens.add({ targets: quoteText, alpha: 1, duration: 800, delay: 1300 });
+    this.tweens.add({ targets: goldLine, displayWidth: 300, duration: 1000, delay: 1600, ease: 'Sine.easeOut' });
+
+    this.time.delayedCall(4000, () => {
+      this.cameras.main.fadeOut(800);
+      this.time.delayedCall(800, () => this.scene.start(this.nextScene, this.nextData));
+    });
+  }
+}
+
+
+// ============================================================
+// SCENE: MORMON NARRATOR (brief overlay)
+// ============================================================
+function showMormonNarration(scene, text, onDone) {
+  const overlay = scene.add.rectangle(W/2, H/2, W, H, 0x000000, 0.85).setDepth(250).setScrollFactor(0);
+  // Mormon writing by lamplight
+  let mormonImg = null;
+  if (scene.textures.exists('mormon')) {
+    mormonImg = scene.add.image(120, H/2, 'mormon').setScale(3).setDepth(251).setScrollFactor(0).setAlpha(0);
+  }
+  const lamp = scene.add.circle(160, H/2 - 60, 15, 0xffaa44, 0.3).setDepth(251).setScrollFactor(0);
+  scene.tweens.add({ targets: lamp, alpha: 0.1, scale: 1.3, duration: 800, yoyo: true, repeat: -1 });
+
+  const narText = scene.add.text(W/2 + 40, H/2, '', {
+    fontSize: '16px', fontFamily: 'Georgia, serif', color: '#c0a060',
+    fontStyle: 'italic', wordWrap: { width: 380 }, lineSpacing: 6, align: 'center'
+  }).setOrigin(0.5).setDepth(252).setScrollFactor(0);
+
+  const sig = scene.add.text(W/2 + 40, H/2 + 80, '— Mormon', {
+    fontSize: '12px', fontFamily: 'Georgia, serif', color: '#8b7355'
+  }).setOrigin(0.5).setDepth(252).setScrollFactor(0).setAlpha(0);
+
+  if (mormonImg) scene.tweens.add({ targets: mormonImg, alpha: 0.8, duration: 1000 });
+
+  // Typewriter
+  let ci = 0;
+  const timer = scene.time.addEvent({
+    delay: 35, loop: true,
+    callback: () => {
+      if (ci < text.length) { ci++; narText.setText(text.substring(0, ci)); }
+      else { timer.remove(); scene.tweens.add({ targets: sig, alpha: 1, duration: 500 }); }
+    }
+  });
+
+  const cont = scene.add.text(W/2, H - 40, 'Click to continue', {
+    fontSize: '11px', fontFamily: 'monospace', color: '#666666'
+  }).setOrigin(0.5).setDepth(252).setScrollFactor(0);
+  scene.tweens.add({ targets: cont, alpha: 0.3, duration: 700, yoyo: true, repeat: -1, delay: 2000 });
+
+  scene.time.delayedCall(1500, () => {
+    scene.input.once('pointerdown', () => {
+      [overlay, mormonImg, lamp, narText, sig, cont].forEach(e => { if (e) e.destroy(); });
+      if (onDone) onDone();
+    });
+  });
+}
+
+
+// ============================================================
+// SCENE: WILDERNESS CAMP (1 Nephi 2, 16)
+// ============================================================
+class WildernessCamp extends Phaser.Scene {
+  constructor() { super('WildernessCamp'); }
+
+  create() {
+    AudioEngine.setTheme('wilderness');
+    this.cameras.main.fadeIn(800);
+    GameState.chapter = { book: '1 Nephi', chapter: 2, label: '1 Nephi · Ch. 2' };
+    GameState.companion = { name: 'Nephi', title: 'Son of Lehi', color: COLORS.faithBlue };
+
+    const worldW = 1200, worldH = 700;
+    this.physics.world.setBounds(0, 0, worldW, worldH);
+    this.cameras.main.setBounds(0, 0, worldW, worldH);
+
+    // Desert sky
+    this.add.rectangle(worldW/2, 0, worldW, 250, 0x1a1a3e).setOrigin(0.5, 0);
+    for (let i = 0; i < 60; i++) {
+      this.add.circle(Phaser.Math.Between(0, worldW), Phaser.Math.Between(0, 200),
+        1, 0xffffff, Phaser.Math.FloatBetween(0.3, 0.9));
+    }
+
+    // Desert ground
+    this.add.rectangle(worldW/2, 350, worldW, 400, COLORS.sand).setOrigin(0.5, 0);
+    // Sandy variation
+    for (let i = 0; i < 30; i++) {
+      this.add.circle(Phaser.Math.Between(0, worldW), Phaser.Math.Between(350, worldH),
+        Phaser.Math.Between(20, 60), COLORS.darkSand, 0.15);
+    }
+
+    // River Laman (flowing left to right)
+    for (let rx = 0; rx < worldW; rx += 8) {
+      const ry = 500 + Math.sin(rx * 0.02) * 15;
+      this.add.rectangle(rx + 4, ry, 8, 30, 0x2266aa, 0.6);
+    }
+    this.add.text(600, 480, 'River Laman', {
+      fontSize: '10px', fontFamily: 'monospace', color: '#4488cc', fontStyle: 'italic'
+    }).setOrigin(0.5);
+
+    // Valley walls (distant mountains)
+    const mtns = this.add.graphics();
+    mtns.fillStyle(0x3d2b1f, 0.3);
+    mtns.beginPath();
+    mtns.moveTo(0, 350); mtns.lineTo(100, 280); mtns.lineTo(250, 320);
+    mtns.lineTo(400, 260); mtns.lineTo(600, 310); mtns.lineTo(800, 270);
+    mtns.lineTo(1000, 300); mtns.lineTo(1200, 280); mtns.lineTo(1200, 350);
+    mtns.closePath(); mtns.fill();
+    this.add.text(200, 310, 'Valley of Lemuel', {
+      fontSize: '9px', fontFamily: 'monospace', color: '#887766', fontStyle: 'italic'
+    }).setOrigin(0.5);
+
+    // Tents
+    const tentPositions = [
+      { x: 300, y: 430, color: 0x8b7355, label: "Lehi's Tent" },
+      { x: 500, y: 440, color: 0x6b8e5a, label: "Nephi's Tent" },
+      { x: 700, y: 435, color: 0x8b5a2b, label: '' },
+    ];
+    tentPositions.forEach(t => {
+      // Tent shape (triangle)
+      const tent = this.add.graphics();
+      tent.fillStyle(t.color);
+      tent.beginPath();
+      tent.moveTo(t.x, t.y - 40); tent.lineTo(t.x - 30, t.y + 10);
+      tent.lineTo(t.x + 30, t.y + 10); tent.closePath(); tent.fill();
+      // Tent poles
+      tent.fillStyle(COLORS.brown); tent.fillRect(t.x - 1, t.y - 42, 2, 52);
+      // Door flap
+      tent.fillStyle(darken(t.color, 20)); tent.fillRect(t.x - 6, t.y - 5, 12, 15);
+      if (t.label) {
+        this.add.text(t.x, t.y - 50, t.label, {
+          fontSize: '9px', fontFamily: 'monospace', color: '#ccaa88'
+        }).setOrigin(0.5);
+      }
+    });
+
+    // Campfire with particles
+    this.add.circle(400, 450, 6, 0xff6600, 0.8);
+    this.add.circle(400, 448, 4, 0xffdd00, 0.9);
+    try {
+      createEmitterCompat(this, 400, 445, 'particle_dot', {
+        speed: { min: 10, max: 30 }, angle: { min: 250, max: 290 },
+        scale: { start: 0.5, end: 0 }, lifespan: 800,
+        tint: [0xff6600, 0xffaa00, 0xffdd00], frequency: 100, quantity: 1,
+      });
+    } catch(e) {}
+
+    // NPCs
+    const npcs = [
+      { key: 'lehi', x: 310, y: 445, name: 'Lehi', scale: 2 },
+      { key: 'nephi', x: 510, y: 445, name: 'Nephi', scale: 2 },
+      { key: 'sariah', x: 340, y: 448, name: 'Sariah', scale: 1.8 },
+      { key: 'sam', x: 540, y: 448, name: 'Sam', scale: 1.8 },
+      { key: 'laman', x: 800, y: 445, name: 'Laman', scale: 1.8 },
+      { key: 'lemuel', x: 840, y: 448, name: 'Lemuel', scale: 1.6 },
+    ];
+    npcs.forEach(n => {
+      if (this.textures.exists(n.key)) {
+        this.add.image(n.x, n.y, n.key).setScale(n.scale).setDepth(10);
+      }
+      this.add.text(n.x, n.y - 28, n.name, {
+        fontSize: '9px', fontFamily: 'monospace', color: '#ffd700'
+      }).setOrigin(0.5).setDepth(11);
+    });
+
+    // Liahona on the ground (if not discovered yet)
+    if (!GameState.liahonaActive) {
+      this.liahona = this.add.circle(450, 460, 8, COLORS.gold, 0.9).setStrokeStyle(2, 0xb8860b).setDepth(12);
+      const liaGlow = this.add.circle(450, 460, 15, COLORS.gold, 0.15).setDepth(11);
+      this.tweens.add({ targets: liaGlow, scale: 2, alpha: 0, duration: 1500, repeat: -1 });
+      this.add.text(450, 475, '?', { fontSize: '14px', fontFamily: 'monospace', color: '#ffd700' }).setOrigin(0.5).setDepth(12);
+      this.liahonaZone = this.add.zone(450, 460, 40, 40);
+      this.physics.add.existing(this.liahonaZone, true);
+    }
+
+    // Player
+    if (this.textures.exists('player')) {
+      this.player = this.add.image(200, 445, 'player').setScale(2).setDepth(15);
+    } else {
+      this.player = this.add.rectangle(200, 445, 20, 28, COLORS.green);
+    }
+    this.physics.add.existing(this.player);
+    this.player.body.setCollideWorldBounds(true);
+    this.player.body.setSize(20, 30);
+    this.cameras.main.startFollow(this.player, true, 0.08, 0.08);
+
+    // Interaction zones
+    this.lehiZone = this.add.zone(310, 445, 60, 50);
+    this.physics.add.existing(this.lehiZone, true);
+    this.nephiZone = this.add.zone(510, 445, 60, 50);
+    this.physics.add.existing(this.nephiZone, true);
+    this.sariahZone = this.add.zone(340, 448, 50, 50);
+    this.physics.add.existing(this.sariahZone, true);
+    this.lamanZone = this.add.zone(820, 445, 80, 50);
+    this.physics.add.existing(this.lamanZone, true);
+
+    // Exit to Bountiful (east edge)
+    this.exitZone = this.add.zone(worldW - 20, 445, 40, 100);
+    this.physics.add.existing(this.exitZone, true);
+    this.add.text(worldW - 10, 420, '→ Bountiful', {
+      fontSize: '10px', fontFamily: 'monospace', color: '#6b8e23'
+    }).setOrigin(1, 0.5);
+
+    this.nearLehi = false; this.nearNephi = false; this.nearSariah = false;
+    this.nearLaman = false; this.nearLiahona = false; this.nearExit = false;
+
+    this.physics.add.overlap(this.player, this.lehiZone, () => this.nearLehi = true);
+    this.physics.add.overlap(this.player, this.nephiZone, () => this.nearNephi = true);
+    this.physics.add.overlap(this.player, this.sariahZone, () => this.nearSariah = true);
+    this.physics.add.overlap(this.player, this.lamanZone, () => this.nearLaman = true);
+    if (this.liahonaZone) this.physics.add.overlap(this.player, this.liahonaZone, () => this.nearLiahona = true);
+    this.physics.add.overlap(this.player, this.exitZone, () => this.nearExit = true);
+
+    this.cursors = this.input.keyboard.createCursorKeys();
+    this.spaceKey = this.input.keyboard.addKey('SPACE');
+    this.interactCooldown = 0;
+    this.hud = createHUD(this);
+
+    this.interactPrompt = this.add.text(0, 0, 'Press SPACE', {
+      fontSize: '10px', fontFamily: 'monospace', color: '#ffd700',
+      backgroundColor: '#00000088', padding: { x: 4, y: 2 }
+    }).setOrigin(0.5).setDepth(80).setVisible(false);
+
+    // Opening
+    if (!GameState.questFlags.wildernessIntro) {
+      GameState.questFlags.wildernessIntro = true;
+      this.time.delayedCall(500, () => {
+        showDialogue(this, 'Narrator', 'The family of Lehi has left Jerusalem and camped in the valley by a river. Lehi named the river after his eldest son Laman, hoping he would be like the river — continually flowing toward the fountain of all righteousness.', () => {
+          showDialogue(this, 'Lehi', 'I named this river after you, my son Laman. I pray you will be like it — continually flowing to the Father.', () => {
+            showDialogue(this, 'Narrator', 'Explore the camp. Speak with the family. When you are ready, head east toward Bountiful.');
+          }, { thought: 'His voice trailed off. I saw the sadness in his eyes.' });
+        });
+      });
+    }
+  }
+
+  update(time, delta) {
+    if (this._dialogueOpen) {
+      if (this.player?.body) this.player.body.setVelocity(0);
+      return;
+    }
+    this.nearLehi = false; this.nearNephi = false; this.nearSariah = false;
+    this.nearLaman = false; this.nearLiahona = false; this.nearExit = false;
+
+    const speed = 150;
+    this.player.body.setVelocity(0);
+    if (this.cursors.left.isDown) { this.player.body.setVelocityX(-speed); this.player.setFlipX(true); }
+    if (this.cursors.right.isDown) { this.player.body.setVelocityX(speed); this.player.setFlipX(false); }
+    if (this.cursors.up.isDown) this.player.body.setVelocityY(-speed);
+    if (this.cursors.down.isDown) this.player.body.setVelocityY(speed);
+
+    if (this.player.body.velocity.x !== 0 || this.player.body.velocity.y !== 0) {
+      this.player.setScale(2, 2 + Math.sin(time * 0.01) * 0.05);
+    } else {
+      this.player.setScale(2);
+    }
+
+    this.interactPrompt.setVisible(false);
+    const show = (x, y) => this.interactPrompt.setPosition(x, y).setVisible(true);
+    if (this.nearLehi) show(310, 415);
+    else if (this.nearNephi) show(510, 415);
+    else if (this.nearSariah) show(340, 418);
+    else if (this.nearLaman) show(820, 415);
+    else if (this.nearLiahona) show(450, 440);
+    else if (this.nearExit) show(1170, 420);
+
+    if (this.interactCooldown > 0) this.interactCooldown -= delta;
+    if (Phaser.Input.Keyboard.JustDown(this.spaceKey) && this.interactCooldown <= 0) {
+      this.interactCooldown = 500;
+
+      if (this.nearLehi) {
+        showDialogue(this, 'Lehi', 'The Lord has been merciful to us. He warned us to leave before Jerusalem was destroyed. I have seen visions, Nephi — great and terrible things. But we must press forward in faith.', () => {
+          gainFP(10);
+        });
+      }
+      if (this.nearNephi) {
+        showDialogue(this, 'Nephi', 'I prayed to the Lord to know if my father spoke truth. And the Lord did soften my heart, that I did believe all the words of my father. The wilderness is hard, but the Lord is with us.');
+      }
+      if (this.nearSariah) {
+        if (!GameState.questFlags.sariahTestimony) {
+          showDialogue(this, 'Sariah', 'I feared for my sons when they went back to Jerusalem. I mourned and complained to your father. But when they returned safely...', () => {
+            showDialogue(this, 'Sariah', 'Now I know of a surety that the Lord hath commanded my husband to flee. And He has protected my sons. I will doubt no more.', () => {
+              GameState.questFlags.sariahTestimony = true;
+              GameState.faith = Math.min(GameState.faith + 10, GameState.maxFaith);
+              gainFP(15);
+              addJournal('Witnessed Sariah\'s testimony — her faith was strengthened');
+            });
+          });
+        } else {
+          showDialogue(this, 'Sariah', 'The Lord is good. Even in the wilderness, He provides for us.');
+        }
+      }
+      if (this.nearLaman) {
+        showDialogue(this, 'Laman', 'This wilderness... Father drags us from our riches, our home, for what? Visions? Dreams?', () => {
+          showDialogue(this, 'Traveler', '', null, {
+            choices: [
+              { id: 'encourage_laman', text: 'I understand it\'s hard. But the Lord has shown signs.', faithVsDoubt: 0, compassionVsHarshness: 1, onSelect: () => {
+                showDialogue(this, 'Laman', '...Perhaps. I saw the angel too. I cannot deny it. But it is still hard.', () => {
+                  gainFP(10);
+                  addJournal('Showed compassion to Laman — he almost softened');
+                });
+              }},
+              { id: 'rebuke_laman', text: 'You saw the angel yourself. How can you still doubt?', faithVsDoubt: 1, compassionVsHarshness: -1, onSelect: () => {
+                showDialogue(this, 'Laman', 'You sound like Nephi. Leave me alone.');
+              }}
+            ]
+          });
+        });
+      }
+      if (this.nearLiahona && !GameState.liahonaActive) {
+        GameState.liahonaActive = true;
+        this.liahona?.destroy();
+        this.cameras.main.flash(500, 255, 215, 0);
+        showDialogue(this, 'Narrator', 'On the ground before the tent, Lehi found a curious brass ball of fine workmanship. Within it were two spindles — and one pointed the way they should go in the wilderness.', () => {
+          showDialogue(this, 'Lehi', 'This is a gift from the Lord! It works according to our faith and diligence. When we are faithful, it guides us. When we murmur, it ceases to work.', () => {
+            showScriptureUnlock(this,
+              '1 Nephi 16:10',
+              'And there was also written upon them a new writing, which did give us understanding concerning the ways of the Lord; and it was written and changed from time to time, according to the faith and diligence which we gave unto it.',
+              () => { gainFP(20); }
+            );
+          });
+        });
+      }
+      if (this.nearExit && GameState.liahonaActive) {
+        saveGame({ scene: 'ChapterTransition' });
+        this.cameras.main.fadeOut(800);
+        this.time.delayedCall(800, () => {
+          showMormonNarration(this, 'And thus we see that by small means the Lord can bring about great things.', () => {
+            this.scene.start('ChapterTransition', {
+              chapter: 'III', title: 'The Land Bountiful',
+              quote: '"And we did come to the land which we called Bountiful, because of its much fruit."  — 1 Nephi 17:5',
+              nextScene: 'BountifulScene'
+            });
+          });
+        });
+      } else if (this.nearExit && !GameState.liahonaActive) {
+        showDialogue(this, 'Nephi', 'Wait — there is something on the ground near Father\'s tent. We should look at it before we leave.');
+      }
+    }
+
+    this.hud?.update(this.player, 'sand');
+  }
+}
+
+
+// ============================================================
+// SCENE: BOUNTIFUL — Ship Building (1 Nephi 17-18)
+// ============================================================
+class BountifulScene extends Phaser.Scene {
+  constructor() { super('BountifulScene'); }
+
+  create() {
+    AudioEngine.setTheme('spiritual');
+    this.cameras.main.fadeIn(800);
+    GameState.chapter = { book: '1 Nephi', chapter: 17, label: '1 Nephi · Ch. 17' };
+
+    const worldW = 1400, worldH = 700;
+    this.physics.world.setBounds(0, 0, worldW, worldH);
+    this.cameras.main.setBounds(0, 0, worldW, worldH);
+
+    // Sky
+    this.add.rectangle(worldW/2, 0, worldW, 250, 0x4488cc).setOrigin(0.5, 0);
+    // Clouds
+    for (let i = 0; i < 6; i++) {
+      const cx = Phaser.Math.Between(0, worldW);
+      const cloud = this.add.ellipse(cx, Phaser.Math.Between(40, 150), Phaser.Math.Between(80, 150), 30, 0xffffff, 0.4);
+      this.tweens.add({ targets: cloud, x: cx + 100, duration: 15000, yoyo: true, repeat: -1 });
+    }
+
+    // Lush green land
+    this.add.rectangle(worldW/2, 400, worldW, 350, 0x4a8c3f).setOrigin(0.5, 0);
+    // Grass variation
+    for (let i = 0; i < 40; i++) {
+      this.add.circle(Phaser.Math.Between(0, worldW), Phaser.Math.Between(400, worldH),
+        Phaser.Math.Between(15, 40), 0x3d7a34, 0.3);
+    }
+
+    // Ocean (right side)
+    for (let oy = 380; oy < worldH; oy += 8) {
+      for (let ox = 900; ox < worldW; ox += 10) {
+        const wave = this.add.rectangle(ox, oy, 10, 8, 0x2266aa, 0.5 + Math.sin(ox * 0.05) * 0.1);
+      }
+    }
+    // Beach sand strip
+    this.add.rectangle(950, 450, 50, 300, COLORS.sand, 0.6).setOrigin(0.5, 0);
+    this.add.text(1100, 370, '~ Ocean ~', {
+      fontSize: '12px', fontFamily: 'monospace', color: '#4488cc', fontStyle: 'italic'
+    }).setOrigin(0.5);
+
+    // Tropical trees
+    [100, 300, 500, 750].forEach(tx => {
+      this.add.rectangle(tx, 370, 8, 50, 0x6b4e14);
+      const fronds = this.add.graphics();
+      fronds.fillStyle(0x228b22);
+      for (let f = 0; f < 5; f++) {
+        const angle = (f / 5) * Math.PI * 2;
+        fronds.fillEllipse(tx + Math.cos(angle) * 18, 345 + Math.sin(angle) * 8, 16, 5);
+      }
+    });
+
+    // Fruit on ground (collectible resources)
+    this.resources = [];
+    const resourceTypes = [
+      { x: 150, y: 460, type: 'wood', label: '🪵 Wood', color: COLORS.brown },
+      { x: 350, y: 480, type: 'wood', label: '🪵 Wood', color: COLORS.brown },
+      { x: 550, y: 470, type: 'ore', label: '⛏️ Ore', color: COLORS.gray },
+      { x: 200, y: 500, type: 'rope', label: '🪢 Rope', color: 0x8b7355 },
+      { x: 650, y: 490, type: 'ore', label: '⛏️ Ore', color: COLORS.gray },
+      { x: 450, y: 510, type: 'wood', label: '🪵 Wood', color: COLORS.brown },
+      { x: 100, y: 520, type: 'rope', label: '🪢 Rope', color: 0x8b7355 },
+    ];
+    resourceTypes.forEach(r => {
+      const dot = this.add.circle(r.x, r.y, 8, r.color, 0.8).setDepth(10);
+      const label = this.add.text(r.x, r.y - 14, r.label, {
+        fontSize: '9px', fontFamily: 'monospace', color: '#ffffff'
+      }).setOrigin(0.5).setDepth(11);
+      const zone = this.add.zone(r.x, r.y, 30, 30);
+      this.physics.add.existing(zone, true);
+      this.resources.push({ dot, label, zone, type: r.type, collected: false });
+    });
+
+    // Ship construction area
+    this.shipArea = { x: 850, y: 430 };
+    // Ship frame (grows with progress)
+    this.shipGraphics = this.add.graphics().setDepth(8);
+    this.drawShip();
+
+    this.add.text(850, 390, 'Ship Construction', {
+      fontSize: '11px', fontFamily: 'monospace', color: '#8b5a2b', fontStyle: 'bold'
+    }).setOrigin(0.5);
+
+    // Progress bar
+    this.progressBg = this.add.rectangle(850, 410, 120, 10, 0x333333, 0.5).setDepth(12);
+    this.progressFill = this.add.rectangle(791, 406, 0, 6, COLORS.gold, 0.8).setOrigin(0).setDepth(12);
+    this.progressText = this.add.text(850, 420, `${Math.floor(GameState.shipProgress)}%`, {
+      fontSize: '10px', fontFamily: 'monospace', color: '#ffd700'
+    }).setOrigin(0.5).setDepth(12);
+
+    // NPCs
+    if (this.textures.exists('nephi')) this.add.image(820, 455, 'nephi').setScale(2).setDepth(10);
+    this.add.text(820, 425, 'Nephi', { fontSize: '9px', fontFamily: 'monospace', color: '#ffd700' }).setOrigin(0.5).setDepth(11);
+
+    if (this.textures.exists('laman')) this.add.image(200, 455, 'laman').setScale(1.8).setDepth(10);
+    this.add.text(200, 425, 'Laman', { fontSize: '9px', fontFamily: 'monospace', color: '#cc6666' }).setOrigin(0.5).setDepth(11);
+
+    // Player
+    if (this.textures.exists('player')) {
+      this.player = this.add.image(400, 450, 'player').setScale(2).setDepth(15);
+    } else {
+      this.player = this.add.rectangle(400, 450, 20, 28, COLORS.green);
+    }
+    this.physics.add.existing(this.player);
+    this.player.body.setCollideWorldBounds(true);
+    this.player.body.setSize(20, 30);
+    this.cameras.main.startFollow(this.player, true, 0.08, 0.08);
+
+    // Resource collection overlaps
+    this.resources.forEach(r => {
+      this.physics.add.overlap(this.player, r.zone, () => {
+        if (!r.collected) {
+          r.collected = true;
+          r.dot.destroy();
+          r.label.destroy();
+          GameState.shipProgress = Math.min(100, GameState.shipProgress + 14);
+          this.drawShip();
+          this.progressFill.displayWidth = (GameState.shipProgress / 100) * 118;
+          this.progressText.setText(`${Math.floor(GameState.shipProgress)}%`);
+          gainFP(8);
+          AudioEngine.sfx.click();
+
+          if (GameState.shipProgress >= 98) {
+            this.shipComplete();
+          }
+        }
+      });
+    });
+
+    this.cursors = this.input.keyboard.createCursorKeys();
+    this.spaceKey = this.input.keyboard.addKey('SPACE');
+    this.hud = createHUD(this);
+
+    // Opening
+    if (!GameState.questFlags.bountifulIntro) {
+      GameState.questFlags.bountifulIntro = true;
+      this.time.delayedCall(500, () => {
+        showDialogue(this, 'Narrator', 'After many years in the wilderness, the family arrived at a land by the sea which they called Bountiful, for its much fruit and wild honey.', () => {
+          showDialogue(this, 'Nephi', 'The Lord has commanded me to build a ship. I do not know how, but I know He will show me. Will you help me gather materials?', () => {
+            showDialogue(this, 'Laman', 'Build a ship?! Our brother is a fool. He thinks he can build a ship!', () => {
+              showDialogue(this, 'Nephi', 'If God had commanded me to do all things I could do them. He did not command me to build a ship for no purpose — He will show me the way.', () => {
+                addJournal('Arrived at Bountiful. Nephi commanded to build a ship.');
+              });
+            });
+          });
+        });
+      });
+    }
+  }
+
+  drawShip() {
+    const g = this.shipGraphics;
+    g.clear();
+    const progress = GameState.shipProgress / 100;
+    const x = this.shipArea.x, y = this.shipArea.y;
+
+    if (progress > 0) {
+      // Hull (grows taller/wider with progress)
+      g.fillStyle(0x8b6914, 0.8);
+      const hw = 30 + progress * 40;
+      const hh = 10 + progress * 25;
+      g.fillRect(x - hw/2, y - hh/2, hw, hh);
+      // Keel
+      g.fillStyle(darken(0x8b6914), 0.9);
+      g.fillRect(x - hw/2 - 5, y + hh/2, hw + 10, 4);
+    }
+    if (progress > 0.3) {
+      // Bow curve
+      g.fillStyle(0x8b6914);
+      g.fillRect(x + 35, y - 10, 8, 20);
+    }
+    if (progress > 0.6) {
+      // Mast
+      g.fillStyle(COLORS.brown);
+      g.fillRect(x - 2, y - 50, 4, 50);
+    }
+    if (progress > 0.85) {
+      // Sail
+      g.fillStyle(0xdeb887, 0.7);
+      g.beginPath();
+      g.moveTo(x, y - 48); g.lineTo(x + 25, y - 30); g.lineTo(x, y - 15);
+      g.closePath(); g.fill();
+    }
+  }
+
+  shipComplete() {
+    GameState.shipProgress = 100;
+    if (GameState.questFlags.shipDone) return;
+    GameState.questFlags.shipDone = true;
+
+    this.cameras.main.flash(500, 255, 240, 200);
+    showDialogue(this, 'Narrator', 'The ship was finished! Nephi had built it not after the manner of men, but after the manner which the Lord had shown him. It was exceedingly fine.', () => {
+      showScriptureUnlock(this,
+        '1 Nephi 17:51',
+        'And now, if the Lord has such great power, and has wrought so many miracles among the children of men, how is it that he cannot instruct me, that I should build a ship?',
+        () => {
+          showDialogue(this, 'Nephi', 'The ship is ready. It is time to cross the great waters to the promised land. Let us gather the family and set sail.', () => {
+            this.time.delayedCall(1000, () => {
+              saveGame({ scene: 'OceanStorm' });
+              this.cameras.main.fadeOut(800);
+              this.time.delayedCall(800, () => this.scene.start('ChapterTransition', {
+                chapter: 'IV', title: 'Crossing the Great Deep',
+                quote: '"And after we had sailed for the space of many days..."  — 1 Nephi 18:9',
+                nextScene: 'OceanStorm'
+              }));
+            });
+          });
+        }
+      );
+    });
+  }
+
+  update(time) {
+    if (this._dialogueOpen) {
+      if (this.player?.body) this.player.body.setVelocity(0);
+      return;
+    }
+    const speed = 150;
+    this.player.body.setVelocity(0);
+    if (this.cursors.left.isDown) { this.player.body.setVelocityX(-speed); this.player.setFlipX(true); }
+    if (this.cursors.right.isDown) { this.player.body.setVelocityX(speed); this.player.setFlipX(false); }
+    if (this.cursors.up.isDown) this.player.body.setVelocityY(-speed);
+    if (this.cursors.down.isDown) this.player.body.setVelocityY(speed);
+
+    if (this.player.body.velocity.x !== 0 || this.player.body.velocity.y !== 0) {
+      this.player.setScale(2, 2 + Math.sin(time * 0.01) * 0.05);
+    } else { this.player.setScale(2); }
+
+    this.hud?.update(this.player, 'grass');
+  }
+}
+
+
+// ============================================================
+// SCENE: OCEAN STORM (1 Nephi 18)
+// ============================================================
+class OceanStorm extends Phaser.Scene {
+  constructor() { super('OceanStorm'); }
+
+  create() {
+    AudioEngine.setTheme('battle');
+    this.cameras.main.fadeIn(800);
+    GameState.chapter = { book: '1 Nephi', chapter: 18, label: '1 Nephi · Ch. 18' };
+
+    // Dark stormy sky
+    this.add.rectangle(W/2, H/2, W, H, 0x1a2a3e);
+
+    // Ocean waves (animated)
+    this.waves = [];
+    for (let y = 200; y < H; y += 12) {
+      for (let x = -20; x < W + 20; x += 15) {
+        const wave = this.add.ellipse(x, y, 20, 8, 0x224488, 0.3 + (y / H) * 0.3);
+        this.waves.push(wave);
+        this.tweens.add({
+          targets: wave, x: x + Phaser.Math.Between(-8, 8), y: y + Phaser.Math.Between(-4, 4),
+          duration: 1500 + Math.random() * 1000, yoyo: true, repeat: -1
+        });
+      }
+    }
+
+    // Ship in center
+    const shipG = this.add.graphics().setDepth(20);
+    shipG.fillStyle(0x8b6914);
+    shipG.fillRect(W/2 - 60, 320, 120, 30); // hull
+    shipG.fillStyle(darken(0x8b6914));
+    shipG.fillRect(W/2 - 65, 350, 130, 5); // keel
+    shipG.fillStyle(COLORS.brown);
+    shipG.fillRect(W/2 - 2, 260, 4, 60); // mast
+    shipG.fillStyle(0xdeb887, 0.6);
+    shipG.beginPath();
+    shipG.moveTo(W/2, 262); shipG.lineTo(W/2 + 35, 290); shipG.lineTo(W/2, 315);
+    shipG.closePath(); shipG.fill();
+    this.ship = shipG;
+    // Ship rocking
+    this.tweens.add({ targets: shipG, rotation: 0.05, duration: 2000, yoyo: true, repeat: -1 });
+
+    // Characters on deck
+    if (this.textures.exists('nephi')) {
+      this.nephiSprite = this.add.image(W/2, 310, 'nephi').setScale(1.5).setDepth(22);
+    }
+    if (this.textures.exists('lehi')) {
+      this.add.image(W/2 - 30, 315, 'lehi').setScale(1.2).setDepth(21).setAlpha(0.8);
+    }
+
+    // Storm elements
+    this.stormIntensity = 0;
+
+    // Rain particles
+    try {
+      this.rainEmitter = createEmitterCompat(this, W/2, -10, 'particle_dot', {
+        speed: { min: 200, max: 400 }, angle: { min: 80, max: 100 },
+        scale: { start: 0.3, end: 0.1 }, lifespan: 600,
+        tint: 0x88aacc, frequency: 20, quantity: 3,
+        emitZone: { type: 'random', source: new Phaser.Geom.Rectangle(-W/2, 0, W, 10) }
+      }, 30);
+    } catch(e) {}
+
+    // Faith meter (drains during storm)
+    this.faithBar = this.add.rectangle(W/2, 50, 300, 16, 0x333333, 0.6).setDepth(50).setStrokeStyle(1, COLORS.gold);
+    this.faithFill = this.add.rectangle(W/2 - 149, 50, 298, 12, COLORS.faithBlue, 0.8).setOrigin(0, 0.5).setDepth(51);
+    this.faithLabel = this.add.text(W/2, 30, '✦ Faith — Hold SPACE to pray', {
+      fontSize: '12px', fontFamily: 'monospace', color: '#ffd700', fontStyle: 'bold'
+    }).setOrigin(0.5).setDepth(51);
+
+    this.stormPhase = 0; // 0: calm start, 1: storm, 2: Nephi tied, 3: forgive choice, 4: calm
+    this.timer = 0;
+    this.tied = false;
+
+    this.spaceKey = this.input.keyboard.addKey('SPACE');
+
+    // Opening
+    this.time.delayedCall(500, () => {
+      showDialogue(this, 'Narrator', 'The family set sail across the great ocean. For many days, the voyage was peaceful. But then Laman and Lemuel began to make merry and speak with rudeness...', () => {
+        showDialogue(this, 'Laman', 'We have sailed far enough! Let us celebrate! What has Nephi done that makes him our leader?', () => {
+          showDialogue(this, 'Narrator', 'They tied Nephi with cords. And immediately, a terrible storm arose.', () => {
+            this.stormPhase = 1;
+            this.tied = true;
+            AudioEngine.setTheme('battle');
+          });
+        });
+      });
+    });
+  }
+
+  update(time, delta) {
+    if (this._dialogueOpen) return;
+
+    this.timer += delta;
+
+    if (this.stormPhase === 1) {
+      // Storm intensifies — faith drains
+      const drainRate = 0.015;
+      GameState.faith = Math.max(0, GameState.faith - drainRate * (delta / 16));
+
+      // Praying slows drain and recovers
+      if (this.spaceKey.isDown && !this.tied) {
+        GameState.faith = Math.min(GameState.maxFaith, GameState.faith + 0.04 * (delta / 16));
+      }
+
+      // Update bar
+      const ratio = GameState.faith / GameState.maxFaith;
+      this.faithFill.displayWidth = 298 * ratio;
+
+      // Ship rocking intensity
+      if (this.ship) {
+        this.ship.rotation = Math.sin(time * 0.003) * 0.08;
+      }
+
+      // Lightning flashes
+      if (Math.random() < 0.003) {
+        this.cameras.main.flash(100, 200, 200, 255);
+      }
+
+      // After 6 seconds tied up, trigger choice
+      if (this.tied && this.timer > 8000) {
+        this.stormPhase = 2;
+        showDialogue(this, 'Narrator', 'The storm raged for three days. The compass ceased to work. Laman and Lemuel were terrified. Even Sariah and Lehi were brought near to death.', () => {
+          showDialogue(this, 'Laman', 'We will perish! Perhaps... perhaps we were wrong to bind Nephi.', () => {
+            showDialogue(this, 'Traveler', '', null, {
+              choices: [
+                { id: 'forgive_brothers', text: 'Forgive them. Untie Nephi so he can pray.', faithVsDoubt: 1, compassionVsHarshness: 1, onSelect: () => {
+                  this.tied = false;
+                  this.stormPhase = 3;
+                  GameState.faith = Math.min(GameState.maxFaith, GameState.faith + 30);
+                  showDialogue(this, 'Narrator', 'They loosed Nephi. His wrists were swollen and sore, but he did not complain. He took the compass and prayed to the Lord.', () => {
+                    showDialogue(this, 'Nephi', 'Father, calm the seas. Not for my sake, but for my family, whom I love.', () => {
+                      this.calmStorm();
+                    }, { thought: 'Even now, looking at their faces, I felt no anger. Only sorrow for them.' });
+                  });
+                }},
+              ]
+            });
+          });
+        });
+      }
+    }
+  }
+
+  calmStorm() {
+    this.stormPhase = 4;
+    AudioEngine.setTheme('spiritual');
+
+    // Fade storm
+    this.cameras.main.flash(2000, 255, 240, 200);
+    this.tweens.add({ targets: this.ship, rotation: 0, duration: 2000 });
+
+    // Change sky color to dawn
+    const sky = this.add.rectangle(W/2, H/2, W, H, 0x6688aa, 0).setDepth(5);
+    this.tweens.add({ targets: sky, alpha: 0.5, duration: 3000 });
+
+    // Dawn glow on horizon
+    const dawn = this.add.rectangle(W/2, H - 50, W, 100, 0xffcc88, 0).setDepth(6);
+    this.tweens.add({ targets: dawn, alpha: 0.3, duration: 3000, delay: 1000 });
+
+    this.time.delayedCall(3000, () => {
+      showDialogue(this, 'Narrator', 'The storm ceased. The winds became favorable. And on the horizon... land.', () => {
+        showDialogue(this, 'Nephi', 'Look — the promised land. The Lord has delivered us across the great deep.', () => {
+          showScriptureUnlock(this,
+            '1 Nephi 18:21',
+            'And it came to pass that I, Nephi, did guide the ship, that we sailed again towards the promised land.',
+            () => {
+              saveGame({ scene: 'PromisedLand' });
+              this.cameras.main.fadeOut(1000);
+              this.time.delayedCall(1000, () => this.scene.start('ChapterTransition', {
+                chapter: 'V', title: 'The Promised Land',
+                quote: '"And we did arrive at the promised land; and we did pitch our tents."  — 1 Nephi 18:23',
+                nextScene: 'PromisedLand'
+              }));
+            }
+          );
+        }, { thought: 'And I wept. Not from sadness, but from a joy too large for any other expression.' });
+      });
+    });
+  }
+}
+
+
+// ============================================================
+// SCENE: PROMISED LAND (1 Nephi 18:23-25)
+// ============================================================
+class PromisedLand extends Phaser.Scene {
+  constructor() { super('PromisedLand'); }
+
+  create() {
+    AudioEngine.setTheme('spiritual');
+    this.cameras.main.fadeIn(1200);
+    GameState.chapter = { book: '1 Nephi', chapter: 18, label: '1 Nephi · Ch. 18-22' };
+
+    // Bright beautiful sky
+    this.add.rectangle(W/2, 0, W, 200, 0x5599dd).setOrigin(0.5, 0);
+    // Sun
+    const sun = this.add.circle(600, 60, 25, 0xffdd44, 0.9);
+    this.add.circle(600, 60, 35, 0xffdd44, 0.15);
+
+    // Lush green rolling hills
+    const hills = this.add.graphics();
+    hills.fillStyle(0x4a8c3f);
+    hills.beginPath();
+    hills.moveTo(0, 300); hills.lineTo(100, 260); hills.lineTo(250, 280);
+    hills.lineTo(400, 240); hills.lineTo(550, 270); hills.lineTo(700, 250);
+    hills.lineTo(800, 280); hills.lineTo(800, H); hills.lineTo(0, H);
+    hills.closePath(); hills.fill();
+
+    // Darker green below
+    this.add.rectangle(W/2, 400, W, 250, 0x3d7a34).setOrigin(0.5, 0);
+
+    // Beach at bottom
+    this.add.rectangle(W/2, H - 60, W, 60, COLORS.sand);
+
+    // Ocean at very bottom
+    this.add.rectangle(W/2, H - 20, W, 40, 0x3366aa, 0.6);
+
+    // Trees and flowers
+    [120, 280, 500, 680].forEach(tx => {
+      this.add.rectangle(tx, 310, 10, 60, 0x5c3d1e);
+      this.add.circle(tx, 280, 25, 0x228b22, 0.8);
+      this.add.circle(tx - 10, 275, 15, 0x2da536, 0.6);
+    });
+
+    // Flowers
+    for (let i = 0; i < 15; i++) {
+      const fx = Phaser.Math.Between(50, 750);
+      const fy = Phaser.Math.Between(330, 450);
+      const colors = [0xff6b6b, 0xffdd44, 0xff88cc, 0xffaa44, 0x88ccff];
+      this.add.circle(fx, fy, 3, Phaser.Utils.Array.GetRandom(colors), 0.8);
+    }
+
+    // Family on the beach, celebrating
+    const chars = [
+      { key: 'lehi', x: 300, y: 490, scale: 2.2 },
+      { key: 'sariah', x: 340, y: 492, scale: 2 },
+      { key: 'nephi', x: 400, y: 490, scale: 2.2 },
+      { key: 'sam', x: 440, y: 492, scale: 2 },
+      { key: 'laman', x: 500, y: 492, scale: 1.8 },
+      { key: 'lemuel', x: 530, y: 494, scale: 1.6 },
+      { key: 'zoram', x: 470, y: 494, scale: 1.8 },
+    ];
+    chars.forEach(c => {
+      if (this.textures.exists(c.key)) {
+        const spr = this.add.image(c.x, c.y, c.key).setScale(c.scale).setDepth(10);
+        this.tweens.add({ targets: spr, y: c.y - 3, duration: 1500 + Math.random() * 500, yoyo: true, repeat: -1 });
+      }
+    });
+
+    // Golden particles
+    try {
+      createEmitterCompat(this, W/2, 350, 'particle_dot', {
+        speed: { min: 5, max: 20 }, angle: { min: 240, max: 300 },
+        scale: { start: 0.4, end: 0 }, lifespan: 2000,
+        tint: [0xffd700, 0x44cc44, 0xffdd44], frequency: 300, quantity: 1,
+        emitZone: { type: 'random', source: new Phaser.Geom.Rectangle(-300, 0, 600, 10) }
+      }, 5);
+    } catch(e) {}
+
+    // Dialogue sequence
+    this.time.delayedCall(1000, () => {
+      showDialogue(this, 'Narrator', 'And it came to pass that they did arrive at the promised land. They pitched their tents, tilled the earth, and planted the seeds they had brought from Jerusalem.', () => {
+        showDialogue(this, 'Lehi', 'My children... the Lord has brought us to a land of promise. A land choice above all other lands. Let us give thanks and remember His mercies.', () => {
+          showDialogue(this, 'Nephi', 'We found beasts of every kind — the cow, the ox, the goat, the horse. And we found all manner of ore — gold, silver, and copper.', () => {
+            showScriptureUnlock(this,
+              '1 Nephi 18:25',
+              'And it came to pass that we did find upon the land of promise, as we journeyed in the wilderness, that there were beasts in the forests of every kind.',
+              () => {
+                showDialogue(this, 'Lehi', 'Nephi, my son. You have been faithful from the beginning. The Lord will bless your posterity. Keep these records. Write what the Lord has shown you.', () => {
+                  showMormonNarration(this, 'And thus we see that the tender mercies of the Lord are over all those whom He hath chosen, because of their faith.', () => {
+                    saveGame({ scene: 'FinalScene' });
+                    this.cameras.main.fadeOut(1500);
+                    this.time.delayedCall(1500, () => this.scene.start('FinalScene'));
+                  });
+                });
+              }
+            );
+          });
+        });
+      });
+    });
+  }
+}
+
+
+// ============================================================
+// SCENE: FINAL SCENE — Nephi writes the record
+// ============================================================
+class FinalScene extends Phaser.Scene {
+  constructor() { super('FinalScene'); }
+
+  create() {
+    AudioEngine.setTheme('spiritual');
+    this.cameras.main.fadeIn(2000);
+
+    // Hilltop at sunset
+    this.add.rectangle(W/2, 0, W, H/2, 0xcc7744).setOrigin(0.5, 0); // sunset sky
+    this.add.rectangle(W/2, H/2 - 30, W, 60, 0xffaa55, 0.3); // horizon glow
+
+    // Rolling green hills
+    const hill = this.add.graphics();
+    hill.fillStyle(0x3d7a34);
+    hill.beginPath();
+    hill.moveTo(0, 350); hill.lineTo(200, 310); hill.lineTo(400, 290);
+    hill.lineTo(500, 280); hill.lineTo(600, 295); hill.lineTo(800, 320);
+    hill.lineTo(800, H); hill.lineTo(0, H);
+    hill.closePath(); hill.fill();
+
+    // Darker ground
+    this.add.rectangle(W/2, 420, W, 200, 0x2d6025).setOrigin(0.5, 0);
+
+    // Nephi sitting on hilltop
+    if (this.textures.exists('nephi')) {
+      const nephi = this.add.image(W/2, 340, 'nephi').setScale(3).setDepth(10);
+    }
+
+    // Golden plates in front of him
+    this.add.rectangle(W/2 + 20, 365, 18, 22, COLORS.gold, 0.85).setStrokeStyle(1, 0xb8860b).setDepth(11);
+    // Stylus
+    this.add.rectangle(W/2 + 35, 360, 2, 18, 0x8b6914).setDepth(11).setAngle(-30);
+
+    // Warm light particles
+    try {
+      createEmitterCompat(this, W/2, 300, 'particle_dot', {
+        speed: { min: 3, max: 10 }, angle: { min: 240, max: 300 },
+        scale: { start: 0.3, end: 0 }, lifespan: 3000,
+        tint: [0xffd700, 0xffaa44], frequency: 500, quantity: 1,
+      }, 5);
+    } catch(e) {}
+
+    // The writing sequence
+    const writingText = this.add.text(W/2, 440, '', {
+      fontSize: '18px',
+      fontFamily: 'Palatino Linotype, Book Antiqua, Palatino, serif',
+      color: '#ffd700', fontStyle: 'italic',
+      wordWrap: { width: 600 }, align: 'center', lineSpacing: 8
+    }).setOrigin(0.5, 0).setDepth(20);
+
+    const fullText = 'I, Nephi, having been born of goodly parents...';
+    let ci = 0;
+
+    this.time.delayedCall(2000, () => {
+      const timer = this.time.addEvent({
+        delay: 80, loop: true,
+        callback: () => {
+          if (ci < fullText.length) {
+            ci++;
+            writingText.setText(fullText.substring(0, ci));
+          } else {
+            timer.remove();
+            this.time.delayedCall(2000, () => this.endSequence());
+          }
+        }
+      });
+    });
+  }
+
+  endSequence() {
+    // Nephi looks at the player
+    const lookText = this.add.text(W/2, 520, '', {
+      fontSize: '13px', fontFamily: 'Georgia, serif', color: '#c0a060',
+      fontStyle: 'italic', align: 'center', wordWrap: { width: 500 }
+    }).setOrigin(0.5, 0).setDepth(20).setAlpha(0);
+
+    this.tweens.add({
+      targets: lookText, alpha: 1, duration: 1500,
+      onComplete: () => { lookText.setText('Nephi pauses. He looks up from the plates.\nHe looks at you.\nA quiet smile.'); }
+    });
+
+    this.time.delayedCall(5000, () => {
+      // Fade to gold
+      const goldOverlay = this.add.rectangle(W/2, H/2, W, H, COLORS.gold, 0).setDepth(100);
+      this.tweens.add({ targets: goldOverlay, alpha: 0.8, duration: 2000 });
+
+      this.time.delayedCall(2500, () => {
+        // Black screen with final text
+        const blackOverlay = this.add.rectangle(W/2, H/2, W, H, 0x000000, 0).setDepth(110);
+        this.tweens.add({ targets: blackOverlay, alpha: 1, duration: 1500 });
+
+        this.time.delayedCall(2000, () => {
+          const endText1 = this.add.text(W/2, H/2 - 80, 'To be continued in 2 Nephi.', {
+            fontSize: '20px', fontFamily: 'Palatino Linotype, Book Antiqua, Palatino, serif',
+            color: '#ffd700', fontStyle: 'italic'
+          }).setOrigin(0.5).setDepth(120).setAlpha(0);
+          this.tweens.add({ targets: endText1, alpha: 1, duration: 1500 });
+
+          this.time.delayedCall(3000, () => {
+            const endText2 = this.add.text(W/2, H/2, 'The record you just experienced is real.\nThe people in this story were real.\nTheir faith was real.\nYou can read their words yourself.', {
+              fontSize: '14px', fontFamily: 'Georgia, serif',
+              color: '#8899aa', fontStyle: 'italic', align: 'center', lineSpacing: 6
+            }).setOrigin(0.5).setDepth(120).setAlpha(0);
+            this.tweens.add({ targets: endText2, alpha: 1, duration: 2000 });
+
+            this.time.delayedCall(5000, () => {
+              const endText3 = this.add.text(W/2, H/2 + 100, 'The Book of Mormon.\nAnother Testament of Jesus Christ.', {
+                fontSize: '18px', fontFamily: 'Palatino Linotype, Book Antiqua, Palatino, serif',
+                color: '#ffd700', fontStyle: 'bold', align: 'center', lineSpacing: 4
+              }).setOrigin(0.5).setDepth(120).setAlpha(0);
+              this.tweens.add({ targets: endText3, alpha: 1, duration: 2000 });
+
+              // Character summary
+              this.time.delayedCall(6000, () => {
+                const faithChoices = GameState.alignment.faithVsDoubt;
+                const compassionChoices = GameState.alignment.compassionVsHarshness;
+                const totalChoices = GameState.alignment.choices.length;
+                const summary = this.add.text(W/2, H/2 + 170, `Your Journey: ${GameState.scriptures.length} scriptures collected · Level ${GameState.level} · ${totalChoices} choices made`, {
+                  fontSize: '11px', fontFamily: 'monospace', color: '#667788', align: 'center'
+                }).setOrigin(0.5).setDepth(120).setAlpha(0);
+                this.tweens.add({ targets: summary, alpha: 1, duration: 1000 });
+
+                const restart = this.add.text(W/2, H - 30, 'Click to return to title', {
+                  fontSize: '12px', fontFamily: 'monospace', color: '#556677'
+                }).setOrigin(0.5).setDepth(120).setAlpha(0);
+                this.tweens.add({ targets: restart, alpha: 0.6, duration: 1000, delay: 2000 });
+
+                this.time.delayedCall(3000, () => {
+                  this.input.once('pointerdown', () => {
+                    GameState.completedScenes.push('1Nephi');
+                    saveGame({ completed: true });
+                    this.scene.start('Title');
+                  });
+                });
+              });
+            });
+          });
+        });
+      });
+    });
+  }
+}
+
+
+// ============================================================
 // PHASER CONFIG
 // ============================================================
 const config = {
@@ -3292,7 +4437,7 @@ const config = {
     default: 'arcade',
     arcade: { gravity: { y: 0 }, debug: false }
   },
-  scene: [BootScene, TitleScene, WorldMapScene, JerusalemScene, BrassPlatesScene, BattleScene, IronRodScene],
+  scene: [BootScene, TitleScene, WorldMapScene, JerusalemScene, BrassPlatesScene, BattleScene, IronRodScene, ChapterTransition, WildernessCamp, BountifulScene, OceanStorm, PromisedLand, FinalScene],
   scale: {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
