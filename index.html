@@ -716,8 +716,7 @@ function generateAllSprites(scene) {
 // ============================================================
 
 function ensureCanvasTexture(scene, key, width, height, drawFn) {
-  const existing = scene.textures.get(key);
-  if (existing && existing.key) return key;
+  if (scene.textures.exists(key)) return key;
   const tx = scene.textures.createCanvas(key, width, height);
   const ctx = tx.getContext();
   drawFn(ctx, width, height);
@@ -1356,25 +1355,30 @@ function showDialogue(scene, speaker, text, onComplete, optionsOrOpts) {
       const t = scene.add.text(textLeft, baseY + i * (28 * scale), `\u25ba ${c.text}`, {
         fontSize: `${Math.floor(15 * scale)}px`,
         fontFamily: 'Georgia, serif',
-        color: '#1f1a12',
-      }).setInteractive({ useHandCursor: true });
-      t.on('pointerover', () => t.setColor('#6b4e1e'));
-      t.on('pointerout', () => t.setColor('#1f1a12'));
+        color: '#e8d8b8',
+        backgroundColor: '#1a1a2e',
+        padding: { x: 8, y: 4 },
+      }).setScrollFactor(0).setDepth(210).setInteractive({ useHandCursor: true });
+      t.on('pointerover', () => { t.setColor('#ffd700'); t.setBackgroundColor('#2a2a4e'); });
+      t.on('pointerout', () => { t.setColor('#e8d8b8'); t.setBackgroundColor('#1a1a2e'); });
       t.on('pointerdown', () => {
         recordChoice({ id: c.id, label: c.text, faithVsDoubt: c.faithVsDoubt || 0, compassionVsHarshness: c.compassionVsHarshness || 0 });
-        scene.input.off('pointerdown', handlePointer);
-        scene.input.keyboard.off('keydown-SPACE', handleSpace);
+        choices.forEach(ct => ct.destroy());
         cleanup();
         if (c.onSelect) c.onSelect();
         else if (onComplete) onComplete();
       });
       choices.push(t);
-      ui.add(t);
     });
 
     scene.input.off('pointerdown', handlePointer);
     scene.input.keyboard.off('keydown-SPACE', handleSpace);
     dim.setAlpha(0.35);
+
+    // Ensure choices get cleaned up if ui is destroyed
+    ui.once(Phaser.GameObjects.Events.DESTROY, () => {
+      choices.forEach(ct => { if (ct.active) ct.destroy(); });
+    });
     return ui;
   }
 
