@@ -3685,13 +3685,13 @@ class JerusalemCityScene extends Phaser.Scene {
     const palmG = this.add.graphics();
     [150, 480, 850, 1150, 1550].forEach(tx => drawPokemonPalm(palmG, tx, 500, 1.2));
 
-    // Main walkway (where player walks)
+    // Main walkway (where player walks) — wide area
     const pathG = this.add.graphics();
-    drawPokemonPath(pathG, 0, 580, worldW, 80);
+    drawPokemonPath(pathG, 0, 540, worldW, 160);
 
     // Grass below path
     const bottomGrass = this.add.graphics();
-    drawPokemonGrass(bottomGrass, 0, 660, worldW, worldH - 660);
+    drawPokemonGrass(bottomGrass, 0, 700, worldW, worldH - 700);
 
     // === NPCs ===
     this.npcSprites = [];
@@ -3704,8 +3704,10 @@ class JerusalemCityScene extends Phaser.Scene {
         sprite = this.add.rectangle(x, y, 16, 24, COLORS.faithBlue).setDepth(10);
       }
       const label = this.add.text(x, y - 26, name, { fontSize: '9px', fontFamily: 'monospace', color: '#ccaa88' }).setOrigin(0.5).setDepth(11);
-      // Physics body for NPC (immovable, so player can't walk through)
+      // Physics body for NPC (immovable, small hitbox so player can squeeze past)
       this.physics.add.existing(sprite, true);
+      sprite.body.setSize(14, 14);
+      sprite.body.setOffset(sprite.width / 2 - 7, sprite.height / 2 - 4);
       sprite._npcLabel = label;
       sprite._npcName = name;
       this.npcSprites.push(sprite);
@@ -3714,31 +3716,32 @@ class JerusalemCityScene extends Phaser.Scene {
       return { zone, sprite, label };
     };
 
-    const c1 = createNPC('citizen_male', 250, 612, 'Citizen', 1.6, 50, 50);
-    const c2 = createNPC('citizen_female', 550, 612, 'Woman', 1.6, 50, 50);
-    const c3 = createNPC('citizen_male', 950, 612, 'Elder', 1.6, 50, 50);
-    const c4 = createNPC('citizen_male', 1000, 585, 'Merchant', 1.6, 50, 50);
+    // NPCs staggered vertically so player can navigate around them
+    const c1 = createNPC('citizen_male', 320, 590, 'Citizen', 1.6, 50, 50);
+    const c2 = createNPC('citizen_female', 550, 660, 'Woman', 1.6, 50, 50);
+    const c3 = createNPC('citizen_male', 950, 580, 'Elder', 1.6, 50, 50);
+    const c4 = createNPC('citizen_male', 1050, 650, 'Merchant', 1.6, 50, 50);
     this.citizen1Zone = c1.zone;
     this.citizen2Zone = c2.zone;
     this.citizen3Zone = c3.zone;
     this.merchantZone = c4.zone;
 
-    const nLaman = createNPC('laman', 700, 612, 'Laman', 1.8, 60, 50);
-    const nLemuel = createNPC('lemuel', 760, 614, 'Lemuel', 1.6, 50, 50);
-    const nSam = createNPC('sam', 1300, 612, 'Sam', 1.8, 50, 50);
-    const nSariah = createNPC('sariah', 1420, 612, 'Sariah', 1.8, 50, 50);
-    const nLehi = createNPC('lehi', 1380, 560, 'Lehi', 2, 60, 60);
+    const nLaman = createNPC('laman', 700, 640, 'Laman', 1.8, 60, 50);
+    const nLemuel = createNPC('lemuel', 760, 590, 'Lemuel', 1.6, 50, 50);
+    const nSam = createNPC('sam', 1300, 650, 'Sam', 1.8, 50, 50);
+    const nSariah = createNPC('sariah', 1450, 620, 'Sariah', 1.8, 50, 50);
+    const nLehi = createNPC('lehi', 1380, 580, 'Lehi', 2, 60, 60);
     this.lamanZone = nLaman.zone;
     this.lemuelZone = nLemuel.zone;
     this.samZone = nSam.zone;
     this.sariahZone = nSariah.zone;
     this.lehiZone = nLehi.zone;
 
-    // === PLAYER ===
+    // === PLAYER === (spawn in open area, no NPCs nearby)
     if (this.textures.exists('nephi')) {
-      this.player = this.add.image(200, 612, 'nephi').setScale(2).setDepth(15);
+      this.player = this.add.image(120, 620, 'nephi').setScale(2).setDepth(15);
     } else {
-      this.player = this.add.rectangle(200, 620, 20, 28, COLORS.faithBlue).setOrigin(0.5, 1);
+      this.player = this.add.rectangle(120, 620, 20, 28, COLORS.faithBlue).setOrigin(0.5, 1);
     }
     this.physics.add.existing(this.player);
     this.player.body.setCollideWorldBounds(true);
@@ -3747,13 +3750,13 @@ class JerusalemCityScene extends Phaser.Scene {
     this.cameras.main.startFollow(this.player, true, 0.08, 0.08);
 
     // === COLLISION BARRIERS (after player exists!) ===
-    // Top boundary — can't walk into sky/walls/buildings
-    const wallBarrier = this.add.rectangle(worldW / 2, 570, worldW, 20, 0x000000, 0).setOrigin(0.5);
+    // Top boundary — can't walk into buildings/sky
+    const wallBarrier = this.add.rectangle(worldW / 2, 540, worldW, 20, 0x000000, 0).setOrigin(0.5);
     this.physics.add.existing(wallBarrier, true);
     this.physics.add.collider(this.player, wallBarrier);
 
     // Bottom boundary
-    const bottomBarrier = this.add.rectangle(worldW / 2, 670, worldW, 20, 0x000000, 0).setOrigin(0.5);
+    const bottomBarrier = this.add.rectangle(worldW / 2, 710, worldW, 20, 0x000000, 0).setOrigin(0.5);
     this.physics.add.existing(bottomBarrier, true);
     this.physics.add.collider(this.player, bottomBarrier);
 
@@ -3790,8 +3793,8 @@ class JerusalemCityScene extends Phaser.Scene {
 
     // Quest marker on Lehi
     if (!GameState.questFlags.lehiVision) {
-      this.questMarker = this.add.text(1380, 520, '\u2757', { fontSize: '24px' }).setOrigin(0.5).setDepth(20);
-      this.tweens.add({ targets: this.questMarker, y: 510, duration: 600, yoyo: true, repeat: -1 });
+      this.questMarker = this.add.text(1380, 545, '\u2757', { fontSize: '24px' }).setOrigin(0.5).setDepth(20);
+      this.tweens.add({ targets: this.questMarker, y: 535, duration: 600, yoyo: true, repeat: -1 });
     }
 
     // Overlap flags for interaction
@@ -3813,7 +3816,7 @@ class JerusalemCityScene extends Phaser.Scene {
     this._stepCooldown = 0;
 
     this.hud = createHUD(this);
-    this.hud.setObjective(1380, 560);
+    this.hud.setObjective(1380, 580);
 
     // Interact prompt — larger and more visible
     this.interactPrompt = this.add.text(0, 0, '[ SPACE ] Talk', {
@@ -3826,14 +3829,14 @@ class JerusalemCityScene extends Phaser.Scene {
     // Floating speech bubbles from citizens (auto-cycle)
     this.ambientBubbles = [];
     const ambientLines = [
-      { x: 250, y: 585, text: 'Babylon grows stronger...', delay: 2000 },
-      { x: 550, y: 585, text: 'Have you heard the prophets?', delay: 5500 },
-      { x: 950, y: 585, text: 'Dark times ahead...', delay: 9000 },
-      { x: 1000, y: 558, text: 'Trade has dried up!', delay: 12500 },
-      { x: 700, y: 585, text: 'Father is a fool.', delay: 7000 },
-      { x: 760, y: 587, text: '...', delay: 8000 },
-      { x: 1300, y: 585, text: 'I trust Father.', delay: 4000 },
-      { x: 1420, y: 585, text: 'Oh, our home...', delay: 11000 },
+      { x: 320, y: 565, text: 'Babylon grows stronger...', delay: 2000 },
+      { x: 550, y: 635, text: 'Have you heard the prophets?', delay: 5500 },
+      { x: 950, y: 555, text: 'Dark times ahead...', delay: 9000 },
+      { x: 1050, y: 625, text: 'Trade has dried up!', delay: 12500 },
+      { x: 700, y: 615, text: 'Father is a fool.', delay: 7000 },
+      { x: 760, y: 565, text: '...', delay: 8000 },
+      { x: 1300, y: 625, text: 'I trust Father.', delay: 4000 },
+      { x: 1450, y: 595, text: 'Oh, our home...', delay: 11000 },
     ];
     ambientLines.forEach(al => {
       const bubble = this.add.text(al.x, al.y - 20, al.text, {
@@ -4154,15 +4157,15 @@ class JerusalemCityScene extends Phaser.Scene {
     // Normal interaction mode
     this.interactPrompt.setVisible(false);
     const nf = this.nearFlags;
-    if (nf.lehi) this.interactPrompt.setPosition(1380, 530).setVisible(true);
-    else if (nf.sam) this.interactPrompt.setPosition(1300, 585).setVisible(true);
-    else if (nf.sariah) this.interactPrompt.setPosition(1420, 585).setVisible(true);
-    else if (nf.laman) this.interactPrompt.setPosition(700, 585).setVisible(true);
-    else if (nf.lemuel) this.interactPrompt.setPosition(760, 585).setVisible(true);
-    else if (nf.citizen1) this.interactPrompt.setPosition(250, 585).setVisible(true);
-    else if (nf.citizen2) this.interactPrompt.setPosition(550, 585).setVisible(true);
-    else if (nf.citizen3) this.interactPrompt.setPosition(950, 585).setVisible(true);
-    else if (nf.merchant) this.interactPrompt.setPosition(1000, 558).setVisible(true);
+    if (nf.lehi) this.interactPrompt.setPosition(1380, 550).setVisible(true);
+    else if (nf.sam) this.interactPrompt.setPosition(1300, 620).setVisible(true);
+    else if (nf.sariah) this.interactPrompt.setPosition(1450, 590).setVisible(true);
+    else if (nf.laman) this.interactPrompt.setPosition(700, 610).setVisible(true);
+    else if (nf.lemuel) this.interactPrompt.setPosition(760, 560).setVisible(true);
+    else if (nf.citizen1) this.interactPrompt.setPosition(320, 560).setVisible(true);
+    else if (nf.citizen2) this.interactPrompt.setPosition(550, 630).setVisible(true);
+    else if (nf.citizen3) this.interactPrompt.setPosition(950, 550).setVisible(true);
+    else if (nf.merchant) this.interactPrompt.setPosition(1050, 620).setVisible(true);
 
     if (this.interactCooldown > 0) this.interactCooldown -= delta;
     if (Phaser.Input.Keyboard.JustDown(this.spaceKey) && this.interactCooldown <= 0) {
