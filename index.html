@@ -756,6 +756,60 @@ function generateAllSprites(scene) {
     expression: 'kind',
     eyeColor: 0x8899bb,
   });
+
+  // Laban (wealthy, armored, intimidating)
+  generateCharacterTexture(scene, 'laban', {
+    skinTone: 0xc49a6c,
+    hairColor: 0x1a1208,
+    hairStyle: 'short',
+    beardStyle: 'short',
+    robeColor: 0x6b0020,
+    robeAccent: 0x4a0015,
+    isArmored: true,
+    armorColor: 0x8b8b8b,
+    hasSword: true,
+    headwear: 'headband',
+    headwearColor: 0xffd700,
+    expression: 'brave',
+  });
+
+  // Bandit (desert raider)
+  generateCharacterTexture(scene, 'bandit', {
+    skinTone: 0xb08050,
+    hairColor: 0x2a1a0a,
+    hairStyle: 'short',
+    beardStyle: 'short',
+    robeColor: 0x5a4030,
+    robeAccent: 0x3a2a1a,
+    hasSword: true,
+    headwear: 'headband',
+    headwearColor: 0x5a3020,
+    expression: 'brave',
+  });
+
+  // Citizen male
+  generateCharacterTexture(scene, 'citizen_male', {
+    skinTone: 0xc49a6c,
+    hairColor: 0x2c1810,
+    hairStyle: 'short',
+    beardStyle: 'short',
+    robeColor: 0x8b7355,
+    robeAccent: 0x6b5335,
+    expression: 'neutral',
+  });
+
+  // Citizen female
+  generateCharacterTexture(scene, 'citizen_female', {
+    skinTone: 0xd4a574,
+    hairColor: 0x2c1810,
+    hairStyle: 'long',
+    beardStyle: 'none',
+    robeColor: 0xa0785a,
+    robeAccent: 0x7a5a3a,
+    headwear: 'hood',
+    headwearColor: 0xc0a080,
+    expression: 'kind',
+  });
 }
 
 // ============================================================
@@ -1571,6 +1625,10 @@ function showDialogue(scene, speaker, text, onComplete, optionsOrOpts) {
     'Nephi': 'nephi', 'Lehi': 'lehi', 'Sariah': 'sariah',
     'Sam': 'sam', 'Laman': 'laman', 'Lemuel': 'lemuel',
     'Zoram': 'zoram', 'Mormon': 'mormon', 'Angel': 'angel', 'Ishmael': 'ishmael',
+    'Laban': 'laban', 'Guard': 'guard', 'The Spirit': null,
+    'Citizen': 'citizen_male', 'Woman': 'citizen_female', 'Elder': 'citizen_male',
+    'Merchant': 'citizen_male', 'Old Woman': 'citizen_female', 'Neighbor': 'citizen_female',
+    'Temple Priest': null, 'Desert Bandit': 'bandit',
     'Narrator': null,
   };
   const portraitKey = portraitMap[speaker] || null;
@@ -2975,13 +3033,13 @@ class WorldMapScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     // Determine which scenes are accessible based on progress
-    const hasPlatesAndRod = GameState.brassPlatesObtained && GameState.ironRodComplete;
+    const hasPlatesAndRod = GameState.brassPlatesObtained;
     const hasLiahona = GameState.liahonaActive;
     const hasShip = GameState.questFlags.shipDone;
     const reachedPromised = GameState.completedScenes?.includes('1Nephi') || GameState.questFlags.reachedPromised;
 
     const worlds = [
-      { x: 600, y: 120, name: 'Jerusalem', sub: 'Obtain the Brass Plates', active: true, scene: 'Jerusalem', done: hasPlatesAndRod },
+      { x: 600, y: 120, name: 'Jerusalem', sub: '1 Nephi 1\u20134', active: true, scene: 'JerusalemCity', done: hasPlatesAndRod },
       { x: 350, y: 200, name: 'Wilderness', sub: 'The Valley of Lemuel', active: hasPlatesAndRod, scene: 'WildernessCamp', done: hasLiahona },
       { x: 150, y: 320, name: 'Bountiful', sub: 'Build the Ship', active: hasLiahona, scene: 'BountifulScene', done: hasShip },
       { x: 300, y: 450, name: 'Great Deep', sub: 'Cross the Ocean', active: hasShip, scene: 'OceanStorm', done: reachedPromised },
@@ -3069,226 +3127,140 @@ class WorldMapScene extends Phaser.Scene {
 
 
 // ============================================================
-// SCENE: JERUSALEM (World 1 Hub)
+// SCENE 1: JERUSALEM CITY — Jerusalem in Turmoil (1 Nephi 1)
 // ============================================================
-class JerusalemScene extends Phaser.Scene {
-  constructor() { super('Jerusalem'); }
+class JerusalemCityScene extends Phaser.Scene {
+  constructor() { super('JerusalemCity'); }
 
   create() {
     AudioEngine.setTheme('jerusalem');
     this.cameras.main.fadeIn(800);
-    GameState.companion = { name: 'Sam', title: 'Brother of Nephi', color: COLORS.brown };
+    GameState.chapter = { book: '1 Nephi', chapter: 1, label: '1 Nephi · Ch. 1' };
 
-    const worldW = 1600, worldH = 900;
+    const worldW = 1800, worldH = 900;
     this.physics.world.setBounds(0, 0, worldW, worldH);
     this.cameras.main.setBounds(0, 0, worldW, worldH);
 
     this._pause = attachPauseMenu(this);
-    this._lighting = FX.createLightingRig(this, { mode: 'night' });
-    // Moonlight wash + subtle shifting "cloud part" god rays.
-    this._lighting.addLight(260, 90, 'light_cool_256', 3.6, 0.12, 0.02);
-    const rays = this._lighting.addLight(520, 140, 'light_white_256', 5.0, 0.04, 0.0);
-    this.tweens.add({ targets: rays.spr, x: 620, alpha: 0.08, duration: 9000, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+    this._lighting = FX.createLightingRig(this, { mode: 'day' });
 
-    // Pokemon-style night sky (deep blue with stars)
+    // Sky
     const skyG = this.add.graphics();
-    skyG.fillStyle(0x182848);
+    skyG.fillStyle(0x68b8f8);
     skyG.fillRect(0, 0, worldW, 320);
-    skyG.fillStyle(0x203860, 0.6);
-    skyG.fillRect(0, 200, worldW, 120);
+    skyG.fillStyle(0x88d0ff, 0.6);
+    skyG.fillRect(0, 0, worldW, 160);
+    // Sun
+    this.add.circle(300, 80, 24, 0xfff870);
+    this.add.circle(300, 80, 18, 0xffff98, 0.6);
 
-    // Stars in sky (twinkling)
-    for (let i = 0; i < 60; i++) {
-      const star = this.add.circle(Phaser.Math.Between(0, worldW), Phaser.Math.Between(0, 260),
-        Phaser.Math.Between(1, 2), 0xffffff, Phaser.Math.FloatBetween(0.3, 0.9));
-      if (i % 3 === 0) this.tweens.add({ targets: star, alpha: 0.2, duration: Phaser.Math.Between(800, 2000), yoyo: true, repeat: -1 });
-    }
-    // Moon
-    this.add.circle(200, 80, 20, 0xf0f0d0, 0.8);
-    this.add.circle(206, 76, 16, 0xf8f8e8, 0.5);
-
-    // Pokemon-style sand tile ground
+    // Ground
     const groundG = this.add.graphics();
-    drawPokemonPath(groundG, 0, 320, worldW, worldH - 320);
+    drawPokemonPath(groundG, 0, 380, worldW, worldH - 380);
 
-    // Pokemon-style buildings (ancient Jerusalem with flat/colored roofs)
+    // City walls (background)
+    const wallG = this.add.graphics();
+    wallG.fillStyle(0xc8a868);
+    wallG.fillRect(0, 280, worldW, 100);
+    wallG.fillStyle(darken(0xc8a868, 20));
+    wallG.fillRect(0, 280, worldW, 4);
+    // Wall crenellations
+    for (let wx = 0; wx < worldW; wx += 40) {
+      wallG.fillStyle(0xc8a868);
+      wallG.fillRect(wx, 268, 20, 16);
+    }
+
+    // Buildings
     const bldgG = this.add.graphics();
     const buildings = [
-      { x: 100, y: 380, w: 100, h: 100, roof: 0xc8a060, wall: COLORS.pokSand },
-      { x: 230, y: 360, w: 80, h: 120, roof: 0xb89050, wall: COLORS.pokWallCream },
-      { x: 340, y: 370, w: 110, h: 110, roof: 0xd0a868, wall: COLORS.pokSand },
-      { x: 520, y: 350, w: 90, h: 130, roof: 0xc89848, wall: COLORS.pokWallCream },
-      { x: 900, y: 360, w: 80, h: 120, roof: 0xb89050, wall: COLORS.pokSand },
-      { x: 1020, y: 375, w: 95, h: 105, roof: 0xd0a868, wall: COLORS.pokWallCream },
-      { x: 1150, y: 355, w: 85, h: 125, roof: 0xc89848, wall: COLORS.pokSand },
-      { x: 1380, y: 370, w: 100, h: 110, roof: 0xb89050, wall: COLORS.pokWallCream },
+      { x: 100, y: 400, w: 90, h: 90, roof: 0xc8a060, wall: COLORS.pokSand },
+      { x: 230, y: 390, w: 80, h: 100, roof: 0xb89050, wall: COLORS.pokWallCream },
+      { x: 400, y: 395, w: 100, h: 95, roof: 0xd0a868, wall: COLORS.pokSand },
+      { x: 600, y: 385, w: 85, h: 105, roof: 0xc89848, wall: COLORS.pokWallCream },
+      { x: 900, y: 390, w: 80, h: 100, roof: 0xb89050, wall: COLORS.pokSand },
+      { x: 1050, y: 400, w: 95, h: 90, roof: 0xd0a868, wall: COLORS.pokWallCream },
+      { x: 1250, y: 385, w: 85, h: 105, roof: 0xc89848, wall: COLORS.pokSand },
+      { x: 1500, y: 395, w: 90, h: 95, roof: 0xb89050, wall: COLORS.pokWallCream },
     ];
-    buildings.forEach(b => {
-      drawPokemonBuilding(bldgG, b.x, b.y, b.w, b.h, b.roof, b.wall);
-    });
+    buildings.forEach(b => drawPokemonBuilding(bldgG, b.x, b.y, b.w, b.h, b.roof, b.wall));
 
-    // Temple of Solomon (large, impressive Pokemon building with gold roof)
+    // Temple of Solomon (large, central)
     const templeG = this.add.graphics();
-    // Temple base
     templeG.fillStyle(COLORS.pokWallLight);
-    templeG.fillRect(660, 320, 180, 240);
-    // Temple walls
+    templeG.fillRect(730, 340, 180, 200);
     templeG.fillStyle(darken(COLORS.pokWallLight, 20));
-    templeG.fillRect(660, 320, 180, 3);
-    templeG.fillRect(660, 320, 3, 240);
-    templeG.fillRect(837, 320, 3, 240);
-    // Gold flat roof with ornamental top
+    templeG.fillRect(730, 340, 180, 3);
+    templeG.fillRect(730, 340, 3, 200);
+    templeG.fillRect(907, 340, 3, 200);
     templeG.fillStyle(COLORS.gold);
-    templeG.fillRect(650, 310, 200, 14);
+    templeG.fillRect(720, 330, 200, 14);
     templeG.fillStyle(lighten(COLORS.gold, 20));
-    templeG.fillRect(655, 305, 190, 8);
-    // Triangular pediment
+    templeG.fillRect(725, 325, 190, 8);
     templeG.fillStyle(COLORS.gold);
     templeG.beginPath();
-    templeG.moveTo(660, 310);
-    templeG.lineTo(750, 275);
-    templeG.lineTo(840, 310);
+    templeG.moveTo(730, 330);
+    templeG.lineTo(820, 295);
+    templeG.lineTo(910, 330);
     templeG.closePath(); templeG.fill();
-    templeG.fillStyle(lighten(COLORS.gold, 30));
-    templeG.beginPath();
-    templeG.moveTo(680, 310);
-    templeG.lineTo(750, 283);
-    templeG.lineTo(820, 310);
-    templeG.closePath(); templeG.fill();
-    // Pillars
-    for (let px = 675; px <= 825; px += 30) {
+    for (let px = 745; px <= 895; px += 30) {
       templeG.fillStyle(0xe0d0b0);
-      templeG.fillRect(px - 4, 324, 8, 230);
-      templeG.fillStyle(0xf0e0c8, 0.4);
-      templeG.fillRect(px - 2, 324, 4, 230);
+      templeG.fillRect(px - 4, 344, 8, 196);
     }
-    // Temple windows (golden glow)
-    for (let wy = 370; wy < 520; wy += 50) {
-      templeG.fillStyle(0xffdd88, 0.7);
-      templeG.fillRect(690, wy, 14, 18);
-      templeG.fillRect(730, wy, 14, 18);
-      templeG.fillRect(770, wy, 14, 18);
-    }
-    // Temple door
-    templeG.fillStyle(0x8B6914);
-    templeG.fillRect(735, 520, 30, 40);
-    templeG.fillStyle(COLORS.gold);
-    templeG.fillCircle(760, 540, 2);
-    this.add.text(750, 290, 'Temple of Solomon', { fontSize: '10px', fontFamily: 'monospace', color: '#ffd700', stroke: '#000000', strokeThickness: 2 }).setOrigin(0.5);
-
-    // Temple lamps (warm light pools + flicker).
-    [
-      { x: 700, y: 560 },
-      { x: 800, y: 560 },
-    ].forEach((p) => {
-      this.add.rectangle(p.x, p.y, 6, 14, COLORS.brown).setOrigin(0.5, 1);
-      const flame = this.add.circle(p.x, p.y - 16, 4, 0xffaa44, 0.95);
-      flame.setBlendMode(Phaser.BlendModes.SCREEN);
-      this.tweens.add({ targets: flame, scale: 1.35, alpha: 0.6, duration: 220, yoyo: true, repeat: -1 });
-      this._lighting.addLight(p.x, p.y - 20, 'light_warm_256', 0.7, 0.45, 0.28);
-      createEmitterCompat(this, p.x, p.y - 22, 'particle_smoke', {
-        speedY: { min: -10, max: -22 },
-        speedX: { min: -6, max: 6 },
-        lifespan: { min: 1400, max: 2200 },
-        scale: { start: 0.35, end: 0.85 },
-        alpha: { start: 0.12, end: 0 },
-        frequency: 220,
-        tint: 0xaab6c4,
-      }, 5);
-    });
-
-    // Laban's house (Pokemon style - dark red roof building)
-    const labanG = this.add.graphics();
-    drawPokemonBuilding(labanG, 1255, 400, 90, 120, 0x8B0000, 0xd0c0a0);
-    // Extra detail - gold trim
-    labanG.fillStyle(COLORS.gold, 0.5);
-    labanG.fillRect(1255, 430, 90, 3);
-    this.add.text(1300, 490, 'Laban\'s\nTreasury', {
-      fontSize: '10px', fontFamily: 'monospace', color: '#ffaaaa', align: 'center',
+    this.add.text(820, 310, 'Temple of Solomon', {
+      fontSize: '10px', fontFamily: 'monospace', color: '#ffd700',
       stroke: '#000000', strokeThickness: 2
     }).setOrigin(0.5);
-    // Guard at Laban's door
-    if (this.textures.exists('guard')) {
-      this.add.image(1260, 555, 'guard').setScale(1.5);
-      this.add.image(1340, 555, 'guard').setScale(1.5).setFlipX(true);
-    }
 
-    // Laban's doorway fire (tempting, dangerous glow).
-    this.add.rectangle(1300, 548, 8, 18, COLORS.brown).setOrigin(0.5, 1);
-    const labanFlame = this.add.circle(1300, 528, 5, 0xff6622, 0.95);
-    labanFlame.setBlendMode(Phaser.BlendModes.SCREEN);
-    this.tweens.add({ targets: labanFlame, scale: 1.4, alpha: 0.55, duration: 200, yoyo: true, repeat: -1 });
-    this._lighting.addLight(1300, 528, 'light_warm_256', 0.9, 0.55, 0.35);
+    // Family home (where Lehi is)
+    const homeG = this.add.graphics();
+    drawPokemonBuilding(homeG, 1350, 420, 110, 100, 0x8b7355, COLORS.pokWallCream);
+    this.add.text(1405, 415, "Lehi's Home", {
+      fontSize: '10px', fontFamily: 'monospace', color: '#f8d830',
+      stroke: '#000000', strokeThickness: 2
+    }).setOrigin(0.5);
 
-    // Pokemon-style ground path
+    // Market stalls
+    const stallG = this.add.graphics();
+    drawPokemonStall(stallG, 200, 590, 0xcc4444);
+    drawPokemonStall(stallG, 550, 590, 0x4488aa);
+    drawPokemonStall(stallG, 1000, 590, 0xcc8844);
+
+    // Palm trees
+    const palmG = this.add.graphics();
+    [150, 480, 850, 1150, 1550].forEach(tx => drawPokemonPalm(palmG, tx, 530, 1.2));
+
+    // Main walkway
     const pathG = this.add.graphics();
     drawPokemonPath(pathG, 0, 600, worldW, 48);
 
-    // Market stalls along the path
-    const stallG = this.add.graphics();
-    drawPokemonStall(stallG, 200, 590, 0xcc4444);
-    drawPokemonStall(stallG, 1000, 590, 0x4488aa);
-    drawPokemonStall(stallG, 1450, 590, 0xcc8844);
+    // === NPCs ===
+    // Citizens
+    this.npcZones = [];
+    const createNPC = (key, x, y, name, scale, zonew, zoneh) => {
+      if (this.textures.exists(key)) this.add.image(x, y, key).setScale(scale || 1.8).setDepth(10);
+      this.add.text(x, y - 26, name, { fontSize: '9px', fontFamily: 'monospace', color: '#ccaa88' }).setOrigin(0.5).setDepth(11);
+      const zone = this.add.zone(x, y, zonew || 50, zoneh || 50);
+      this.physics.add.existing(zone, true);
+      return zone;
+    };
 
-    // Pokemon-style palm trees
-    const palmG = this.add.graphics();
-    [150, 480, 850, 1100, 1450].forEach(tx => {
-      drawPokemonPalm(palmG, tx, 530, 1.2);
-    });
+    this.citizen1Zone = createNPC('citizen_male', 250, 612, 'Citizen', 1.6, 50, 50);
+    this.citizen2Zone = createNPC('citizen_female', 550, 612, 'Woman', 1.6, 50, 50);
+    this.citizen3Zone = createNPC('citizen_male', 950, 612, 'Elder', 1.6, 50, 50);
+    this.merchantZone = createNPC('citizen_male', 1000, 585, 'Merchant', 1.6, 50, 50);
 
-    // === NPC: Lehi ===
-    if (this.textures.exists('lehi')) {
-      this.lehiSprite = this.add.image(500, 610, 'lehi').setScale(2).setDepth(10);
-    }
-    this.add.text(500, 580, 'Lehi', { fontSize: '10px', fontFamily: 'monospace', color: '#ffd700' }).setOrigin(0.5).setDepth(11);
+    // Laman (standing apart, arms crossed)
+    this.lamanZone = createNPC('laman', 700, 612, 'Laman', 1.8, 60, 50);
+    // Lemuel (near Laman)
+    this.lemuelZone = createNPC('lemuel', 760, 614, 'Lemuel', 1.6, 50, 50);
+    // Sam (near home)
+    this.samZone = createNPC('sam', 1300, 612, 'Sam', 1.8, 50, 50);
+    // Sariah (near home)
+    this.sariahZone = createNPC('sariah', 1420, 612, 'Sariah', 1.8, 50, 50);
+    // Lehi (at family home)
+    this.lehiZone = createNPC('lehi', 1380, 560, 'Lehi', 2, 60, 60);
 
-    // === NPC: Sariah ===
-    if (this.textures.exists('sariah')) {
-      this.add.image(560, 610, 'sariah').setScale(2).setDepth(10);
-      this.add.text(560, 580, 'Sariah', { fontSize: '9px', fontFamily: 'monospace', color: '#ccaa88' }).setOrigin(0.5).setDepth(11);
-    }
-
-    // === NPC: Sam ===
-    if (this.textures.exists('sam')) {
-      this.add.image(420, 610, 'sam').setScale(2).setDepth(10);
-      this.add.text(420, 580, 'Sam', { fontSize: '9px', fontFamily: 'monospace', color: '#ccaa88' }).setOrigin(0.5).setDepth(11);
-    }
-
-    // === NPC: Laman (in distance, brooding) ===
-    if (this.textures.exists('laman')) {
-      const lamanSpr = this.add.image(650, 612, 'laman').setScale(1.8).setDepth(9).setAlpha(0.75);
-      this.add.text(650, 582, 'Laman', { fontSize: '9px', fontFamily: 'monospace', color: '#cc6666' }).setOrigin(0.5).setDepth(11);
-    }
-
-    // === NPC: Merchant ===
-    this.add.rectangle(900, 612, 14, 22, 0xc49a6c).setDepth(9);
-    this.add.rectangle(900, 600, 10, 6, 0xddb888).setDepth(9); // head
-    this.add.text(900, 580, 'Merchant', { fontSize: '9px', fontFamily: 'monospace', color: '#ccaa88' }).setOrigin(0.5).setDepth(11);
-    this.merchantZone = this.add.zone(900, 610, 50, 50);
-    this.physics.add.existing(this.merchantZone, true);
-
-    // === NPC: Neighbor Woman ===
-    this.add.rectangle(1050, 612, 12, 20, 0xaa7755).setDepth(9);
-    this.add.rectangle(1050, 600, 9, 6, 0xddb888).setDepth(9);
-    this.add.text(1050, 580, 'Neighbor', { fontSize: '9px', fontFamily: 'monospace', color: '#ccaa88' }).setOrigin(0.5).setDepth(11);
-    this.neighborZone = this.add.zone(1050, 610, 50, 50);
-    this.physics.add.existing(this.neighborZone, true);
-
-    // === NPC: Temple Priest ===
-    this.add.rectangle(750, 558, 14, 24, 0xeeeecc).setDepth(9); // white robes
-    this.add.rectangle(750, 544, 10, 6, 0xddb888).setDepth(9);
-    this.add.text(750, 528, 'Priest', { fontSize: '9px', fontFamily: 'monospace', color: '#ccaa88' }).setOrigin(0.5).setDepth(11);
-    this.priestZone = this.add.zone(750, 560, 50, 50);
-    this.physics.add.existing(this.priestZone, true);
-
-    // === NPC: Old Woman ===
-    this.add.rectangle(150, 614, 10, 18, 0x997766).setDepth(9);
-    this.add.rectangle(150, 604, 8, 6, 0xddb888).setDepth(9);
-    this.add.text(150, 586, 'Old Woman', { fontSize: '9px', fontFamily: 'monospace', color: '#ccaa88' }).setOrigin(0.5).setDepth(11);
-    this.oldWomanZone = this.add.zone(150, 610, 50, 50);
-    this.physics.add.existing(this.oldWomanZone, true);
-
-    // === PLAYER (Nephi) ===
+    // === PLAYER ===
     if (this.textures.exists('nephi')) {
       this.player = this.add.image(200, 612, 'nephi').setScale(2).setDepth(15);
     } else {
@@ -3296,48 +3268,27 @@ class JerusalemScene extends Phaser.Scene {
     }
     this.physics.add.existing(this.player);
     this.player.body.setCollideWorldBounds(true);
-    // Adjust physics body for sprite
     this.player.body.setSize(20, 30);
-    this.player.body.setOffset(this.player.width/2 - 10, this.player.height/2 - 10);
+    this.player.body.setOffset(this.player.width / 2 - 10, this.player.height / 2 - 10);
     this.cameras.main.startFollow(this.player, true, 0.08, 0.08);
 
-    // Quest marker
-    if (!GameState.brassPlatesObtained) {
-      this.questMarker = this.add.text(1300, 390, '❗', { fontSize: '24px' }).setOrigin(0.5);
-      this.tweens.add({ targets: this.questMarker, y: 380, duration: 600, yoyo: true, repeat: -1 });
+    // Quest marker on Lehi
+    if (!GameState.questFlags.lehiVision) {
+      this.questMarker = this.add.text(1380, 520, '\u2757', { fontSize: '24px' }).setOrigin(0.5).setDepth(20);
+      this.tweens.add({ targets: this.questMarker, y: 510, duration: 600, yoyo: true, repeat: -1 });
     }
 
-    // Iron Rod entrance
-    this.add.rectangle(50, 620, 60, 40, COLORS.iron, 0.5).setOrigin(0.5, 1)
-      .setStrokeStyle(1, COLORS.iron);
-    this.add.text(50, 585, '🌳 Iron Rod\n   Vision', {
-      fontSize: '9px', fontFamily: 'monospace', color: '#aaddaa', align: 'center'
-    }).setOrigin(0.5);
-    this.ironRodZone = this.add.zone(50, 600, 60, 60);
-    this.physics.add.existing(this.ironRodZone, true);
-
-    // Zones
-    this.battleZone = this.add.zone(900, 620, 200, 60);
-    this.physics.add.existing(this.battleZone, true);
-    this.battleTriggered = false;
-
-    this.lehiZone = this.add.zone(500, 610, 60, 60);
-    this.physics.add.existing(this.lehiZone, true);
-    this.labanZone = this.add.zone(1300, 530, 100, 60);
-    this.physics.add.existing(this.labanZone, true);
-
-    this.physics.add.overlap(this.player, this.lehiZone, () => this.nearLehi = true);
-    this.physics.add.overlap(this.player, this.labanZone, () => this.nearLaban = true);
-    this.physics.add.overlap(this.player, this.ironRodZone, () => this.nearIronRod = true);
-    this.physics.add.overlap(this.player, this.merchantZone, () => this.nearMerchant = true);
-    this.physics.add.overlap(this.player, this.neighborZone, () => this.nearNeighbor = true);
-    this.physics.add.overlap(this.player, this.priestZone, () => this.nearPriest = true);
-    this.physics.add.overlap(this.player, this.oldWomanZone, () => this.nearOldWoman = true);
-    this.physics.add.overlap(this.player, this.battleZone, () => {
-      if (!this.battleTriggered && !GameState.battleWon) {
-        this.battleTriggered = true;
-        this.startBattle();
-      }
+    // Overlap flags
+    this.nearFlags = {};
+    const zones = {
+      lehi: this.lehiZone, sam: this.samZone, sariah: this.sariahZone,
+      laman: this.lamanZone, lemuel: this.lemuelZone,
+      citizen1: this.citizen1Zone, citizen2: this.citizen2Zone,
+      citizen3: this.citizen3Zone, merchant: this.merchantZone,
+    };
+    Object.entries(zones).forEach(([key, zone]) => {
+      this.nearFlags[key] = false;
+      this.physics.add.overlap(this.player, zone, () => this.nearFlags[key] = true);
     });
 
     this.cursors = this.input.keyboard.createCursorKeys();
@@ -3346,59 +3297,25 @@ class JerusalemScene extends Phaser.Scene {
     this._stepCooldown = 0;
 
     this.hud = createHUD(this);
-    if (!GameState.brassPlatesObtained) this.hud.setObjective(1300, 520);
-    else if (!GameState.ironRodComplete) this.hud.setObjective(50, 600);
+    this.hud.setObjective(1380, 560);
 
     this.interactPrompt = this.add.text(0, 0, 'Press SPACE', {
       fontSize: '10px', fontFamily: 'monospace', color: '#ffd700',
       backgroundColor: '#00000088', padding: { x: 4, y: 2 }
     }).setOrigin(0.5).setDepth(80).setVisible(false);
 
-    // Opening dialogue
-    if (!GameState.questFlags.jerusalemIntro) {
-      GameState.questFlags.jerusalemIntro = true;
+    // Opening narration
+    if (!GameState.questFlags.jerusalemCityIntro) {
+      GameState.questFlags.jerusalemCityIntro = true;
       this.time.delayedCall(500, () => {
         showDialogue(this, 'Narrator',
-          'Jerusalem, 600 BC. Lehi has been warned to take his family into the wilderness. But first, his sons must return for the brass plates \u2014 sacred records held by Laban.',
+          'Jerusalem, 600 BC. The kingdom of Judah teeters on the edge of destruction. Babylon grows powerful in the east, and many prophets cry repentance to the people. Among them is Lehi, father of Nephi.',
           () => {
-            showDialogue(this, 'Nephi',
-              'I do not know what waits for us in Laban\u2019s house. But I know the Lord can prepare a way to accomplish what He has commanded. Will you come with me?',
+            showDialogue(this, 'Narrator',
+              'Explore the city. Talk to the people. Then find Lehi at your family home to the east.',
               () => {
-                showDialogue(this, 'Nephi', 'How do you answer?', null, {
-                  choices: [
-                    {
-                      id: 'follow_nephi_faith',
-                      text: 'I will go and do. Let\u2019s go.',
-                      faithVsDoubt: 1,
-                      compassionVsHarshness: 0,
-                      onSelect: () => {
-                        GameState.faith = Math.min(GameState.faith + 10, GameState.maxFaith);
-                        gainFP(15);
-                        addJournal('Chose to follow Nephi with faith');
-                        showDialogue(this, 'Nephi',
-                          'That is the spirit. We will go forward in faith \u2014 and trust that the Lord will provide a way.',
-                          () => {}
-                        );
-                      }
-                    },
-                    {
-                      id: 'follow_nephi_fear',
-                      text: 'I\u2019m afraid. But I\u2019ll try.',
-                      faithVsDoubt: 0,
-                      compassionVsHarshness: 1,
-                      onSelect: () => {
-                        gainFP(10);
-                        addJournal('Chose to follow Nephi despite fear');
-                        showDialogue(this, 'Nephi',
-                          'It is all right to be afraid. Courage is choosing faith even when the night feels heavy. Come \u2014 we\u2019ll go together.',
-                          () => {}
-                        );
-                      }
-                    }
-                  ]
-                });
-              },
-              { thought: 'I did not know then that I would never walk these streets again.' }
+                addJournal('Arrived in Jerusalem. The city is tense with political fear and prophetic warnings.');
+              }
             );
           }
         );
@@ -3406,12 +3323,215 @@ class JerusalemScene extends Phaser.Scene {
     }
   }
 
-  startBattle() {
-    this.cameras.main.flash(500, 255, 255, 255);
-    this.time.delayedCall(500, () => {
-      this.scene.pause();
-      this.scene.launch('Battle', { returnScene: 'Jerusalem' });
+  triggerLehiVision() {
+    GameState.questFlags.lehiVision = true;
+    if (this.questMarker) this.questMarker.destroy();
+    addJournal('Witnessed Lehi\'s vision of the pillar of fire and the heavenly book.');
+
+    showDialogue(this, 'Lehi',
+      'My child, I have seen a vision. A pillar of fire dwelt upon a rock before me, and I saw and heard much. I was given a book, and as I read, I was filled with the Spirit of the Lord.',
+      () => {
+        // Vision flash
+        this.cameras.main.flash(800, 255, 240, 180);
+        AudioEngine.sfx.chime();
+        this.time.delayedCall(600, () => {
+          showDialogue(this, 'Lehi',
+            'The book told of the coming destruction of Jerusalem. Wo, wo unto Jerusalem! The people have rejected the prophets. Babylon will come, and this city will burn.',
+            () => {
+              showDialogue(this, 'Narrator',
+                'Lehi goes out among the people and begins to prophesy. The citizens react with hostility. Some throw stones. Others mock.',
+                () => {
+                  // Player choice
+                  showDialogue(this, 'Nephi', 'Father has spoken. What do I believe?', null, {
+                    choices: [
+                      {
+                        id: 'lehi_vision_faith', text: '[Faith] I believe you, Father.',
+                        faithVsDoubt: 1, onSelect: () => {
+                          GameState.faith = Math.min(GameState.faith + 15, GameState.maxFaith);
+                          GameState.testimony += 10;
+                          gainFP(20);
+                          addJournal('Chose to believe Lehi\'s vision immediately. Faith +15, Testimony +10.');
+                          recordChoice({ id: 'lehi_vision_faith', label: 'Believed Lehi', faithVsDoubt: 1 });
+                          showDialogue(this, 'Lehi', 'Blessed are you, my son. The Lord will strengthen your heart.');
+                        }
+                      },
+                      {
+                        id: 'lehi_vision_doubt', text: '[Doubt] Are you sure about this, Father?',
+                        faithVsDoubt: -1, onSelect: () => {
+                          addJournal('Doubted Lehi\'s vision, but sought the Lord in prayer.');
+                          this.triggerNephiPrayerMini();
+                        }
+                      }
+                    ]
+                  });
+                }
+              );
+            }
+          );
+        });
+      }
+    );
+  }
+
+  triggerNephiPrayerMini() {
+    // Brief prayer scene — Nephi kneels, golden flash, receives witness (1 Nephi 2:16 foreshadow)
+    const overlay = this.add.rectangle(this.cameras.main.scrollX + W / 2, this.cameras.main.scrollY + H / 2, W, H, 0x000000, 0).setDepth(200).setScrollFactor(0);
+    this.tweens.add({ targets: overlay, alpha: 0.7, duration: 800 });
+    this.time.delayedCall(800, () => {
+      showDialogue(this, 'Narrator',
+        'Nephi kneels in prayer. The room grows still. A warmth fills his heart, and the Spirit whispers peace.',
+        () => {
+          this.cameras.main.flash(600, 255, 215, 0);
+          AudioEngine.sfx.chime();
+          GameState.faith = Math.min(GameState.faith + 10, GameState.maxFaith);
+          gainFP(15);
+          this.time.delayedCall(400, () => {
+            showDialogue(this, 'Nephi',
+              'I do not understand all things, but the Lord has softened my heart. I believe the words of my father.',
+              () => {
+                overlay.destroy();
+              }
+            );
+          });
+        }
+      );
     });
+  }
+
+  triggerDeparture() {
+    showDialogue(this, 'Lehi',
+      'The Lord has commanded us to flee Jerusalem. We must leave our home, our gold, our land — everything. We take only provisions and our family. The time is now.',
+      () => {
+        showDialogue(this, 'Nephi', 'What shall we bring, Father?', null, {
+          choices: [
+            { id: 'pack_food', text: 'Food & provisions', onSelect: () => {
+              GameState.courage += 10;
+              addJournal('Packed food and provisions. Courage +10.');
+              this.startDepartureWalk();
+            }},
+            { id: 'pack_records', text: 'Family records', onSelect: () => {
+              GameState.wisdom += 10;
+              addJournal('Packed the family records. Wisdom +10.');
+              this.startDepartureWalk();
+            }},
+            { id: 'pack_gold', text: 'Gold & silver', onSelect: () => {
+              GameState.inventory.push('Gold and Silver');
+              addJournal('Packed gold and silver — may be needed later.');
+              this.startDepartureWalk();
+            }},
+            { id: 'pack_trust', text: 'Trust in God — He will provide', faithVsDoubt: 1, onSelect: () => {
+              GameState.faith = Math.min(GameState.faith + 15, GameState.maxFaith);
+              gainFP(15);
+              addJournal('Trusted in God for provisions. Faith +15.');
+              this.startDepartureWalk();
+            }},
+          ]
+        });
+      }
+    );
+  }
+
+  startDepartureWalk() {
+    // Nighttime stealth walk to city gate
+    GameState.time.t = 0.85; // night
+    this._lighting.setAmbient(0.45);
+
+    showDialogue(this, 'Narrator',
+      'Under cover of darkness, the family of Lehi gathers what little they can carry. They must reach the city gate without drawing attention.',
+      () => {
+        // Place 2 patrolling guards near the gate area (left side of map)
+        this.departureMode = true;
+        this.guards = [];
+
+        const gPositions = [
+          { x: 400, y: 610, patrol: 'h', range: 80 },
+          { x: 250, y: 610, patrol: 'v', range: 60 },
+        ];
+        gPositions.forEach(gp => {
+          let guard;
+          if (this.textures.exists('guard')) {
+            guard = this.add.image(gp.x, gp.y, 'guard').setScale(1.5).setDepth(14);
+          } else {
+            guard = this.add.rectangle(gp.x, gp.y, 16, 24, COLORS.red).setDepth(14);
+          }
+          // Sight cone
+          const cone = this.add.triangle(gp.x, gp.y, 0, 0, 80, -28, 80, 28, 0xff6666, 0.08).setOrigin(0, 0.5).setDepth(13);
+          this.tweens.add({
+            targets: guard,
+            x: gp.patrol === 'h' ? gp.x + gp.range : gp.x,
+            y: gp.patrol === 'v' ? gp.y + gp.range : gp.y,
+            duration: 2200, yoyo: true, repeat: -1, ease: 'Sine.easeInOut'
+          });
+          this.guards.push({ sprite: guard, cone, lastX: gp.x, lastY: gp.y });
+        });
+
+        // Gate zone at far left
+        this.gateZone = this.add.zone(30, 612, 60, 80);
+        this.physics.add.existing(this.gateZone, true);
+        this.add.text(30, 580, '\u2192 City Gate', {
+          fontSize: '10px', fontFamily: 'monospace', color: '#6b8e23'
+        }).setOrigin(0.5).setDepth(20);
+
+        this.nearGate = false;
+        this.physics.add.overlap(this.player, this.gateZone, () => this.nearGate = true);
+
+        this.add.text(W / 2, 70, 'Reach the city gate!', {
+          fontSize: '14px', fontFamily: 'monospace', color: '#ffd700', fontStyle: 'bold',
+          stroke: '#000000', strokeThickness: 3
+        }).setOrigin(0.5).setScrollFactor(0).setDepth(100);
+
+        this.hud.setObjective(30, 612);
+      }
+    );
+  }
+
+  checkGuardDetection() {
+    if (!this.guards || !this.departureMode) return false;
+    for (const g of this.guards) {
+      // Update cone position
+      const dx = g.sprite.x - g.lastX;
+      const dy = g.sprite.y - g.lastY;
+      if (Math.abs(dx) + Math.abs(dy) > 0.05) {
+        g.cone.rotation = Math.atan2(dy, dx);
+        g.lastX = g.sprite.x;
+        g.lastY = g.sprite.y;
+      }
+      g.cone.x = g.sprite.x;
+      g.cone.y = g.sprite.y;
+
+      const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, g.sprite.x, g.sprite.y);
+      if (dist < 60) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  completeDeparture() {
+    this.departureComplete = true;
+    saveGame({ scene: 'ChapterTransition' });
+
+    const cx = this.cameras.main.scrollX + W / 2;
+    const cy = this.cameras.main.scrollY + H / 2;
+    const overlay = this.add.rectangle(cx, cy, W + 200, H + 200, 0x000000, 0).setDepth(200);
+    this.tweens.add({ targets: overlay, alpha: 0.92, duration: 1200, onComplete: () => {
+      const depText = this.add.text(cx, cy,
+        '"And he left his house, and the land of his inheritance,\nand his gold, and his silver, and his precious things,\nand took nothing with him, save it were his family..."\n\n\u2014 1 Nephi 2:4', {
+        fontSize: '14px', fontFamily: 'Georgia, serif', color: '#ccccaa',
+        align: 'center', lineSpacing: 6, wordWrap: { width: 500 }
+      }).setOrigin(0.5).setDepth(202).setAlpha(0);
+      this.tweens.add({ targets: depText, alpha: 1, duration: 2000 });
+      this.time.delayedCall(5000, () => {
+        this.cameras.main.fadeOut(1500);
+        this.time.delayedCall(1500, () => {
+          this.scene.start('ChapterTransition', {
+            chapter: 'II', title: 'Into the Wilderness',
+            quote: '"And my father dwelt in a tent."  \u2014 1 Nephi 2:15',
+            nextScene: 'WildernessJourney'
+          });
+        });
+      });
+    }});
   }
 
   update(time, delta) {
@@ -3422,582 +3542,1368 @@ class JerusalemScene extends Phaser.Scene {
       return;
     }
 
-    this.nearLehi = false;
-    this.nearLaban = false;
-    this.nearIronRod = false;
-    this.nearMerchant = false;
-    this.nearNeighbor = false;
-    this.nearPriest = false;
-    this.nearOldWoman = false;
-
-    if (this.hud) {
-      if (!GameState.brassPlatesObtained) this.hud.setObjective(1300, 520);
-      else if (!GameState.ironRodComplete) this.hud.setObjective(50, 600);
-      else this.hud.objective = null;
-    }
+    // Reset near flags
+    Object.keys(this.nearFlags).forEach(k => this.nearFlags[k] = false);
+    this.nearGate = false;
 
     const speed = 160;
     this.player.body.setVelocity(0);
-    if (this.cursors.left.isDown) {
-      this.player.body.setVelocityX(-speed);
-      this.player.setFlipX(true);
-    }
-    if (this.cursors.right.isDown) {
-      this.player.body.setVelocityX(speed);
-      this.player.setFlipX(false);
-    }
+    if (this.cursors.left.isDown) { this.player.body.setVelocityX(-speed); this.player.setFlipX(true); }
+    if (this.cursors.right.isDown) { this.player.body.setVelocityX(speed); this.player.setFlipX(false); }
     if (this.cursors.up.isDown) this.player.body.setVelocityY(-speed);
     if (this.cursors.down.isDown) this.player.body.setVelocityY(speed);
 
-    // Walking bob animation
+    // Walk animation
     if (this.player.body.velocity.x !== 0 || this.player.body.velocity.y !== 0) {
       this.player.setScale(2, 2 + Math.sin(time * 0.01) * 0.05);
-
-      // Footsteps (surface: stone/sand mix; stone for main road).
       this._stepCooldown -= delta;
-      if (this._stepCooldown <= 0) {
-        AudioEngine.sfx.step('stone');
-        this._stepCooldown = 230;
-      }
+      if (this._stepCooldown <= 0) { AudioEngine.sfx.step('stone'); this._stepCooldown = 230; }
     } else {
       this.player.setScale(2);
     }
 
-    this.interactPrompt.setVisible(false);
-    if (this.nearLehi) {
-      this.interactPrompt.setPosition(500, 565).setVisible(true);
-    } else if (this.nearLaban) {
-      this.interactPrompt.setPosition(1300, 410).setVisible(true);
-    } else if (this.nearIronRod) {
-      this.interactPrompt.setPosition(50, 570).setVisible(true);
-    } else if (this.nearMerchant) {
-      this.interactPrompt.setPosition(900, 565).setVisible(true);
-    } else if (this.nearNeighbor) {
-      this.interactPrompt.setPosition(1050, 565).setVisible(true);
-    } else if (this.nearPriest) {
-      this.interactPrompt.setPosition(750, 515).setVisible(true);
-    } else if (this.nearOldWoman) {
-      this.interactPrompt.setPosition(150, 570).setVisible(true);
+    // Departure mode: guard detection + gate check
+    if (this.departureMode && !this.departureComplete) {
+      if (this.checkGuardDetection() && !this._caughtCooldown) {
+        this._caughtCooldown = true;
+        GameState.faith = Math.max(GameState.faith - 5, 10);
+        this.cameras.main.shake(300, 0.01);
+        showDialogue(this, 'Guard', 'Hey! Who goes there?', () => {
+          showDialogue(this, 'Narrator', 'You scramble away into the shadows. A close call, but you escape.', () => {
+            this.time.delayedCall(1500, () => { this._caughtCooldown = false; });
+          });
+        });
+      }
+      if (this.nearGate && !this.departureComplete) {
+        this.completeDeparture();
+      }
+      this.hud?.update(this.player, 'stone');
+      return;
     }
+
+    // Normal interaction mode
+    this.interactPrompt.setVisible(false);
+    const nf = this.nearFlags;
+    if (nf.lehi) this.interactPrompt.setPosition(1380, 530).setVisible(true);
+    else if (nf.sam) this.interactPrompt.setPosition(1300, 585).setVisible(true);
+    else if (nf.sariah) this.interactPrompt.setPosition(1420, 585).setVisible(true);
+    else if (nf.laman) this.interactPrompt.setPosition(700, 585).setVisible(true);
+    else if (nf.lemuel) this.interactPrompt.setPosition(760, 585).setVisible(true);
+    else if (nf.citizen1) this.interactPrompt.setPosition(250, 585).setVisible(true);
+    else if (nf.citizen2) this.interactPrompt.setPosition(550, 585).setVisible(true);
+    else if (nf.citizen3) this.interactPrompt.setPosition(950, 585).setVisible(true);
+    else if (nf.merchant) this.interactPrompt.setPosition(1000, 558).setVisible(true);
 
     if (this.interactCooldown > 0) this.interactCooldown -= delta;
     if (Phaser.Input.Keyboard.JustDown(this.spaceKey) && this.interactCooldown <= 0) {
       this.interactCooldown = 500;
 
-      if (this.nearLehi) {
-        if (!GameState.brassPlatesObtained) {
-          showDialogue(this, 'Lehi', 'Nephi, you and your brothers must go east to Laban\'s treasury and retrieve the brass plates. They contain the record of our fathers and the commandments of God. We cannot go into the wilderness without them.');
-        } else if (!GameState.ironRodComplete) {
-          showDialogue(this, 'Lehi', 'I have had a vision, Nephi \u2014 a dream of a tree whose fruit was most precious. Go to the west and experience the vision. Hold to the iron rod!');
-        } else if (!GameState.questFlags.packingDone) {
-          // === Packing Decision ===
-          showDialogue(this, 'Lehi', 'The time has come, my child. We take only what we can carry into the wilderness. What would you have us bring?', () => {
-            showDialogue(this, 'Nephi', '', null, {
-              choices: [
-                { id: 'pack_food', text: 'Extra food \u2014 we will need strength.', faithVsDoubt: 0, onSelect: () => {
-                  GameState.questFlags.packingDone = true;
-                  GameState.questFlags.packingChoice = 'food';
-                  addJournal('Chose to pack extra food for the wilderness journey');
-                  showDialogue(this, 'Lehi', 'Wise. The body must be sustained if the spirit is to endure.');
-                }},
-                { id: 'pack_tools', text: 'Tools \u2014 we may need to build.', faithVsDoubt: 0, onSelect: () => {
-                  GameState.questFlags.packingDone = true;
-                  GameState.questFlags.packingChoice = 'tools';
-                  addJournal('Chose to pack tools for building');
-                  showDialogue(this, 'Lehi', 'You think ahead. The Lord may yet ask us to build something we cannot imagine.');
-                }},
-                { id: 'pack_record', text: 'Lehi\'s record \u2014 our history must not be lost.', faithVsDoubt: 0, onSelect: () => {
-                  GameState.questFlags.packingDone = true;
-                  GameState.questFlags.packingChoice = 'record';
-                  GameState.wisdom = (GameState.wisdom || 0) + 15;
-                  addJournal('Chose to preserve Lehi\'s record (Wisdom +15)');
-                  showDialogue(this, 'Lehi', 'The words of the Lord are more precious than gold. You understand what matters most.');
-                }},
-                { id: 'pack_trust', text: 'Trust in God \u2014 He will provide.', faithVsDoubt: 1, onSelect: () => {
-                  GameState.questFlags.packingDone = true;
-                  GameState.questFlags.packingChoice = 'trust';
-                  GameState.faith = Math.min(GameState.faith + 25, GameState.maxFaith);
-                  gainFP(20);
-                  addJournal('Chose to trust God for provisions (Faith +25)');
-                  showDialogue(this, 'Lehi', 'My child... that is the answer of a prophet. The Lord will provide.');
-                }}
-              ]
-            });
-          });
-        } else if (!GameState.questFlags.lehiFullTalk) {
-          // === Enhanced Lehi dialogue chain ===
-          showDialogue(this, 'Lehi', 'My child, the Lord has commanded us to leave Jerusalem, for it will soon be destroyed for its wickedness.', () => {
-            if (!GameState.questFlags.lehiTalked) {
-              GameState.questFlags.lehiTalked = true;
-              gainFP(10);
-            }
-            GameState.questFlags.lehiFullTalk = true;
-            showDialogue(this, 'Lehi', 'I have seen a vision. The Lord has shown me that Jerusalem will be destroyed. Fire will consume this city, and all who remain will perish. We must flee into the wilderness.', () => {
-              showDialogue(this, 'Sariah', '', () => {
-                showDialogue(this, 'Nephi', 'How do you respond to Lehi\'s vision?', null, {
-                  choices: [
-                    { id: 'lehi_vision_faith', text: 'I will go, father. The Lord has spoken.', faithVsDoubt: 1, onSelect: () => {
-                      GameState.faith = Math.min(GameState.faith + 15, GameState.maxFaith);
-                      gainFP(15);
-                      addJournal('Pledged to follow Lehi\'s vision with faith');
-                      showDialogue(this, 'Lehi', 'Blessed are you, my child. The Lord will strengthen those who follow His voice.');
-                    }},
-                    { id: 'lehi_vision_doubt', text: 'Leave? Everything we have is here.', faithVsDoubt: -1, onSelect: () => {
-                      GameState.faith = Math.max(GameState.faith - 5, 0);
-                      addJournal('Hesitated at leaving Jerusalem');
-                      showDialogue(this, 'Lehi', 'I understand your fear. But the things of this world are passing away. What the Lord offers is eternal.');
-                    }},
-                    { id: 'lehi_vision_pray', text: 'I need to pray about this.', faithVsDoubt: 0, onSelect: () => {
-                      GameState.faith = Math.min(GameState.faith + 10, GameState.maxFaith);
-                      GameState.wisdom = (GameState.wisdom || 0) + 10;
-                      gainFP(12);
-                      addJournal('Chose to seek the Lord in prayer (Faith +10, Wisdom +10)');
-                      showDialogue(this, 'Lehi', 'That is the way. Ask the Lord yourself. He will confirm to your heart what He has shown me.');
-                    }}
-                  ]
-                });
-              }, { thought: 'Sariah\'s eyes fill with tears. She looks around at the home she has known all her life, but says nothing.' });
-            });
-          });
-        } else if (GameState.brassPlatesObtained && GameState.ironRodComplete && GameState.questFlags.packingDone) {
-          // === Departure scene (after packing) ===
-          showDialogue(this, 'Lehi', 'We have the plates, I have shared my vision, and we are packed. It is time, Nephi. Are you ready to leave Jerusalem forever?', () => {
-            showDialogue(this, 'Nephi', '', null, {
-              choices: [
-                { id: 'leave_jerusalem', text: 'Let us go. The Lord will guide us.', faithVsDoubt: 1, onSelect: () => {
-                  GameState.faith = Math.min(GameState.faith + 5, GameState.maxFaith);
-                  gainFP(10);
-                  addJournal('Left Jerusalem with the family of Lehi');
-                  const cx = this.cameras.main.scrollX + 400;
-                  const cy = this.cameras.main.scrollY + 300;
-                  const overlay = this.add.rectangle(cx, cy, 900, 700, 0x000000, 0).setDepth(200);
-                  this.tweens.add({ targets: overlay, alpha: 0.92, duration: 1200, onComplete: () => {
-                    const silY = cy + 80;
-                    const silX = cx - 200;
-                    for (let i = 0; i < 5; i++) {
-                      const fig = this.add.ellipse(silX + i * 60, silY, 14, 28, 0x111122, 0.9).setDepth(201);
-                      const head = this.add.circle(silX + i * 60, silY - 18, 5, 0x111122, 0.9).setDepth(201);
-                      this.tweens.add({ targets: [fig, head], x: '+=' + 300, duration: 4000, ease: 'Sine.easeInOut' });
-                    }
-                    const depText = this.add.text(cx, cy + 200,
-                      '"And he left his house, and the land of his inheritance,\nand his gold, and his silver, and his precious things,\nand took nothing with him, save it were his family..."\n\n\u2014 1 Nephi 2:4', {
-                      fontSize: '14px', fontFamily: 'Georgia, serif', color: '#ccccaa',
-                      align: 'center', lineSpacing: 6, wordWrap: { width: 500 }
-                    }).setOrigin(0.5).setDepth(202).setAlpha(0);
-                    this.tweens.add({ targets: depText, alpha: 1, duration: 2000, delay: 800 });
-                    this.time.delayedCall(6000, () => {
-                      this.cameras.main.fadeOut(1500);
-                      this.time.delayedCall(1500, () => {
-                        saveGame({ scene: 'ChapterTransition' });
-                        this.scene.start('ChapterTransition', {
-                          chapter: 'II', title: 'Into the Wilderness', quote: '"And my father dwelt in a tent."  \u2014 1 Nephi 2:15',
-                          nextScene: 'WildernessCamp'
-                        });
-                      });
-                    });
-                  }});
-                }},
-                { id: 'not_ready', text: 'Not yet \u2014 let me look around more.', faithVsDoubt: 0, onSelect: () => {} }
-              ]
-            });
-          });
+      if (nf.lehi && !this._dialogueOpen) {
+        if (!GameState.questFlags.lehiVision) {
+          this.triggerLehiVision();
+        } else if (!GameState.questFlags.departureStarted) {
+          GameState.questFlags.departureStarted = true;
+          this.triggerDeparture();
         } else {
-          showDialogue(this, 'Lehi', 'The brass plates must be retrieved before we can depart. Go east to Laban\'s treasury.');
+          showDialogue(this, 'Lehi', 'We must go now. Head to the city gate.');
         }
       }
-
-      if (this.nearLaban && !GameState.brassPlatesObtained && !this._dialogueOpen) {
-        saveGame({ scene: 'BrassPlates' });
-        this.scene.pause();
-        this.scene.launch('BrassPlates');
+      if (nf.sam && !this._dialogueOpen) {
+        showDialogue(this, 'Sam', 'I trust Father, Nephi. Whatever he says, I will follow. The Lord speaks to him — I can see it in his eyes.');
       }
-
-      if (this.nearIronRod && !this._dialogueOpen) {
-        if (!GameState.brassPlatesObtained) {
-          showDialogue(this, 'Nephi', 'I feel drawn to this place, but we must retrieve the brass plates first. Lehi waits for us.');
-        } else if (!GameState.ironRodComplete) {
-          saveGame({ scene: 'IronRod' });
-          this.cameras.main.fadeOut(500);
-          this.time.delayedCall(500, () => this.scene.start('IronRod'));
-        }
+      if (nf.sariah && !this._dialogueOpen) {
+        showDialogue(this, 'Sariah', 'Leave everything? Our home, our friends? I... I will follow your father. But my heart is heavy.', null, {
+          thought: 'Her hands tremble as she packs a small bundle. Her faith is quiet, but it is there.'
+        });
       }
-
-      // === New NPC Interactions ===
-      if (this.nearMerchant) {
-        showDialogue(this, 'Merchant', 'Have you heard? Lehi is raving again about visions and destruction. The elders say he has lost his mind.', () => {
+      if (nf.laman && !this._dialogueOpen) {
+        showDialogue(this, 'Laman', 'Father has lost his mind, Nephi. Prophets? Visions? Jerusalem has stood for centuries. It will stand for centuries more.', () => {
+          showDialogue(this, 'Lemuel', '...Laman may be right. This is our home. Why should we leave everything behind for a dream?');
+        });
+      }
+      if (nf.lemuel && !nf.laman && !this._dialogueOpen) {
+        showDialogue(this, 'Lemuel', 'I do not know what to think. Laman says Father is foolish. But... I saw his face when he spoke of the vision. He was not lying.');
+      }
+      if (nf.citizen1 && !this._dialogueOpen) {
+        showDialogue(this, 'Citizen', 'Have you heard? The Babylonians grow stronger every day. King Zedekiah says we are safe, but I am not so sure.');
+      }
+      if (nf.citizen2 && !this._dialogueOpen) {
+        showDialogue(this, 'Woman', 'So many prophets crying doom these days. Jeremiah, Lehi, others. The elders say they are all mad. But what if they are right?');
+      }
+      if (nf.citizen3 && !this._dialogueOpen) {
+        showDialogue(this, 'Elder', 'Your father Lehi was a respected man once. Now he preaches that Jerusalem will be destroyed. The people want him silenced \u2014 or worse.');
+      }
+      if (nf.merchant && !this._dialogueOpen) {
+        showDialogue(this, 'Merchant', 'Troubled times, young man. Trade with Babylon has dried up. Soldiers at the gates. I would leave this city if I had somewhere to go.', () => {
           showDialogue(this, 'Nephi', '', null, {
             choices: [
-              { id: 'merchant_faith', text: 'My father is a prophet.', faithVsDoubt: 1, onSelect: () => {
-                GameState.faith = Math.min(GameState.faith + 5, GameState.maxFaith);
-                gainFP(5);
-                addJournal('Defended Lehi to the merchant');
-                showDialogue(this, 'Merchant', 'Hmph. Prophet or madman \u2014 time will tell. But I would not say such things too loudly.');
+              { id: 'merchant_faith', text: 'My father says we should leave.', faithVsDoubt: 1, onSelect: () => {
+                GameState.faith = Math.min(GameState.faith + 3, GameState.maxFaith);
+                showDialogue(this, 'Merchant', 'Then perhaps your father is wiser than most. Go with God, boy.');
               }},
-              { id: 'merchant_doubt', text: 'He does seem troubled.', faithVsDoubt: -1, onSelect: () => {
-                GameState.faith = Math.max(GameState.faith - 3, 0);
-                addJournal('Expressed doubt about Lehi to the merchant');
-                showDialogue(this, 'Merchant', 'Troubled, yes. It is a shame. He was a respected man once.');
-              }}
+              { id: 'merchant_neutral', text: 'I hope things get better.', faithVsDoubt: 0, onSelect: () => {
+                showDialogue(this, 'Merchant', 'Hope? Hope does not fill bellies or stop armies. But yes... I hope so too.');
+              }},
             ]
           });
-        });
-      }
-
-      if (this.nearNeighbor) {
-        showDialogue(this, 'Neighbor', 'Your father should be careful. Speaking against Jerusalem... the elders do not take kindly to such talk.', () => {
-          showDialogue(this, 'Nephi', '', null, {
-            choices: [
-              { id: 'neighbor_faith', text: 'The Lord will protect him.', faithVsDoubt: 1, onSelect: () => {
-                GameState.faith = Math.min(GameState.faith + 5, GameState.maxFaith);
-                GameState.courage = (GameState.courage || 0) + 3;
-                gainFP(5);
-                addJournal('Declared faith in God\'s protection (Faith +5, Courage +3)');
-                showDialogue(this, 'Neighbor', 'I pray you are right, child. I pray you are right.');
-              }},
-              { id: 'neighbor_agree', text: 'You may be right.', faithVsDoubt: -1, onSelect: () => {
-                GameState.faith = Math.max(GameState.faith - 5, 0);
-                addJournal('Agreed with the neighbor\'s warning');
-                showDialogue(this, 'Neighbor', 'Just... watch out for your family. These are dangerous times.');
-              }}
-            ]
-          });
-        });
-      }
-
-      if (this.nearPriest) {
-        showDialogue(this, 'Temple Priest', 'Move along, boy. The temple has no business with the sons of Lehi.', null, {
-          thought: 'His cold stare makes you feel unwelcome. The priests of Jerusalem do not look kindly on your father\'s warnings.'
-        });
-      }
-
-      if (this.nearOldWoman) {
-        showDialogue(this, 'Old Woman', 'I remember when your grandfather walked these streets. Good family. Good blood. Whatever your father says he has seen... I believe there is truth in it. Go well, child.', null, {
-          thought: 'Her kind words feel like a warm blanket on a cold night.'
         });
       }
     }
 
-    this.hud.update(this.player, 'stone');
+    this.hud?.update(this.player, 'stone');
   }
 }
 
 
 // ============================================================
-// SCENE: BRASS PLATES QUEST
+// SCENE 2: WILDERNESS JOURNEY — Valley of Lemuel (1 Nephi 2)
 // ============================================================
-class BrassPlatesScene extends Phaser.Scene {
-  constructor() { super('BrassPlates'); }
+class WildernessJourneyScene extends Phaser.Scene {
+  constructor() { super('WildernessJourney'); }
 
   create() {
     AudioEngine.setTheme('wilderness');
-    this.cameras.main.fadeIn(500);
+    this.cameras.main.fadeIn(800);
+    GameState.chapter = { book: '1 Nephi', chapter: 2, label: '1 Nephi \u00b7 Ch. 2' };
 
-    this._pause = attachPauseMenu(this);
-    this._lighting = FX.createLightingRig(this, { mode: 'interior' });
-    this._lighting.setAmbient(0.78);
-    this.alertMeter = 0;
-    this.alertLevel = 0;
-    this.throwCooldown = 0;
-
-    // Pokemon-style dark interior with tile floor
-    this.add.rectangle(W/2, H/2, W, H, 0x1a0a0a);
-    const floorG = this.add.graphics();
-    // Stone tile floor (Pokemon dungeon style)
-    for (let fy = 80; fy < H - 40; fy += 16) {
-      for (let fx = 30; fx < W - 30; fx += 16) {
-        const isAlt = ((Math.floor(fx / 16) + Math.floor(fy / 16)) % 2 === 0);
-        floorG.fillStyle(isAlt ? 0x3a2a1a : 0x2a1a0a);
-        floorG.fillRect(fx, fy, 16, 16);
-        // Tile border
-        floorG.fillStyle(0x1a0a00, 0.3);
-        floorG.fillRect(fx, fy, 16, 1);
-        floorG.fillRect(fx, fy, 1, 16);
-      }
-    }
-    // Wall border
-    floorG.fillStyle(0x4a2a0a);
-    floorG.fillRect(28, 78, W - 56, 3);
-    floorG.fillRect(28, 78, 3, H - 118);
-    floorG.fillRect(W - 31, 78, 3, H - 118);
-    floorG.fillRect(28, H - 43, W - 56, 3);
-
-    // Torches
-    [60, W - 60, W/2].forEach(tx => {
-      this.add.rectangle(tx, 130, 4, 24, COLORS.brown);
-      const flame = this.add.circle(tx, 118, 6, 0xff6600, 0.9);
-      const flameInner = this.add.circle(tx, 116, 3, 0xffdd00, 0.9);
-      this.tweens.add({ targets: flame, scale: 1.4, alpha: 0.5, duration: 250, yoyo: true, repeat: -1 });
-      this.tweens.add({ targets: flameInner, scale: 1.3, alpha: 0.6, duration: 200, yoyo: true, repeat: -1, delay: 100 });
-      this.add.circle(tx, 140, 50, 0xffaa00, 0.04);
-
-      // Lighting + particles
-      this._lighting.addLight(tx, 120, 'light_warm_256', 0.95, 0.55, 0.35);
-      createEmitterCompat(this, tx, 110, 'particle_smoke', {
-        speedY: { min: -10, max: -26 },
-        speedX: { min: -8, max: 8 },
-        lifespan: { min: 1400, max: 2400 },
-        scale: { start: 0.35, end: 0.9 },
-        alpha: { start: 0.14, end: 0 },
-        frequency: 210,
-        tint: 0xaab6c4,
-      }, 5);
-    });
-
-    // Shadow-safe pockets (darker floor regions).
-    this.shadowZones = [
-      new Phaser.Geom.Rectangle(120, 250, 140, 90),
-      new Phaser.Geom.Rectangle(320, 160, 130, 90),
-      new Phaser.Geom.Rectangle(520, 300, 140, 90),
-      new Phaser.Geom.Rectangle(610, 160, 130, 90),
-    ];
-    this.shadowZones.forEach((r) => {
-      const s = this.add.rectangle(r.x + r.width / 2, r.y + r.height / 2, r.width, r.height, 0x000000, 0.18);
-      s.setBlendMode(Phaser.BlendModes.MULTIPLY);
-    });
-
-    // Guards with proper sprites
-    this.guards = [];
-    const guardPositions = [
-      { x: 250, y: 250, patrol: 'h', range: 100 },
-      { x: 500, y: 350, patrol: 'v', range: 80 },
-      { x: 600, y: 200, patrol: 'h', range: 120 },
-    ];
-    guardPositions.forEach(gp => {
-      let guard;
-      if (this.textures.exists('guard')) {
-        guard = this.add.image(gp.x, gp.y, 'guard').setScale(1.5);
-      } else {
-        guard = this.add.rectangle(gp.x, gp.y, 16, 24, COLORS.red);
-      }
-
-      const range = Math.max(70, gp.range + 40);
-      const fov = Phaser.Math.DegToRad(70);
-      const cone = this.add.triangle(gp.x, gp.y, 0, 0, range, -range * 0.35, range, range * 0.35, 0xff6666, 0.09);
-      cone.setOrigin(0, 0.5);
-      cone.setBlendMode(Phaser.BlendModes.SCREEN);
-      cone.rotation = gp.patrol === 'h' ? 0 : Math.PI / 2;
-
-      const tween = this.tweens.add({
-        targets: guard,
-        x: gp.patrol === 'h' ? gp.x + gp.range : gp.x,
-        y: gp.patrol === 'v' ? gp.y + gp.range : gp.y,
-        duration: 2400,
-        yoyo: true,
-        repeat: -1,
-        ease: 'Sine.easeInOut',
-      });
-
-      this.guards.push({
-        sprite: guard,
-        cone,
-        range,
-        fov,
-        lastX: gp.x,
-        lastY: gp.y,
-        tween,
-        investigating: false,
-      });
-    });
-
-    // Brass plates (goal)
-    this.plates = this.add.rectangle(680, 120, 30, 40, COLORS.gold)
-      .setStrokeStyle(2, 0xb8860b);
-    this.add.text(680, 110, '📜', { fontSize: '20px' }).setOrigin(0.5);
-    const plateGlow = this.add.circle(680, 120, 25, COLORS.gold, 0.15);
-    this.tweens.add({ targets: plateGlow, scale: 2, alpha: 0, duration: 1500, repeat: -1 });
-
-    // Player sprite
-    if (this.textures.exists('nephi')) {
-      this.player = this.add.image(100, H - 100, 'nephi').setScale(1.5);
-    } else {
-      this.player = this.add.rectangle(100, H - 100, 16, 22, COLORS.faithBlue).setOrigin(0.5, 1);
-    }
-    this.physics.add.existing(this.player);
-    this.player.body.setSize(16, 22);
-
-    // Obstacles (pillars and tables)
-    [
-      { x: 200, y: 180, w: 80, h: 20 },
-      { x: 400, y: 280, w: 20, h: 80 },
-      { x: 350, y: 150, w: 60, h: 20 },
-      { x: 550, y: 300, w: 20, h: 60 },
-    ].forEach(ob => {
-      this.add.rectangle(ob.x, ob.y, ob.w, ob.h, 0x4a2a0a).setStrokeStyle(1, 0x3a1a00);
-    });
-
-    this.add.text(W/2, H - 30, 'Sneak to the plates. Shadows are safer. Arrow keys: move  \u2022  Q: throw stone', {
-      fontSize: '11px', fontFamily: 'monospace', color: '#aa8866'
-    }).setOrigin(0.5);
-
-    this.add.text(W/2, 60, 'LABAN\'S TREASURY', {
-      fontSize: '16px', fontFamily: 'monospace', color: '#8b4513', fontStyle: 'bold'
-    }).setOrigin(0.5);
-
-    this.statusText = this.add.text(W/2, H - 50, '', {
-      fontSize: '12px', fontFamily: 'monospace', color: '#ff6666'
-    }).setOrigin(0.5);
-
-    this.cursors = this.input.keyboard.createCursorKeys();
-    this.throwKey = this.input.keyboard.addKey('Q');
-    this.hud = createHUD(this);
-    this.hud.setObjective(680, 120);
-    this.caught = false;
-    this.won = false;
+    // PART 1: Brief travel encounter, then camp
+    this.phase = 'travel'; // 'travel' -> 'camp'
+    this.setupTravel();
   }
 
-  update(time, delta) {
-    this._lighting?.update(time);
-    this.hud?.update(this.player, 'stone');
-    if (this.caught || this.won) return;
-    if (this._pauseOpen || this._dialogueOpen) {
-      this.player.body.setVelocity(0);
-      return;
-    }
+  setupTravel() {
+    // Side-scrolling travel scene
+    const worldW = 1200, worldH = H;
+    this.physics.world.setBounds(0, 0, worldW, worldH);
+    this.cameras.main.setBounds(0, 0, worldW, worldH);
 
-    const speed = 120;
-    this.player.body.setVelocity(0);
-    if (this.cursors.left.isDown) { this.player.body.setVelocityX(-speed); this.player.setFlipX && this.player.setFlipX(true); }
-    if (this.cursors.right.isDown) { this.player.body.setVelocityX(speed); this.player.setFlipX && this.player.setFlipX(false); }
-    if (this.cursors.up.isDown) this.player.body.setVelocityY(-speed);
-    if (this.cursors.down.isDown) this.player.body.setVelocityY(speed);
+    this._pause = attachPauseMenu(this);
+    this._lighting = FX.createLightingRig(this, { mode: 'day' });
 
-    // Distraction: throw a small stone toward the pointer.
-    this.throwCooldown = Math.max(0, (this.throwCooldown || 0) - delta);
-    if (Phaser.Input.Keyboard.JustDown(this.throwKey) && this.throwCooldown <= 0) {
-      this.throwCooldown = GameState.settings.difficulty === 'warrior' ? 2200 : 1600;
-      AudioEngine.sfx.whoosh();
-      const px = this.input.activePointer.x;
-      const py = this.input.activePointer.y;
-      const { particles: spark, emitter: sparkEmitter } = createEmitterCompat(this, px, py, 'particle_spark', {
-        speed: { min: 40, max: 140 },
-        lifespan: { min: 300, max: 650 },
-        scale: { start: 0.35, end: 0 },
-        alpha: { start: 0.9, end: 0 },
-        quantity: 10,
-        blendMode: 'ADD',
-        tint: [0xffffff, 0xffdd88],
-      }, 50);
-      if (sparkEmitter && typeof sparkEmitter.explode === 'function') sparkEmitter.explode(12, px, py);
-      this.time.delayedCall(700, () => spark.destroy());
+    // Desert landscape
+    const skyG = this.add.graphics();
+    skyG.fillStyle(0x68b8f8);
+    skyG.fillRect(0, 0, worldW, 300);
 
-      // Nearest guard investigates (pauses patrol briefly).
-      let nearest = null;
-      let best = Infinity;
-      this.guards.forEach((g) => {
-        const d = Phaser.Math.Distance.Between(px, py, g.sprite.x, g.sprite.y);
-        if (d < best) { best = d; nearest = g; }
-      });
-      if (nearest && !nearest.investigating) {
-        nearest.investigating = true;
-        nearest.tween.pause();
-        this.tweens.add({
-          targets: nearest.sprite,
-          x: px,
-          y: py,
-          duration: 650,
-          ease: 'Cubic.easeOut',
-          yoyo: true,
-          hold: 400,
-          onComplete: () => {
-            nearest.tween.resume();
-            nearest.investigating = false;
-          }
-        });
-        this.alertMeter = Math.max(0, this.alertMeter - 0.25);
-      }
-    }
+    const groundG = this.add.graphics();
+    drawPokemonPath(groundG, 0, 400, worldW, worldH - 400);
 
-    const shadowed = this.shadowZones?.some(r => Phaser.Geom.Rectangle.Contains(r, this.player.x, this.player.y)) || false;
-    const diff = GameState.settings.difficulty || 'disciple';
-    const gainRate = diff === 'warrior' ? 0.0011 : diff === 'explorer' ? 0.00045 : 0.00075;
-    const decayRate = diff === 'warrior' ? 0.00035 : diff === 'explorer' ? 0.00055 : 0.00045;
+    // Desert hills in background
+    const hills = this.add.graphics();
+    hills.fillStyle(0xc8a060, 0.5);
+    hills.beginPath(); hills.moveTo(0, 400);
+    for (let x = 0; x <= worldW; x += 4) hills.lineTo(x, 360 + Math.sin(x * 0.008) * 25 + Math.sin(x * 0.02) * 10);
+    hills.lineTo(worldW, 400); hills.closePath(); hills.fill();
 
-    let seen = false;
-    this.guards.forEach((g) => {
-      // Update facing based on movement (from patrol tween or investigation).
-      const dx = g.sprite.x - g.lastX;
-      const dy = g.sprite.y - g.lastY;
-      if (Math.abs(dx) + Math.abs(dy) > 0.08) {
-        g.cone.rotation = Math.atan2(dy, dx);
-        g.lastX = g.sprite.x;
-        g.lastY = g.sprite.y;
-      }
-      g.cone.x = g.sprite.x;
-      g.cone.y = g.sprite.y;
-
-      const vx = this.player.x - g.sprite.x;
-      const vy = this.player.y - g.sprite.y;
-      const dist = Math.hypot(vx, vy);
-      const r = shadowed ? g.range * 0.55 : g.range;
-      if (dist > r) return;
-      const angToPlayer = Math.atan2(vy, vx);
-      const diffAng = Phaser.Math.Angle.Wrap(angToPlayer - g.cone.rotation);
-      if (Math.abs(diffAng) <= g.fov / 2) {
-        seen = true;
+    // Walking party sprites
+    const partyY = 460;
+    const sprites = ['nephi', 'sam', 'laman', 'lemuel'];
+    const partyX = [100, 140, 200, 240];
+    sprites.forEach((key, i) => {
+      if (this.textures.exists(key)) {
+        const spr = this.add.image(partyX[i], partyY, key).setScale(1.8).setDepth(10);
+        this.tweens.add({ targets: spr, y: partyY - 2, duration: 500 + i * 100, yoyo: true, repeat: -1 });
       }
     });
 
-    if (seen) this.alertMeter = clamp01(this.alertMeter + delta * gainRate);
-    else this.alertMeter = clamp01(this.alertMeter - delta * decayRate);
+    FX.createWindDust(this, { x: 0, y: 300, w: worldW, h: 300 });
 
-    const prevLevel = this.alertLevel;
-    this.alertLevel = this.alertMeter > 0.9 ? 3 : this.alertMeter > 0.6 ? 2 : this.alertMeter > 0.3 ? 1 : 0;
+    this.add.text(worldW / 2, 340, 'The Wilderness of Judea', {
+      fontSize: '12px', fontFamily: 'monospace', color: '#c8a060', fontStyle: 'italic',
+      stroke: '#000000', strokeThickness: 2
+    }).setOrigin(0.5);
 
-    if (this.alertLevel !== prevLevel) {
-      if (this.alertLevel === 0) this.statusText.setText('');
-      if (this.alertLevel === 1) this.statusText.setText('Suspicious... (stay in shadows)');
-      if (this.alertLevel === 2) this.statusText.setText('Investigating!');
-      if (this.alertLevel === 3) this.statusText.setText('Spotted!');
+    // Travel narration then combat encounter
+    this.time.delayedCall(800, () => {
+      showDialogue(this, 'Narrator',
+        'The family of Lehi travels three days into the wilderness. The desert is harsh, the sun relentless. But they press forward.',
+        () => {
+          showDialogue(this, 'Narrator',
+            'On the second day, desert bandits appear on the road ahead!',
+            () => {
+              // Start battle
+              this.cameras.main.flash(500, 255, 255, 255);
+              this.time.delayedCall(500, () => {
+                this.scene.pause();
+                this.scene.launch('Battle', {
+                  enemies: [
+                    { name: 'Desert Bandit', hp: 40, maxHp: 40, attacks: [
+                      { name: 'Slash', damage: 8, msg: 'The bandit slashes with a crude blade!' },
+                      { name: 'Threaten', damage: 5, msg: 'The bandit shouts a threat!' },
+                    ], spriteKey: 'bandit' },
+                  ],
+                  party: ['Nephi', 'Sam', 'Laman', 'Lemuel'],
+                  returnScene: 'WildernessJourney',
+                  onReturn: 'camp',
+                });
+              });
+            }
+          );
+        }
+      );
+    });
+
+    this.hud = createHUD(this);
+  }
+
+  setupCamp() {
+    // Clear previous phase
+    this.children.removeAll(true);
+    this.phase = 'camp';
+
+    AudioEngine.setTheme('wilderness');
+    GameState.time.t = 0.8; // evening
+
+    const worldW = 1200, worldH = 700;
+    this.physics.world.setBounds(0, 0, worldW, worldH);
+    this.cameras.main.setBounds(0, 0, worldW, worldH);
+
+    this._lighting = FX.createLightingRig(this, { mode: 'night' });
+    this._pause = attachPauseMenu(this);
+
+    // Night sky
+    const skyG = this.add.graphics();
+    skyG.fillStyle(0x182040);
+    skyG.fillRect(0, 0, worldW, 260);
+    for (let i = 0; i < 70; i++) {
+      const star = this.add.circle(Phaser.Math.Between(0, worldW), Phaser.Math.Between(0, 220),
+        Phaser.Math.Between(1, 2), 0xffffff, Phaser.Math.FloatBetween(0.3, 0.9));
+      if (i % 4 === 0) this.tweens.add({ targets: star, alpha: 0.2, duration: Phaser.Math.Between(800, 1500), yoyo: true, repeat: -1 });
     }
 
-    if (this.alertLevel === 3) {
-      this.caught = true;
-      this.cameras.main.shake(300, 0.01);
-      this.time.delayedCall(1100, () => {
-        this.alertMeter = 0;
-        this.alertLevel = 0;
-        this.statusText.setText('');
-        this.player.setPosition(100, H - 100);
-        this.caught = false;
-      });
-      return;
+    // Ground
+    const groundG = this.add.graphics();
+    drawPokemonGrass(groundG, 0, 350, worldW, worldH - 350);
+    drawPokemonPath(groundG, 200, 400, 600, 100);
+
+    // River
+    const riverG = this.add.graphics();
+    for (let rx = 0; rx < worldW; rx += 16) {
+      const ry = 510 + Math.sin(rx * 0.02) * 12;
+      drawPokemonWater(riverG, rx, ry, 16, 36);
+    }
+    this.add.text(600, 495, 'River Laman', {
+      fontSize: '10px', fontFamily: 'monospace', color: '#68b0ff', fontStyle: 'italic',
+      stroke: '#000000', strokeThickness: 2
+    }).setOrigin(0.5);
+
+    // Valley walls
+    const mtns = this.add.graphics();
+    mtns.fillStyle(0x5a7858, 0.5);
+    mtns.beginPath();
+    mtns.moveTo(0, 350); mtns.lineTo(100, 290); mtns.lineTo(250, 320);
+    mtns.lineTo(400, 270); mtns.lineTo(600, 310); mtns.lineTo(800, 280);
+    mtns.lineTo(1000, 305); mtns.lineTo(1200, 285); mtns.lineTo(1200, 350);
+    mtns.closePath(); mtns.fill();
+    this.add.text(200, 310, 'Valley of Lemuel', {
+      fontSize: '9px', fontFamily: 'monospace', color: '#aabbaa', fontStyle: 'italic',
+      stroke: '#000000', strokeThickness: 1
+    }).setOrigin(0.5);
+
+    // Tents
+    const tentPositions = [
+      { x: 300, y: 410, color: 0x8b7355, label: "Lehi's Tent" },
+      { x: 500, y: 420, color: 0x6b8e5a, label: "Nephi's Tent" },
+      { x: 700, y: 415, color: 0x8b5a2b, label: '' },
+    ];
+    tentPositions.forEach(t => {
+      const tent = this.add.graphics();
+      const tw = 50, th = 35;
+      tent.fillStyle(t.color);
+      tent.fillRect(t.x - tw / 2, t.y - th / 2, tw, th);
+      tent.fillStyle(darken(t.color, 20));
+      tent.fillRect(t.x - tw / 2, t.y - th / 2, tw, 3);
+      tent.fillStyle(lighten(t.color, 20));
+      tent.beginPath();
+      tent.moveTo(t.x - tw / 2 - 4, t.y - th / 2);
+      tent.lineTo(t.x, t.y - th / 2 - 22);
+      tent.lineTo(t.x + tw / 2 + 4, t.y - th / 2);
+      tent.closePath(); tent.fill();
+      tent.fillStyle(darken(t.color, 30));
+      tent.fillRect(t.x - 6, t.y - 4, 12, 18);
+      if (t.label) {
+        this.add.text(t.x, t.y - th / 2 - 28, t.label, {
+          fontSize: '9px', fontFamily: 'monospace', color: '#f8d830',
+          stroke: '#000000', strokeThickness: 2
+        }).setOrigin(0.5);
+      }
+    });
+
+    // Campfire
+    this.add.circle(400, 450, 6, 0xff6600, 0.8);
+    this.add.circle(400, 448, 4, 0xffdd00, 0.9);
+    try { FX.createCampfire(this, 400, 445); } catch(e) {}
+    this._lighting.addLight(400, 445, 'light_warm_256', 0.8, 0.5, 0.25);
+
+    // NPCs
+    const createNPC = (key, x, y, name, scale) => {
+      if (this.textures.exists(key)) this.add.image(x, y, key).setScale(scale || 1.8).setDepth(10);
+      this.add.text(x, y - 26, name, { fontSize: '9px', fontFamily: 'monospace', color: '#ffd700' }).setOrigin(0.5).setDepth(11);
+      const zone = this.add.zone(x, y, 50, 50);
+      this.physics.add.existing(zone, true);
+      return zone;
+    };
+
+    this.lehiZone = createNPC('lehi', 310, 445, 'Lehi', 2);
+    this.samZone = createNPC('sam', 510, 448, 'Sam', 1.8);
+    this.lamanZone = createNPC('laman', 800, 445, 'Laman', 1.8);
+    this.lemuelZone = createNPC('lemuel', 840, 448, 'Lemuel', 1.6);
+
+    // Hillside for prayer (quest marker)
+    this.add.text(1050, 370, '\u26ea Prayer Hill', {
+      fontSize: '9px', fontFamily: 'monospace', color: '#ffe088',
+      stroke: '#000000', strokeThickness: 2
+    }).setOrigin(0.5);
+    this.prayerZone = this.add.zone(1050, 400, 80, 60);
+    this.physics.add.existing(this.prayerZone, true);
+    if (!GameState.questFlags.nephiPrayer) {
+      const pMarker = this.add.text(1050, 355, '\u2757', { fontSize: '20px' }).setOrigin(0.5).setDepth(20);
+      this.tweens.add({ targets: pMarker, y: 345, duration: 600, yoyo: true, repeat: -1 });
     }
 
-    const plateDist = Phaser.Math.Distance.Between(
-      this.player.x, this.player.y, this.plates.x, this.plates.y
-    );
-    if (plateDist < 35) {
-      this.won = true;
-      GameState.brassPlatesObtained = true;
-      GameState.faith = Math.min(GameState.faith + 15, GameState.maxFaith);
-      gainFP(30);
-      addJournal('Retrieved the brass plates from Laban\'s treasury');
+    // Player
+    if (this.textures.exists('nephi')) {
+      this.player = this.add.image(200, 445, 'nephi').setScale(2).setDepth(15);
+    } else {
+      this.player = this.add.rectangle(200, 445, 20, 28, COLORS.faithBlue);
+    }
+    this.physics.add.existing(this.player);
+    this.player.body.setCollideWorldBounds(true);
+    this.player.body.setSize(20, 30);
+    this.cameras.main.startFollow(this.player, true, 0.08, 0.08);
 
-      this.cameras.main.flash(500, 255, 215, 0);
-      showDialogue(this, 'Narrator', 'You have obtained the brass plates! These sacred records contain the scriptures and the genealogy of Lehi\'s family. The Lord has provided a way, just as Nephi said He would.', () => {
-        showScriptureUnlock(this,
-          '1 Nephi 3:7',
-          'I will go and do the things which the Lord hath commanded, for I know that the Lord giveth no commandments unto the children of men, save he shall prepare a way for them that they may accomplish the thing which he commandeth them.',
+    // Overlap flags
+    this.nearFlags = {};
+    const zones = { lehi: this.lehiZone, sam: this.samZone, laman: this.lamanZone, lemuel: this.lemuelZone, prayer: this.prayerZone };
+    Object.entries(zones).forEach(([key, zone]) => {
+      this.nearFlags[key] = false;
+      this.physics.add.overlap(this.player, zone, () => this.nearFlags[key] = true);
+    });
+
+    this.cursors = this.input.keyboard.createCursorKeys();
+    this.spaceKey = this.input.keyboard.addKey('SPACE');
+    this.interactCooldown = 0;
+
+    this.hud = createHUD(this);
+    if (!GameState.questFlags.nephiPrayer) this.hud.setObjective(1050, 400);
+
+    this.interactPrompt = this.add.text(0, 0, 'Press SPACE', {
+      fontSize: '10px', fontFamily: 'monospace', color: '#ffd700',
+      backgroundColor: '#00000088', padding: { x: 4, y: 2 }
+    }).setOrigin(0.5).setDepth(80).setVisible(false);
+
+    // Lehi's speeches cutscene
+    if (!GameState.questFlags.lehiRiverSpeech) {
+      GameState.questFlags.lehiRiverSpeech = true;
+      this.time.delayedCall(500, () => {
+        showDialogue(this, 'Lehi',
+          'O Laman, my eldest son \u2014 I would that thou mightest be like unto this river, continually flowing into the fountain of all righteousness.',
           () => {
-            saveGame({ scene: 'Jerusalem', milestone: 'brass_plates' });
-            this.scene.stop();
-            this.scene.resume('Jerusalem');
+            showDialogue(this, 'Lehi',
+              'And O Lemuel \u2014 I would that thou mightest be like unto this valley, firm and steadfast, and immovable in keeping the commandments of the Lord.',
+              () => {
+                showDialogue(this, 'Narrator',
+                  'Laman and Lemuel murmur against their father. But Nephi feels something stirring in his heart. Perhaps the Lord will speak to him on the hillside.',
+                  () => {
+                    addJournal('Heard Lehi\'s plea to Laman and Lemuel by the river.');
+                  }
+                );
+              }
+            );
           }
         );
       });
     }
   }
+
+  triggerNephiPrayer() {
+    GameState.questFlags.nephiPrayer = true;
+    AudioEngine.setTheme('spiritual');
+
+    // Screen dims, golden light descends
+    const overlay = this.add.rectangle(W / 2, H / 2, W, H, 0x000000, 0).setDepth(200).setScrollFactor(0);
+    this.tweens.add({ targets: overlay, alpha: 0.6, duration: 1000 });
+
+    this.time.delayedCall(1000, () => {
+      showDialogue(this, 'Narrator',
+        'Nephi climbs the hillside and kneels to pray. He cries unto the Lord, desiring to know the truth of his father\'s words.',
+        () => {
+          // Golden light effect
+          this.cameras.main.flash(1200, 255, 215, 0);
+          AudioEngine.sfx.chime();
+
+          // Particle burst
+          const { particles: burst, emitter: burstEmitter } = createEmitterCompat(this, W / 2, H / 2, 'particle_spark', {
+            speed: { min: 60, max: 200 },
+            lifespan: { min: 600, max: 1200 },
+            scale: { start: 0.5, end: 0 },
+            alpha: { start: 1, end: 0 },
+            quantity: 25,
+            blendMode: 'ADD',
+            tint: [0xffe066, 0xffd27a, 0xffffff],
+          }, 221);
+          if (burstEmitter && typeof burstEmitter.explode === 'function') burstEmitter.explode(30, W / 2, H / 2);
+
+          this.time.delayedCall(800, () => {
+            showDialogue(this, 'Narrator',
+              '"And the Lord did soften my heart that I did believe all the words which had been spoken by my father; wherefore, I did not rebel against him like unto my brothers."',
+              () => {
+                showScriptureUnlock(this,
+                  '1 Nephi 2:16',
+                  'I, Nephi, being exceedingly young, did cry unto the Lord; and the Lord did visit me, and did soften my heart that I did believe all the words which had been spoken by my father.',
+                  () => {
+                    // MAJOR MILESTONE - Softened Heart ability
+                    GameState.faith = Math.min(GameState.faith + 20, GameState.maxFaith);
+                    GameState.testimony += 15;
+                    gainFP(40);
+
+                    // Fanfare
+                    const fanfare = this.add.text(W / 2, H / 2 - 40, '\u2728 SOFTENED HEART \u2728', {
+                      fontSize: '28px', fontFamily: 'Palatino Linotype, Book Antiqua, Palatino, serif',
+                      color: '#ffd700', fontStyle: 'bold',
+                      stroke: '#000000', strokeThickness: 4
+                    }).setOrigin(0.5).setDepth(250).setScrollFactor(0).setAlpha(0);
+
+                    const sub = this.add.text(W / 2, H / 2 + 10, 'Ability Unlocked! Faith +20, Testimony +15', {
+                      fontSize: '14px', fontFamily: 'Georgia, serif', color: '#ffe088',
+                      stroke: '#000000', strokeThickness: 2
+                    }).setOrigin(0.5).setDepth(250).setScrollFactor(0).setAlpha(0);
+
+                    this.tweens.add({ targets: fanfare, alpha: 1, scale: 1.1, duration: 600, yoyo: true, hold: 2000 });
+                    this.tweens.add({ targets: sub, alpha: 1, duration: 600, delay: 300, yoyo: true, hold: 2000 });
+
+                    this.time.delayedCall(3500, () => {
+                      fanfare.destroy();
+                      sub.destroy();
+                      overlay.destroy();
+                      AudioEngine.setTheme('wilderness');
+
+                      addJournal('Nephi prayed and the Lord softened his heart. Softened Heart ability unlocked!');
+                      this.hud.setObjective(510, 448); // Point to Sam next
+                    });
+                  }
+                );
+              }
+            );
+          });
+        }
+      );
+    });
+  }
+
+  triggerSamConvinced() {
+    GameState.questFlags.samConvinced = true;
+    showDialogue(this, 'Nephi',
+      'Sam, I have prayed to the Lord, and He has softened my heart. I know that Father speaks truth. The Lord visited me.',
+      () => {
+        showDialogue(this, 'Sam',
+          'I believe you, Nephi. I have felt it too, though I could not find the words. I will follow you and Father wherever the Lord leads.',
+          () => {
+            GameState.companion = { name: 'Sam', title: 'Faithful Brother' };
+            GameState.faith = Math.min(GameState.faith + 5, GameState.maxFaith);
+            gainFP(10);
+            addJournal('Sam believes! He joins as a faithful companion.');
+
+            const msg = this.add.text(W / 2, H / 2, 'Sam joined as a faithful companion!', {
+              fontSize: '16px', fontFamily: 'Georgia, serif', color: '#ffd700', fontStyle: 'bold',
+              stroke: '#000000', strokeThickness: 3
+            }).setOrigin(0.5).setDepth(200).setScrollFactor(0);
+            this.tweens.add({ targets: msg, alpha: 0, duration: 800, delay: 2000, onComplete: () => msg.destroy() });
+
+            // Now point to Lehi for brass plates command
+            this.hud.setObjective(310, 445);
+          }
+        );
+      }
+    );
+  }
+
+  triggerBrassPlatesCommand() {
+    GameState.questFlags.brassPlatesCommand = true;
+    showDialogue(this, 'Lehi',
+      'Nephi, the Lord has commanded me. You and your brothers must return to Jerusalem, to the house of Laban, and obtain the brass plates. They contain the record of the Jews and the genealogy of our fathers.',
+      () => {
+        showDialogue(this, 'Laman',
+          'Return to Jerusalem? After we just escaped? This is a hard thing Father requires of us!',
+          () => {
+            showDialogue(this, 'Lemuel', 'How can we possibly get the plates from Laban? He is a powerful man with many guards!', () => {
+              // THE EPIC MOMENT
+              showDialogue(this, 'Nephi', 'How do you respond?', null, {
+                choices: [
+                  {
+                    id: 'iwillgoanddo', text: '[Courage] "I will go and do the things which the Lord hath commanded"',
+                    faithVsDoubt: 1, onSelect: () => {
+                      // EPIC MOMENT
+                      this.cameras.main.flash(1000, 255, 215, 0);
+                      AudioEngine.sfx.chime();
+
+                      const epicText = this.add.text(W / 2, H / 2 - 20,
+                        '"I will go and do the things which\nthe Lord hath commanded, for I know\nthat the Lord giveth no commandments\nunto the children of men, save he shall\nprepare a way for them."', {
+                        fontSize: '18px', fontFamily: 'Palatino Linotype, Book Antiqua, Palatino, serif',
+                        color: '#ffd700', fontStyle: 'bold', align: 'center', lineSpacing: 8,
+                        stroke: '#000000', strokeThickness: 4, wordWrap: { width: 600 }
+                      }).setOrigin(0.5).setDepth(300).setScrollFactor(0).setAlpha(0);
+
+                      this.tweens.add({ targets: epicText, alpha: 1, duration: 800 });
+
+                      // Particle burst
+                      const { particles: burst, emitter: burstEmitter } = createEmitterCompat(this, W / 2, H / 2, 'particle_spark', {
+                        speed: { min: 80, max: 260 },
+                        lifespan: { min: 500, max: 1200 },
+                        scale: { start: 0.6, end: 0 },
+                        alpha: { start: 1, end: 0 },
+                        quantity: 30,
+                        blendMode: 'ADD',
+                        tint: [0xffe066, 0xffd27a, 0xffffff],
+                      }, 301);
+                      if (burstEmitter && typeof burstEmitter.explode === 'function') burstEmitter.explode(40, W / 2, H / 2);
+
+                      GameState.faith = Math.min(GameState.faith + 25, GameState.maxFaith);
+                      GameState.courage += 20;
+                      gainFP(50);
+
+                      this.time.delayedCall(3500, () => {
+                        epicText.destroy();
+                        showScriptureUnlock(this,
+                          '1 Nephi 3:7',
+                          'I will go and do the things which the Lord hath commanded, for I know that the Lord giveth no commandments unto the children of men, save he shall prepare a way for them that they may accomplish the thing which he commandeth them.',
+                          () => {
+                            addJournal('"I will go and do!" Courage +20, Faith +25. The defining moment.');
+                            this.transitionToBrassPlates();
+                          }
+                        );
+                      });
+                    }
+                  },
+                  {
+                    id: 'hesitation', text: '[Hesitation] "How can we do this?"',
+                    faithVsDoubt: 0, onSelect: () => {
+                      showDialogue(this, 'Lehi', 'The Lord will provide a way, Nephi. He always does. Trust in Him.', () => {
+                        GameState.faith = Math.min(GameState.faith + 10, GameState.maxFaith);
+                        GameState.courage += 10;
+                        gainFP(20);
+                        addJournal('Hesitated but then chose to go. Courage +10, Faith +10.');
+                        this.transitionToBrassPlates();
+                      });
+                    }
+                  },
+                ]
+              });
+            });
+          }
+        );
+      }
+    );
+  }
+
+  transitionToBrassPlates() {
+    this.cameras.main.fadeOut(1000);
+    this.time.delayedCall(1000, () => {
+      this.scene.start('ChapterTransition', {
+        chapter: 'III', title: 'Return for the Brass Plates',
+        quote: '"Let us be faithful in keeping the commandments of the Lord."  \u2014 1 Nephi 3:16',
+        nextScene: 'BrassPlatesQuest'
+      });
+    });
+  }
+
+  update(time, delta) {
+    this._lighting?.update(time);
+    if (this.phase === 'travel') {
+      this.hud?.update(null, 'sand');
+      return;
+    }
+    if (this._pauseOpen || this._dialogueOpen) {
+      if (this.player?.body) this.player.body.setVelocity(0);
+      this.hud?.update(this.player, 'sand');
+      return;
+    }
+
+    Object.keys(this.nearFlags).forEach(k => this.nearFlags[k] = false);
+
+    const speed = 150;
+    this.player.body.setVelocity(0);
+    if (this.cursors.left.isDown) { this.player.body.setVelocityX(-speed); this.player.setFlipX(true); }
+    if (this.cursors.right.isDown) { this.player.body.setVelocityX(speed); this.player.setFlipX(false); }
+    if (this.cursors.up.isDown) this.player.body.setVelocityY(-speed);
+    if (this.cursors.down.isDown) this.player.body.setVelocityY(speed);
+
+    if (this.player.body.velocity.x !== 0 || this.player.body.velocity.y !== 0) {
+      this.player.setScale(2, 2 + Math.sin(time * 0.01) * 0.05);
+    } else {
+      this.player.setScale(2);
+    }
+
+    this.interactPrompt.setVisible(false);
+    const nf = this.nearFlags;
+    if (nf.lehi) this.interactPrompt.setPosition(310, 415).setVisible(true);
+    else if (nf.sam) this.interactPrompt.setPosition(510, 418).setVisible(true);
+    else if (nf.laman) this.interactPrompt.setPosition(800, 415).setVisible(true);
+    else if (nf.prayer) this.interactPrompt.setPosition(1050, 375).setVisible(true);
+
+    if (this.interactCooldown > 0) this.interactCooldown -= delta;
+    if (Phaser.Input.Keyboard.JustDown(this.spaceKey) && this.interactCooldown <= 0) {
+      this.interactCooldown = 500;
+
+      if (nf.prayer && !GameState.questFlags.nephiPrayer && !this._dialogueOpen) {
+        this.triggerNephiPrayer();
+      }
+      if (nf.sam && !this._dialogueOpen) {
+        if (GameState.questFlags.nephiPrayer && !GameState.questFlags.samConvinced) {
+          this.triggerSamConvinced();
+        } else if (GameState.questFlags.samConvinced) {
+          showDialogue(this, 'Sam', 'I am ready to go wherever the Lord leads, Nephi.');
+        } else {
+          showDialogue(this, 'Sam', 'Have you prayed yet, brother? The hillside to the east calls to you.');
+        }
+      }
+      if (nf.lehi && !this._dialogueOpen) {
+        if (GameState.questFlags.samConvinced && !GameState.questFlags.brassPlatesCommand) {
+          this.triggerBrassPlatesCommand();
+        } else if (GameState.questFlags.brassPlatesCommand) {
+          showDialogue(this, 'Lehi', 'Go, my sons. Return to Jerusalem and obtain the brass plates. The Lord will prepare the way.');
+        } else {
+          showDialogue(this, 'Lehi', 'Pray, Nephi. Seek the Lord on the hillside. He will answer you.');
+        }
+      }
+      if (nf.laman && !this._dialogueOpen) {
+        showDialogue(this, 'Laman', 'Father drags us from our riches for dreams. I do not understand his visions.', () => {
+          showDialogue(this, 'Nephi', '', null, {
+            choices: [
+              { id: 'encourage_laman', text: 'I understand it is hard. But the Lord has confirmed it.', compassionVsHarshness: 1, onSelect: () => {
+                showDialogue(this, 'Laman', '...Perhaps. But it is still hard to leave everything behind.');
+                gainFP(5);
+              }},
+              { id: 'rebuke_laman', text: 'The Lord has spoken. We must obey.', faithVsDoubt: 1, onSelect: () => {
+                showDialogue(this, 'Laman', 'You sound more like Father every day.');
+              }},
+            ]
+          });
+        });
+      }
+    }
+
+    this.hud?.update(this.player, 'sand');
+  }
 }
 
 
 // ============================================================
-// SCENE: BATTLE (Pokemon-style)
+// SCENE 3: BRASS PLATES QUEST — Return for the Plates (1 Nephi 3-4)
+// ============================================================
+class BrassPlatesQuestScene extends Phaser.Scene {
+  constructor() { super('BrassPlatesQuest'); }
+
+  create() {
+    AudioEngine.setTheme('jerusalem');
+    this.cameras.main.fadeIn(800);
+    GameState.chapter = { book: '1 Nephi', chapter: 3, label: '1 Nephi \u00b7 Ch. 3-4' };
+
+    this.attempt = GameState.questFlags.attempt1 ? (GameState.questFlags.attempt2 ? 3 : 2) : 1;
+    this.setupAttempt(this.attempt);
+  }
+
+  setupAttempt(num) {
+    this.children.removeAll(true);
+    this._pause = attachPauseMenu(this);
+
+    if (num === 1) this.runAttempt1();
+    else if (num === 2) this.runAttempt2();
+    else this.runAttempt3();
+  }
+
+  // ATTEMPT 1: Laman goes to Laban
+  runAttempt1() {
+    this._lighting = FX.createLightingRig(this, { mode: 'night' });
+
+    // Simple scene: outside Laban's house
+    const bg = this.add.graphics();
+    bg.fillStyle(0x182848);
+    bg.fillRect(0, 0, W, H);
+    drawPokemonPath(bg, 0, 400, W, H - 400);
+
+    // Laban's house
+    drawPokemonBuilding(bg, 300, 280, 200, 180, 0x8B0000, 0xd0c0a0);
+    this.add.text(400, 270, "Laban's House", {
+      fontSize: '12px', fontFamily: 'monospace', color: '#ffaaaa',
+      stroke: '#000000', strokeThickness: 2
+    }).setOrigin(0.5);
+
+    // Guards
+    if (this.textures.exists('guard')) {
+      this.add.image(320, 460, 'guard').setScale(1.5);
+      this.add.image(480, 460, 'guard').setScale(1.5).setFlipX(true);
+    }
+
+    // Brothers waiting outside
+    const waiting = ['nephi', 'sam', 'lemuel'];
+    waiting.forEach((key, i) => {
+      if (this.textures.exists(key)) this.add.image(100 + i * 40, 500, key).setScale(1.5).setDepth(10);
+    });
+
+    this.hud = createHUD(this);
+
+    this.time.delayedCall(500, () => {
+      showDialogue(this, 'Narrator',
+        'The brothers return to Jerusalem. They cast lots, and the lot falls upon Laman to go in unto the house of Laban and speak with him.',
+        () => {
+          showDialogue(this, 'Laman', 'Fine. I will go. Wait here.', () => {
+            // Laman enters (brief cutscene)
+            if (this.textures.exists('laman')) {
+              const lamanSpr = this.add.image(200, 500, 'laman').setScale(1.5).setDepth(12);
+              this.tweens.add({ targets: lamanSpr, x: 400, y: 430, duration: 1500, onComplete: () => {
+                lamanSpr.setAlpha(0.3);
+                this.time.delayedCall(2000, () => {
+                  // Laman flees back
+                  lamanSpr.setAlpha(1);
+                  this.tweens.add({ targets: lamanSpr, x: 200, y: 500, duration: 800, ease: 'Cubic.easeOut' });
+                  this.cameras.main.shake(200, 0.005);
+                  showDialogue(this, 'Laman',
+                    'He called me a robber and threatened to kill me! Laban is angry and will not give up the plates!',
+                    () => {
+                      showDialogue(this, 'Laman', 'Let us go back to Father. This is impossible.', () => {
+                        showDialogue(this, 'Lemuel', 'I agree. This task cannot be done.', () => {
+                          showDialogue(this, 'Nephi', '', null, {
+                            choices: [
+                              { id: 'press_forward', text: '[Press forward] "The Lord will provide. Let us try another way."', faithVsDoubt: 1, onSelect: () => {
+                                GameState.questFlags.attempt1 = true;
+                                GameState.faith = Math.min(GameState.faith + 5, GameState.maxFaith);
+                                gainFP(10);
+                                addJournal('First attempt failed. Laman rejected by Laban. Nephi pressed forward.');
+                                this.setupAttempt(2);
+                              }},
+                              { id: 'encourage', text: '[Encourage] "Let us try with our family wealth."', onSelect: () => {
+                                GameState.questFlags.attempt1 = true;
+                                gainFP(5);
+                                addJournal('First attempt failed. Nephi encouraged another try with wealth.');
+                                this.setupAttempt(2);
+                              }},
+                            ]
+                          });
+                        });
+                      });
+                    }
+                  );
+                });
+              }});
+            } else {
+              // Fallback without sprite
+              this.time.delayedCall(2500, () => {
+                GameState.questFlags.attempt1 = true;
+                showDialogue(this, 'Laman', 'Laban rejected me! He called me a robber!', () => {
+                  this.setupAttempt(2);
+                });
+              });
+            }
+          });
+        }
+      );
+    });
+  }
+
+  // ATTEMPT 2: The family wealth
+  runAttempt2() {
+    this._lighting = FX.createLightingRig(this, { mode: 'night' });
+
+    const bg = this.add.graphics();
+    bg.fillStyle(0x182848);
+    bg.fillRect(0, 0, W, H);
+    drawPokemonPath(bg, 0, 400, W, H - 400);
+    drawPokemonBuilding(bg, 300, 280, 200, 180, 0x8B0000, 0xd0c0a0);
+
+    this.hud = createHUD(this);
+
+    this.time.delayedCall(500, () => {
+      showDialogue(this, 'Nephi',
+        'We returned to our father\'s abandoned house and gathered our gold, silver, and precious things. Surely Laban will trade the plates for such wealth!',
+        () => {
+          // Brief collecting scene
+          const items = ['Gold', 'Silver', 'Precious Things'];
+          let itemIdx = 0;
+          const showItem = () => {
+            if (itemIdx >= items.length) {
+              this.offerToLaban();
+              return;
+            }
+            const item = items[itemIdx];
+            const msg = this.add.text(W / 2, H / 2, `Found: ${item}!`, {
+              fontSize: '18px', fontFamily: 'Georgia, serif', color: '#ffd700', fontStyle: 'bold',
+              stroke: '#000000', strokeThickness: 3
+            }).setOrigin(0.5).setDepth(200);
+            AudioEngine.sfx.click();
+            this.tweens.add({ targets: msg, alpha: 0, y: H / 2 - 40, duration: 1200, delay: 600, onComplete: () => {
+              msg.destroy();
+              itemIdx++;
+              showItem();
+            }});
+          };
+          showItem();
+        }
+      );
+    });
+  }
+
+  offerToLaban() {
+    showDialogue(this, 'Narrator',
+      'The brothers bring their family wealth to Laban. He sees the gold and silver, and his eyes gleam with greed.',
+      () => {
+        showDialogue(this, 'Narrator',
+          'But Laban takes the wealth and sends his guards to kill them! The brothers flee for their lives.',
+          () => {
+            this.cameras.main.shake(400, 0.01);
+            AudioEngine.sfx.whoosh();
+            // Battle with Laban's guards
+            this.cameras.main.flash(500, 255, 255, 255);
+            this.time.delayedCall(500, () => {
+              this.scene.pause();
+              this.scene.launch('Battle', {
+                enemies: [
+                  { name: "Laban's Guard", hp: 50, maxHp: 50, attacks: [
+                    { name: 'Sword Strike', damage: 10, msg: "The guard strikes with his sword!" },
+                    { name: 'Shield Bash', damage: 7, msg: "The guard bashes with his shield!" },
+                  ], spriteKey: 'guard' },
+                  { name: "Laban's Guard", hp: 45, maxHp: 45, attacks: [
+                    { name: 'Sword Strike', damage: 10, msg: "The guard strikes with his sword!" },
+                    { name: 'Intimidate', damage: 5, msg: "The guard shouts a war cry!" },
+                  ], spriteKey: 'guard' },
+                ],
+                party: ['Nephi', 'Sam', 'Laman', 'Lemuel'],
+                returnScene: 'BrassPlatesQuest',
+                onReturn: 'afterBattle2',
+              });
+            });
+          }
+        );
+      }
+    );
+  }
+
+  afterBattle2() {
+    // Cave scene: beaten and demoralized
+    this.children.removeAll(true);
+    this._lighting = FX.createLightingRig(this, { mode: 'night' });
+
+    const bg = this.add.graphics();
+    bg.fillStyle(0x0a0a10);
+    bg.fillRect(0, 0, W, H);
+    // Cave walls
+    bg.fillStyle(0x2a2018);
+    bg.fillRect(40, 40, W - 80, H - 80);
+    bg.fillStyle(0x1a1008, 0.5);
+    bg.fillRect(60, 60, W - 120, H - 120);
+
+    this.hud = createHUD(this);
+
+    this.time.delayedCall(500, () => {
+      showDialogue(this, 'Narrator',
+        'The brothers escape to a cave outside the city walls. Laman and Lemuel, furious and afraid, begin to beat Nephi and Sam with a rod.',
+        () => {
+          this.cameras.main.shake(300, 0.008);
+          showDialogue(this, 'Narrator',
+            'They blame their brothers for this disaster. All their family wealth is gone, and Laban still has the plates.',
+            () => {
+              // ANGEL APPEARS
+              this.cameras.main.flash(800, 255, 255, 255);
+              AudioEngine.sfx.chime();
+              AudioEngine.setTheme('spiritual');
+
+              this.time.delayedCall(600, () => {
+                // Angel sprite with glow
+                if (this.textures.exists('angel')) {
+                  const angelSpr = this.add.image(W / 2, H / 2 - 40, 'angel').setScale(3).setDepth(20).setAlpha(0);
+                  this.tweens.add({ targets: angelSpr, alpha: 1, duration: 800 });
+                  // Glow around angel
+                  const glow = this.add.image(W / 2, H / 2 - 40, 'light_white_256').setScale(1.5).setAlpha(0).setDepth(19);
+                  glow.setBlendMode(Phaser.BlendModes.SCREEN);
+                  this.tweens.add({ targets: glow, alpha: 0.3, duration: 800 });
+                }
+
+                showDialogue(this, 'Angel',
+                  'Why do ye smite your brother? Behold, ye shall go up to Jerusalem again, and the Lord will deliver Laban into your hands.',
+                  () => {
+                    showDialogue(this, 'Narrator',
+                      'The angel departs. Laman and Lemuel murmur still: "How is it possible that the Lord will deliver Laban into our hands? He commands fifty men. He can slay fifty."',
+                      () => {
+                        showDialogue(this, 'Narrator',
+                          'But Nephi will not turn back. Despite everything, he rises.',
+                          () => {
+                            GameState.questFlags.attempt2 = true;
+                            addJournal('Second attempt failed. Laban took wealth. Angel appeared and commanded them to return. Laman and Lemuel still doubt.');
+                            this.setupAttempt(3);
+                          }
+                        );
+                      }
+                    );
+                  }
+                );
+              });
+            }
+          );
+        }
+      );
+    });
+  }
+
+  // ATTEMPT 3: Nephi alone (THE CLIMACTIC MISSION)
+  runAttempt3() {
+    AudioEngine.setTheme('jerusalem');
+    GameState.time.t = 0.9;
+    this._lighting = FX.createLightingRig(this, { mode: 'night' });
+    this._lighting.setAmbient(0.45);
+
+    const worldW = 1400, worldH = 700;
+    this.physics.world.setBounds(0, 0, worldW, worldH);
+    this.cameras.main.setBounds(0, 0, worldW, worldH);
+
+    // Dark Jerusalem streets at night
+    const bg = this.add.graphics();
+    bg.fillStyle(0x0a0818);
+    bg.fillRect(0, 0, worldW, worldH);
+    drawPokemonPath(bg, 0, 400, worldW, worldH - 400);
+
+    // Stars
+    for (let i = 0; i < 40; i++) {
+      this.add.circle(Phaser.Math.Between(0, worldW), Phaser.Math.Between(0, 300),
+        Phaser.Math.Between(1, 2), 0xffffff, Phaser.Math.FloatBetween(0.2, 0.7));
+    }
+
+    // Buildings (dark silhouettes)
+    const bldgG = this.add.graphics();
+    [
+      { x: 50, y: 350, w: 80, h: 110 },
+      { x: 180, y: 360, w: 70, h: 100 },
+      { x: 400, y: 345, w: 90, h: 115 },
+      { x: 600, y: 355, w: 75, h: 105 },
+      { x: 800, y: 350, w: 85, h: 110 },
+      { x: 1000, y: 360, w: 80, h: 100 },
+      { x: 1200, y: 345, w: 90, h: 115 },
+    ].forEach(b => {
+      bldgG.fillStyle(0x18120a);
+      bldgG.fillRect(b.x, b.y, b.w, b.h);
+      // Occasional dim window
+      if (Math.random() > 0.5) {
+        bldgG.fillStyle(0xffdd88, 0.15);
+        bldgG.fillRect(b.x + 15, b.y + 20, 10, 12);
+      }
+    });
+
+    // Guards with sight cones (stealth section)
+    this.guards = [];
+    const guardPositions = [
+      { x: 300, y: 490, patrol: 'h', range: 100 },
+      { x: 600, y: 480, patrol: 'h', range: 80 },
+      { x: 900, y: 490, patrol: 'v', range: 60 },
+    ];
+    guardPositions.forEach(gp => {
+      let guard;
+      if (this.textures.exists('guard')) {
+        guard = this.add.image(gp.x, gp.y, 'guard').setScale(1.5).setDepth(14);
+      } else {
+        guard = this.add.rectangle(gp.x, gp.y, 16, 24, COLORS.red).setDepth(14);
+      }
+      const cone = this.add.triangle(gp.x, gp.y, 0, 0, 80, -28, 80, 28, 0xff6666, 0.08).setOrigin(0, 0.5).setDepth(13);
+      this.tweens.add({
+        targets: guard,
+        x: gp.patrol === 'h' ? gp.x + gp.range : gp.x,
+        y: gp.patrol === 'v' ? gp.y + gp.range : gp.y,
+        duration: 2400, yoyo: true, repeat: -1, ease: 'Sine.easeInOut'
+      });
+      this.guards.push({ sprite: guard, cone, lastX: gp.x, lastY: gp.y });
+    });
+
+    // Laban (passed out at far right)
+    if (this.textures.exists('laban')) {
+      this.labanSprite = this.add.image(1250, 500, 'laban').setScale(2).setDepth(10);
+      // Laban on his side (rotated)
+      this.labanSprite.setAngle(90);
+    }
+    this.add.text(1250, 470, 'Laban (drunk)', {
+      fontSize: '9px', fontFamily: 'monospace', color: '#cc6666',
+      stroke: '#000000', strokeThickness: 2
+    }).setOrigin(0.5).setDepth(11);
+
+    this.labanZone = this.add.zone(1250, 500, 60, 60);
+    this.physics.add.existing(this.labanZone, true);
+
+    // Player (Nephi alone)
+    if (this.textures.exists('nephi')) {
+      this.player = this.add.image(50, 500, 'nephi').setScale(2).setDepth(15);
+    } else {
+      this.player = this.add.rectangle(50, 500, 16, 22, COLORS.faithBlue);
+    }
+    this.physics.add.existing(this.player);
+    this.player.body.setCollideWorldBounds(true);
+    this.player.body.setSize(20, 30);
+    this.cameras.main.startFollow(this.player, true, 0.08, 0.08);
+
+    this.nearLaban = false;
+    this.physics.add.overlap(this.player, this.labanZone, () => this.nearLaban = true);
+
+    this.cursors = this.input.keyboard.createCursorKeys();
+    this.spaceKey = this.input.keyboard.addKey('SPACE');
+    this.interactCooldown = 0;
+    this.stealthPhase = true;
+    this.labanPhase = false;
+    this.caughtCooldown = false;
+
+    this.hud = createHUD(this);
+    this.hud.setObjective(1250, 500);
+
+    this.interactPrompt = this.add.text(0, 0, 'Press SPACE', {
+      fontSize: '10px', fontFamily: 'monospace', color: '#ffd700',
+      backgroundColor: '#00000088', padding: { x: 4, y: 2 }
+    }).setOrigin(0.5).setDepth(80).setVisible(false);
+
+    this.add.text(W / 2, 70, 'Sneak through the streets to find Laban', {
+      fontSize: '12px', fontFamily: 'monospace', color: '#ffd700',
+      stroke: '#000000', strokeThickness: 3
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(100);
+
+    this.time.delayedCall(500, () => {
+      showDialogue(this, 'Nephi',
+        'I am led by the Spirit, not knowing beforehand what I should do. But I must be faithful. I go alone into Jerusalem by night.',
+        () => {
+          addJournal('Nephi enters Jerusalem alone at night, led by the Spirit.');
+        }
+      );
+    });
+  }
+
+  triggerLabanDecision() {
+    this.labanPhase = true;
+    this.stealthPhase = false;
+    this.spiritCount = 0;
+
+    showDialogue(this, 'Narrator',
+      'Nephi finds Laban fallen to the earth, drunk with wine. His own sword lies by his side.',
+      () => {
+        this.showSpiritPrompt();
+      }
+    );
+  }
+
+  showSpiritPrompt() {
+    this.spiritCount++;
+    if (this.spiritCount === 1) {
+      showDialogue(this, 'The Spirit',
+        'Slay him, for the Lord hath delivered him into thy hands.',
+        () => {
+          showDialogue(this, 'Nephi', '', null, {
+            choices: [
+              { id: 'obey_spirit', text: '[Obey] Trust the Spirit and obey.', faithVsDoubt: 1, onSelect: () => { this.completeLabanScene(); }},
+              { id: 'hesitate_1', text: '[Hesitate] I have never shed the blood of man...', onSelect: () => { this.showSpiritPrompt(); }},
+            ]
+          });
+        }
+      );
+    } else if (this.spiritCount === 2) {
+      showDialogue(this, 'The Spirit',
+        'Behold, the Lord hath delivered him into thy hands. The Lord slayeth the wicked to bring forth His righteous purposes. It is better that one man should perish than that a nation should dwindle and perish in unbelief.',
+        () => {
+          showDialogue(this, 'Nephi', '', null, {
+            choices: [
+              { id: 'obey_spirit_2', text: '[Obey] The Lord has spoken. I will obey.', faithVsDoubt: 1, onSelect: () => { this.completeLabanScene(); }},
+              { id: 'hesitate_2', text: '[Hesitate] This is the hardest thing I have ever faced...', onSelect: () => { this.showSpiritPrompt(); }},
+            ]
+          });
+        }
+      );
+    } else {
+      showDialogue(this, 'The Spirit',
+        'Slay him, for the Lord hath delivered him into thy hands. Behold, the Lord commandeth thee. This is for the sake of all thy seed, and all the children of men.',
+        () => {
+          showDialogue(this, 'Narrator',
+            'The Spirit speaks a third time. Nephi remembers the commandments. Without these records, his people will dwindle in unbelief. This is not about Laban \u2014 it is about the generations who will need these scriptures.',
+            () => {
+              this.completeLabanScene();
+            }
+          );
+        }
+      );
+    }
+  }
+
+  completeLabanScene() {
+    GameState.questFlags.labanDefeated = true;
+    GameState.questFlags.attempt3 = true;
+
+    // Reverent, not graphic — focus on spiritual weight
+    AudioEngine.setTheme('spiritual');
+    const overlay = this.add.rectangle(W / 2, H / 2, W, H, 0x000000, 0).setDepth(200).setScrollFactor(0);
+    this.tweens.add({ targets: overlay, alpha: 0.8, duration: 1000 });
+
+    this.time.delayedCall(1200, () => {
+      showDialogue(this, 'Narrator',
+        'Nephi obeys the voice of the Spirit. He takes Laban\'s sword, and does as the Lord has commanded. This is the hardest act of obedience Nephi has ever faced, but he trusts in the Lord.',
+        () => {
+          GameState.faith = Math.min(GameState.faith + 15, GameState.maxFaith);
+          GameState.courage += 10;
+          gainFP(30);
+
+          // Equipment upgrade
+          GameState.inventory.push("Laban's Armor");
+          GameState.inventory.push("Sword of Laban");
+
+          const equipMsg = this.add.text(W / 2, H / 2 - 20, "Obtained: Laban's Armor & Sword of Laban!", {
+            fontSize: '16px', fontFamily: 'Georgia, serif', color: '#ffd700', fontStyle: 'bold',
+            stroke: '#000000', strokeThickness: 3
+          }).setOrigin(0.5).setDepth(250).setScrollFactor(0).setAlpha(0);
+          this.tweens.add({ targets: equipMsg, alpha: 1, duration: 600, yoyo: true, hold: 2000, onComplete: () => equipMsg.destroy() });
+
+          addJournal('Nephi obeyed the Spirit regarding Laban. Obtained Laban\'s armor and sword.');
+
+          this.time.delayedCall(3500, () => {
+            overlay.destroy();
+            this.triggerZoramEncounter();
+          });
+        }
+      );
+    });
+  }
+
+  triggerZoramEncounter() {
+    AudioEngine.setTheme('jerusalem');
+
+    showDialogue(this, 'Narrator',
+      'Nephi puts on Laban\'s armor and takes his sword. Disguised as Laban, he goes to the treasury and commands Zoram, Laban\'s servant, to bring the brass plates.',
+      () => {
+        // Dialogue puzzle
+        this.zoramSuspicion = 0;
+        this.showZoramDialogue();
+      }
+    );
+  }
+
+  showZoramDialogue() {
+    showDialogue(this, 'Zoram', 'Master Laban? You return late. What do you require?', null, {
+      choices: [
+        { id: 'zoram_command', text: '"Bring the brass plates to me at once."', onSelect: () => {
+          showDialogue(this, 'Zoram', 'Of course, master. At once.', () => {
+            showDialogue(this, 'Narrator', 'Zoram retrieves the brass plates and follows Nephi outside the city walls, thinking he is Laban.', () => {
+              this.triggerZoramReveal();
+            });
+          });
+        }},
+        { id: 'zoram_polite', text: '"Zoram, I need the brass plates for a meeting with the elders."', onSelect: () => {
+          this.zoramSuspicion++;
+          if (this.zoramSuspicion >= 2) {
+            showDialogue(this, 'Zoram', 'Master? You sound... different tonight.', () => {
+              showDialogue(this, 'Narrator', 'Despite his suspicion, Zoram still obeys and brings the plates.', () => {
+                this.triggerZoramReveal();
+              });
+            });
+          } else {
+            showDialogue(this, 'Zoram', 'Yes, master. I will fetch them immediately.', () => {
+              this.triggerZoramReveal();
+            });
+          }
+        }},
+      ]
+    });
+  }
+
+  triggerZoramReveal() {
+    showDialogue(this, 'Narrator',
+      'Outside the walls, Zoram sees Nephi\'s brothers waiting. He realizes this is not Laban \u2014 and begins to flee in terror!',
+      () => {
+        showDialogue(this, 'Nephi', '', null, {
+          choices: [
+            { id: 'zoram_oath', text: '"Zoram! Do not fear. Come with us and be a free man. I swear an oath unto you."', onSelect: () => {
+              showDialogue(this, 'Nephi',
+                'As the Lord liveth, and as I live, if thou wilt come down with us into the wilderness, thou shalt have a place with us.',
+                () => {
+                  showDialogue(this, 'Zoram',
+                    '...You swear it? I will be free? Then... I will come. I will swear an oath to stay with you.',
+                    () => {
+                      GameState.questFlags.zoramJoined = true;
+                      GameState.questFlags.zoramCompanion = true;
+                      gainFP(15);
+                      addJournal('Zoram swore an oath and joined the family. He is now free.');
+
+                      const msg = this.add.text(W / 2, H / 2, 'Zoram joined the company!', {
+                        fontSize: '16px', fontFamily: 'Georgia, serif', color: '#ffd700', fontStyle: 'bold',
+                        stroke: '#000000', strokeThickness: 3
+                      }).setOrigin(0.5).setDepth(200).setScrollFactor(0);
+                      this.tweens.add({ targets: msg, alpha: 0, duration: 800, delay: 2000, onComplete: () => {
+                        msg.destroy();
+                        this.completeBrassPlates();
+                      }});
+                    }
+                  );
+                }
+              );
+            }},
+            { id: 'zoram_grab', text: '"Zoram, wait! Hear me out \u2014 you do not have to be a servant any longer."', onSelect: () => {
+              showDialogue(this, 'Zoram', 'What? Who are you?', () => {
+                showDialogue(this, 'Nephi', 'I am Nephi. The Lord sent us for these plates. Come with us, and you will be free.', () => {
+                  GameState.questFlags.zoramJoined = true;
+                  GameState.questFlags.zoramCompanion = true;
+                  gainFP(10);
+                  addJournal('Zoram chose to join the family after learning the truth.');
+                  this.completeBrassPlates();
+                });
+              });
+            }},
+          ]
+        });
+      }
+    );
+  }
+
+  completeBrassPlates() {
+    GameState.brassPlatesObtained = true;
+    GameState.questFlags.platesDelivered = true;
+
+    AudioEngine.setTheme('spiritual');
+    this.cameras.main.flash(800, 255, 215, 0);
+    AudioEngine.sfx.chime();
+
+    showDialogue(this, 'Narrator',
+      'The brothers return to the Valley of Lemuel with the brass plates and Zoram. Lehi takes the plates and reads from them \u2014 the genealogy of his fathers, the prophecies, the law of Moses. Tears of gratitude flow.',
+      () => {
+        showDialogue(this, 'Lehi',
+          'The Lord has been merciful to us. He has preserved these sacred records so that our children and our children\'s children may know His commandments.',
+          () => {
+            showScriptureUnlock(this,
+              '1 Nephi 5:21',
+              'And we had obtained the records which the Lord had commanded us, and searched them and found that they were desirable; yea, even of great worth unto us, insomuch that we could preserve the commandments of the Lord unto our children.',
+              () => {
+                gainFP(40);
+                addJournal('The brass plates delivered to Lehi! The sacred records are preserved for all generations.');
+                saveGame({ scene: 'ChapterTransition', milestone: 'brass_plates_complete' });
+
+                // Chapter complete screen
+                const overlay = this.add.rectangle(W / 2, H / 2, W, H, 0x000000, 0).setDepth(300).setScrollFactor(0);
+                this.tweens.add({ targets: overlay, alpha: 0.9, duration: 1000 });
+
+                this.time.delayedCall(1200, () => {
+                  const complete = this.add.text(W / 2, H / 2 - 60, '1 NEPHI 1\u20134 COMPLETE', {
+                    fontSize: '24px', fontFamily: 'Palatino Linotype, Book Antiqua, Palatino, serif',
+                    color: '#ffd700', fontStyle: 'bold'
+                  }).setOrigin(0.5).setDepth(301).setScrollFactor(0).setAlpha(0);
+
+                  const stats = this.add.text(W / 2, H / 2 + 20,
+                    `Faith: ${GameState.faith}  |  Courage: ${GameState.courage}  |  Testimony: ${GameState.testimony}\nScriptures: ${GameState.scriptures.length}  |  Level: ${GameState.level}`, {
+                    fontSize: '14px', fontFamily: 'monospace', color: '#c0a060', align: 'center'
+                  }).setOrigin(0.5).setDepth(301).setScrollFactor(0).setAlpha(0);
+
+                  this.tweens.add({ targets: complete, alpha: 1, duration: 800 });
+                  this.tweens.add({ targets: stats, alpha: 1, duration: 800, delay: 500 });
+
+                  const cont = this.add.text(W / 2, H / 2 + 80, 'Click to continue', {
+                    fontSize: '12px', fontFamily: 'monospace', color: '#888888'
+                  }).setOrigin(0.5).setDepth(301).setScrollFactor(0).setAlpha(0);
+                  this.tweens.add({ targets: cont, alpha: 0.8, duration: 600, delay: 2000, yoyo: true, repeat: -1 });
+
+                  this.time.delayedCall(2000, () => {
+                    this.input.once('pointerdown', () => {
+                      this.cameras.main.fadeOut(1000);
+                      this.time.delayedCall(1000, () => {
+                        this.scene.start('ChapterTransition', {
+                          chapter: 'IV', title: 'The Wilderness Awaits',
+                          quote: '"And thus we see that the commandments of God must be fulfilled."  \u2014 1 Nephi 3:7',
+                          nextScene: 'WildernessCamp'
+                        });
+                      });
+                    });
+                  });
+                });
+              }
+            );
+          }
+        );
+      }
+    );
+  }
+
+  update(time, delta) {
+    this._lighting?.update(time);
+    if (!this.stealthPhase || !this.player) {
+      this.hud?.update(null, 'stone');
+      return;
+    }
+    if (this._pauseOpen || this._dialogueOpen) {
+      if (this.player?.body) this.player.body.setVelocity(0);
+      this.hud?.update(this.player, 'stone');
+      return;
+    }
+
+    this.nearLaban = false;
+
+    const speed = 130;
+    this.player.body.setVelocity(0);
+    if (this.cursors.left.isDown) { this.player.body.setVelocityX(-speed); this.player.setFlipX(true); }
+    if (this.cursors.right.isDown) { this.player.body.setVelocityX(speed); this.player.setFlipX(false); }
+    if (this.cursors.up.isDown) this.player.body.setVelocityY(-speed);
+    if (this.cursors.down.isDown) this.player.body.setVelocityY(speed);
+
+    if (this.player.body.velocity.x !== 0 || this.player.body.velocity.y !== 0) {
+      this.player.setScale(2, 2 + Math.sin(time * 0.01) * 0.05);
+    } else {
+      this.player.setScale(2);
+    }
+
+    // Guard detection
+    if (this.guards && !this.caughtCooldown) {
+      for (const g of this.guards) {
+        const dx = g.sprite.x - g.lastX;
+        const dy = g.sprite.y - g.lastY;
+        if (Math.abs(dx) + Math.abs(dy) > 0.05) {
+          g.cone.rotation = Math.atan2(dy, dx);
+          g.lastX = g.sprite.x;
+          g.lastY = g.sprite.y;
+        }
+        g.cone.x = g.sprite.x;
+        g.cone.y = g.sprite.y;
+
+        const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, g.sprite.x, g.sprite.y);
+        if (dist < 55) {
+          this.caughtCooldown = true;
+          this.cameras.main.shake(200, 0.008);
+          showDialogue(this, 'Guard', 'Who goes there!?', () => {
+            showDialogue(this, 'Narrator', 'You duck into the shadows and escape. Be more careful!', () => {
+              GameState.faith = Math.max(GameState.faith - 3, 10);
+              this.time.delayedCall(2000, () => { this.caughtCooldown = false; });
+            });
+          });
+          break;
+        }
+      }
+    }
+
+    // Near Laban
+    this.interactPrompt.setVisible(false);
+    if (this.nearLaban) {
+      this.interactPrompt.setPosition(1250, 450).setVisible(true);
+    }
+
+    if (this.interactCooldown > 0) this.interactCooldown -= delta;
+    if (Phaser.Input.Keyboard.JustDown(this.spaceKey) && this.interactCooldown <= 0) {
+      this.interactCooldown = 500;
+      if (this.nearLaban && !GameState.questFlags.labanDefeated && !this._dialogueOpen) {
+        this.triggerLabanDecision();
+      }
+    }
+
+    this.hud?.update(this.player, 'stone');
+  }
+}
+
+
+// ============================================================
+// SCENE: BATTLE — Reusable Pokemon-style turn-based combat
 // ============================================================
 class BattleScene extends Phaser.Scene {
   constructor() { super('Battle'); }
 
   init(data) {
-    this.returnScene = data.returnScene || 'Jerusalem';
+    this.returnScene = data.returnScene || 'WorldMap';
+    this.enemyConfigs = data.enemies || [{ name: 'Doubt', hp: 80, maxHp: 80, attacks: [
+      { name: 'Whisper of Doubt', damage: 8, msg: 'Doubt whispers: "Are you sure?"' },
+      { name: 'Cloud of Confusion', damage: 12, msg: 'Doubt clouds your mind!' },
+    ], spriteKey: 'doubt' }];
+    this.partyNames = data.party || ['Nephi'];
+    this.onReturnAction = data.onReturn || null;
   }
 
   create() {
@@ -4010,57 +4916,45 @@ class BattleScene extends Phaser.Scene {
 
     this.cameras.main.fadeIn(300);
 
-    // Background - desert battlefield
-    this.add.rectangle(W/2, H/2, W, H, 0x1a1a2e);
-    // Sandy ground with gradient
-    this.add.rectangle(W/2, H - 150, W, 300, COLORS.darkSand, 0.4);
-    this.add.rectangle(W/2, H - 200, W, 100, COLORS.sand, 0.15);
+    // Background
+    this.add.rectangle(W / 2, H / 2, W, H, 0x1a1a2e);
+    this.add.rectangle(W / 2, H - 150, W, 300, COLORS.darkSand, 0.4);
+    this.add.rectangle(W / 2, H - 200, W, 100, COLORS.sand, 0.15);
 
     // Enemy platform
     this.add.ellipse(580, 240, 180, 35, COLORS.darkSand, 0.6);
-
     // Player platform
     this.add.ellipse(220, 400, 180, 35, COLORS.darkSand, 0.6);
 
-    // Enemy: Doubt (use generated sprite)
-    this.enemy = {
-      name: 'Doubt', hp: 80, maxHp: 80,
-      weakness: 'testimony',
-    };
+    // Current enemy (first enemy from config)
+    this.currentEnemyIdx = 0;
+    const ec = this.enemyConfigs[this.currentEnemyIdx];
+    this.enemy = { name: ec.name, hp: ec.hp, maxHp: ec.maxHp, attacks: ec.attacks };
 
-    if (this.textures.exists('doubt')) {
-      this.enemy.sprite = this.add.image(580, 200, 'doubt').setScale(2.5);
+    const sprKey = ec.spriteKey || 'doubt';
+    if (this.textures.exists(sprKey)) {
+      this.enemy.sprite = this.add.image(580, 200, sprKey).setScale(2.5);
     } else {
       this.enemy.sprite = this.add.rectangle(580, 200, 50, 60, COLORS.mist).setStrokeStyle(2, 0x556677);
     }
 
-    // Shadow tendrils around doubt
-    for (let i = 0; i < 8; i++) {
-      const tendril = this.add.ellipse(
-        580 + Phaser.Math.Between(-40, 40), 230 + i * 4,
-        Phaser.Math.Between(10, 25), 4, COLORS.mist, 0.3
-      );
-      this.tweens.add({
-        targets: tendril,
-        x: tendril.x + Phaser.Math.Between(-20, 20),
-        alpha: 0.05, duration: 1200 + i * 200,
-        yoyo: true, repeat: -1
-      });
-    }
-
-    this.add.text(580, 270, 'A wild DOUBT appeared!', {
+    this.add.text(580, 270, `A ${ec.name} appeared!`, {
       fontSize: '12px', fontFamily: 'monospace', color: '#aabbcc'
     }).setOrigin(0.5);
 
-    // Player characters in battle (larger sprites)
-    if (this.textures.exists('nephi_battle')) {
-      this.add.image(200, 370, 'nephi_battle').setScale(3);
-    }
+    // Party display on left
+    const partyKeys = { 'Nephi': 'nephi', 'Sam': 'sam', 'Laman': 'laman', 'Lemuel': 'lemuel' };
+    this.partyNames.forEach((name, i) => {
+      const key = partyKeys[name] || 'nephi';
+      if (this.textures.exists(key)) {
+        this.add.image(180 + i * 30, 370 - i * 10, key).setScale(2 - i * 0.2).setDepth(10 - i);
+      }
+    });
 
     // Enemy HP bar
     this.add.rectangle(580, 140, 164, 14, 0x222222).setStrokeStyle(1, 0x555555);
     this.enemyHpBar = this.add.rectangle(500, 134, 156, 8, COLORS.red).setOrigin(0);
-    this.add.text(580, 122, 'DOUBT', {
+    this.add.text(580, 122, ec.name.toUpperCase(), {
       fontSize: '12px', fontFamily: 'monospace', color: '#aabbcc', fontStyle: 'bold'
     }).setOrigin(0.5);
     this.enemyHpText = this.add.text(665, 131, `${this.enemy.hp}/${this.enemy.maxHp}`, {
@@ -4078,28 +4972,29 @@ class BattleScene extends Phaser.Scene {
     });
 
     this.createBattleMenu();
-    this.battleLog = this.add.text(W/2, H - 30, '', {
+    this.battleLog = this.add.text(W / 2, H - 30, '', {
       fontSize: '11px', fontFamily: 'monospace', color: '#aaaaaa'
     }).setOrigin(0.5).setDepth(50);
 
     this.playerTurn = true;
     this.animating = false;
+    this.currentPartyMember = 0;
   }
 
   createBattleMenu() {
-    const menuBg = this.add.image(W/2, H - 92, 'ui_parchment_wide').setDepth(40);
+    const menuBg = this.add.image(W / 2, H - 92, 'ui_parchment_wide').setDepth(40);
     menuBg.setDisplaySize(W - 36, 150);
-    const menuShade = this.add.rectangle(W/2, H - 92, W - 36, 150, 0x000000, 0.18).setDepth(40);
+    const menuShade = this.add.rectangle(W / 2, H - 92, W - 36, 150, 0x000000, 0.18).setDepth(40);
     menuShade.setBlendMode(Phaser.BlendModes.MULTIPLY);
-    const menuBorder = this.add.rectangle(W/2, H - 92, W - 36, 150, 0x000000, 0).setDepth(40);
+    const menuBorder = this.add.rectangle(W / 2, H - 92, W - 36, 150, 0x000000, 0).setDepth(40);
     menuBorder.setStrokeStyle(2, COLORS.gold, 0.75);
 
     this.menuItems = [];
     const moves = [
-      { name: '⚔️ Faith Strike', desc: 'A faithful blow', stat: 'faith', power: 15, cost: 0 },
-      { name: '📖 Scripture Power', desc: 'Quote truth against doubt', stat: 'testimony', power: 25, cost: 0, superEffective: 'testimony' },
-      { name: '🛡️ Pray Always', desc: 'Restore faith', stat: 'charity', power: 0, heal: 20, cost: 0 },
-      { name: '✨ Nephi: "I Will Go"', desc: 'Never misses!', stat: 'courage', power: 20, cost: 0, neverMiss: true },
+      { name: '\u2694\uFE0F Faith Strike', desc: 'A faithful blow', stat: 'faith', power: 15, cost: 0 },
+      { name: '\uD83D\uDCD6 Scripture Power', desc: 'Quote truth', stat: 'testimony', power: 25, cost: 0, superEffective: true },
+      { name: '\uD83D\uDEE1\uFE0F Pray Always', desc: 'Restore faith', stat: 'charity', power: 0, heal: 20, cost: 0 },
+      { name: '\u2728 "I Will Go"', desc: 'Never misses!', stat: 'courage', power: 20, cost: 0, neverMiss: true },
     ];
 
     moves.forEach((move, i) => {
@@ -4135,32 +5030,18 @@ class BattleScene extends Phaser.Scene {
       AudioEngine.sfx.chime();
       this.cameras.main.flash(300, 100, 200, 255);
       this.battleLog.setText(`You prayed and restored ${move.heal} faith!`);
-      const glow = this.add.particles(220, 360, 'particle_spark').setDepth(60);
-      const { emitter: glowEmitter } = createEmitterCompat(this, 220, 360, 'particle_spark', {
-        speed: { min: 40, max: 140 },
-        angle: { min: 220, max: 320 },
-        lifespan: { min: 450, max: 950 },
-        scale: { start: 0.45, end: 0 },
-        alpha: { start: 0.95, end: 0 },
-        quantity: 10,
-        blendMode: 'ADD',
-        tint: [0xffe066, 0xffffff],
-      }, 60);
-      if (glowEmitter && typeof glowEmitter.explode === 'function') glowEmitter.explode(18, 220, 360);
-      this.time.delayedCall(900, () => glow.destroy());
       this.updateBars();
-      this.time.delayedCall(1200, () => this.enemyTurn());
+      this.time.delayedCall(1200, () => this.partyTurns());
       return;
     }
 
-    let damage = move.power + Math.floor(GameState[move.stat] / 5);
+    let damage = move.power + Math.floor((GameState[move.stat] || 0) / 5);
     let message = `Used ${move.name}!`;
 
-    if (move.superEffective === 'testimony') {
-      damage = Math.floor(damage * 1.8);
-      message += ' It\'s super effective against Doubt!';
+    if (move.superEffective) {
+      damage = Math.floor(damage * 1.5);
+      message += ' Super effective!';
     }
-
     damage = Math.floor(damage * (0.85 + Math.random() * 0.3));
     if (damage < 1) damage = 1;
 
@@ -4180,52 +5061,68 @@ class BattleScene extends Phaser.Scene {
     if (hitEmitter && typeof hitEmitter.explode === 'function') hitEmitter.explode(18, this.enemy.sprite.x, this.enemy.sprite.y);
     this.time.delayedCall(700, () => hit.destroy());
 
-    this.tweens.add({
-      targets: this.enemy.sprite, x: this.enemy.sprite.x + 10, duration: 50,
-      yoyo: true, repeat: 3
-    });
+    this.tweens.add({ targets: this.enemy.sprite, x: this.enemy.sprite.x + 10, duration: 50, yoyo: true, repeat: 3 });
     this.cameras.main.flash(100, 255, 255, 255);
     this.updateBars();
 
     if (this.enemy.hp <= 0) {
-      this.time.delayedCall(800, () => this.victory());
+      this.time.delayedCall(800, () => this.checkNextEnemy());
     } else {
-      this.time.delayedCall(1200, () => this.enemyTurn());
+      this.time.delayedCall(1200, () => this.partyTurns());
     }
   }
 
-  enemyTurn() {
-    const attacks = [
-      { name: 'Whisper of Doubt', damage: 8, msg: 'Doubt whispers: "Are you sure about this?"' },
-      { name: 'Cloud of Confusion', damage: 12, msg: 'Doubt clouds your mind with confusion!' },
-      { name: 'Fear Strike', damage: 15, msg: 'Doubt strikes with fear!' },
-    ];
+  partyTurns() {
+    // Party members attack automatically
+    const partyAttackers = this.partyNames.slice(1); // Skip Nephi (player)
+    let idx = 0;
+    const doNext = () => {
+      if (idx >= partyAttackers.length || this.enemy.hp <= 0) {
+        if (this.enemy.hp <= 0) {
+          this.time.delayedCall(400, () => this.checkNextEnemy());
+        } else {
+          this.time.delayedCall(600, () => this.enemyTurn());
+        }
+        return;
+      }
+      const member = partyAttackers[idx];
+      idx++;
 
+      // Laman/Lemuel sometimes refuse to fight (20% chance)
+      if ((member === 'Laman' || member === 'Lemuel') && Math.random() < 0.2) {
+        this.battleLog.setText(`${member} is murmuring! Skipped turn.`);
+        this.time.delayedCall(800, doNext);
+        return;
+      }
+
+      const damage = Math.floor(8 + Math.random() * 6);
+      this.enemy.hp = Math.max(0, this.enemy.hp - damage);
+      this.battleLog.setText(`${member} attacks for ${damage} damage!`);
+      this.tweens.add({ targets: this.enemy.sprite, x: this.enemy.sprite.x + 6, duration: 40, yoyo: true, repeat: 2 });
+      this.updateBars();
+      this.time.delayedCall(700, doNext);
+    };
+    doNext();
+  }
+
+  enemyTurn() {
+    const attacks = this.enemy.attacks || [
+      { name: 'Attack', damage: 10, msg: 'The enemy attacks!' },
+    ];
     const attack = attacks[Phaser.Math.Between(0, attacks.length - 1)];
-    let damage = attack.damage - Math.floor(GameState.courage / 10);
+    let damage = attack.damage - Math.floor((GameState.courage || 0) / 10);
     if (damage < 1) damage = 1;
 
     GameState.faith = Math.max(0, GameState.faith - damage);
     this.battleLog.setText(`${attack.msg} Lost ${damage} faith.`);
 
     this.cameras.main.shake(200, 0.005);
-    const { particles: m, emitter: mEmitter } = createEmitterCompat(this, 220, 380, 'particle_smoke', {
-      speed: { min: 40, max: 90 },
-      angle: { min: 20, max: 160 },
-      lifespan: { min: 600, max: 1200 },
-      scale: { start: 0.65, end: 1.2 },
-      alpha: { start: 0.18, end: 0 },
-      quantity: 10,
-      tint: 0x99aacc,
-    }, 55);
-    if (mEmitter && typeof mEmitter.explode === 'function') mEmitter.explode(12, 220, 380);
-    this.time.delayedCall(900, () => m.destroy());
     this.updateBars();
 
     if (GameState.faith <= 0) {
       this.time.delayedCall(800, () => {
         GameState.faith = Math.floor(GameState.maxFaith * 0.3);
-        showDialogue(this, 'Nephi', 'Do not give up! Remember, the Lord is with us. Let us try again with faith.', () => {
+        showDialogue(this, 'Nephi', 'Do not give up! The Lord is with us. We try again.', () => {
           this.enemy.hp = this.enemy.maxHp;
           this.updateBars();
           this.playerTurn = true;
@@ -4237,6 +5134,31 @@ class BattleScene extends Phaser.Scene {
         this.playerTurn = true;
         this.animating = false;
       });
+    }
+  }
+
+  checkNextEnemy() {
+    this.currentEnemyIdx++;
+    if (this.currentEnemyIdx < this.enemyConfigs.length) {
+      // Next enemy
+      const ec = this.enemyConfigs[this.currentEnemyIdx];
+      this.tweens.add({ targets: this.enemy.sprite, alpha: 0, duration: 500, onComplete: () => {
+        this.enemy.name = ec.name;
+        this.enemy.hp = ec.hp;
+        this.enemy.maxHp = ec.maxHp;
+        this.enemy.attacks = ec.attacks;
+        const sprKey = ec.spriteKey || 'doubt';
+        if (this.textures.exists(sprKey)) {
+          this.enemy.sprite.setTexture(sprKey);
+        }
+        this.enemy.sprite.setAlpha(1);
+        this.updateBars();
+        this.battleLog.setText(`A ${ec.name} appears!`);
+        this.playerTurn = true;
+        this.animating = false;
+      }});
+    } else {
+      this.victory();
     }
   }
 
@@ -4252,21 +5174,27 @@ class BattleScene extends Phaser.Scene {
 
   victory() {
     GameState.battleWon = true;
-    gainFP(40);
-    addJournal('Overcame Doubt through faith and testimony');
-    GameState.faith = Math.min(GameState.faith + 20, GameState.maxFaith);
+    gainFP(30);
+    GameState.faith = Math.min(GameState.faith + 15, GameState.maxFaith);
 
     this.tweens.add({ targets: this.enemy.sprite, alpha: 0, scale: 0, duration: 800 });
 
     this.battleLog.setText('');
-    showDialogue(this, 'Narrator', 'Doubt has been vanquished! Your faith grew stronger through the trial. Remember — doubt is overcome not by ignoring it, but by choosing faith and seeking truth.', () => {
-      showDialogue(this, 'Nephi', 'Well fought! Doubt flees when we hold firm to what we know is true. The Lord has blessed us this day.', () => {
-        this.cameras.main.fadeOut(500);
-        this.time.delayedCall(500, () => {
-          saveGame({ scene: this.returnScene, milestone: 'battle_won' });
-          this.scene.stop();
+    showDialogue(this, 'Narrator', 'Victory! The Lord has given you strength in the trial.', () => {
+      this.cameras.main.fadeOut(500);
+      this.time.delayedCall(500, () => {
+        saveGame({ scene: this.returnScene, milestone: 'battle_won' });
+        this.scene.stop();
+        const returnedScene = this.scene.get(this.returnScene);
+        if (this.onReturnAction && returnedScene && typeof returnedScene[this.onReturnAction] === 'function') {
           this.scene.resume(this.returnScene);
-        });
+          returnedScene[this.onReturnAction]();
+        } else if (this.onReturnAction === 'camp' && returnedScene && typeof returnedScene.setupCamp === 'function') {
+          this.scene.resume(this.returnScene);
+          returnedScene.setupCamp();
+        } else {
+          this.scene.resume(this.returnScene);
+        }
       });
     });
   }
@@ -4799,7 +5727,7 @@ class NephiVisionScene extends Phaser.Scene {
         () => {
           GameState.questFlags.nephiVision = true;
           this.cameras.main.fadeOut(1000);
-          this.time.delayedCall(1000, () => this.scene.start('Jerusalem'));
+          this.time.delayedCall(1000, () => this.scene.start('WildernessCamp'));
         }
       );
     }
@@ -6383,7 +7311,7 @@ const config = {
     default: 'arcade',
     arcade: { gravity: { y: 0 }, debug: false }
   },
-  scene: [BootScene, CinematicIntro, TitleScene, CharacterCreateScene, WorldMapScene, JerusalemScene, BrassPlatesScene, BattleScene, IronRodScene, NephiVisionScene, ChapterTransition, WildernessCamp, IshmaelScene, WildernessMontage, BountifulScene, OceanStorm, PromisedLand, FinalScene],
+  scene: [BootScene, CinematicIntro, TitleScene, CharacterCreateScene, WorldMapScene, JerusalemCityScene, WildernessJourneyScene, BrassPlatesQuestScene, BattleScene, IronRodScene, NephiVisionScene, ChapterTransition, WildernessCamp, IshmaelScene, WildernessMontage, BountifulScene, OceanStorm, PromisedLand, FinalScene],
   scale: {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
