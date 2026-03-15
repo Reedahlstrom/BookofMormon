@@ -69,11 +69,11 @@ const COLORS = {
 
 // --- GAME STATE ---
 const GameState = {
-  playerName: 'Traveler',
+  playerName: 'Nephi',
   playerAppearance: {
-    skinTone: 0xd4a574, hairColor: 0x3d2b1f, hairStyle: 'short',
-    robeColor: 0x5b8c5a, robeAccent: 0x3d6b3c, headwear: 'headband',
-    headwearColor: 0x8B7355, beardStyle: 'none', expression: 'brave',
+    skinTone: 0xc49a6c, hairColor: 0x1a1208, hairStyle: 'short',
+    robeColor: 0x2c6fbb, robeAccent: 0x1a4d8f, headwear: 'headband',
+    headwearColor: 0xdaa520, beardStyle: 'short', expression: 'brave',
   },
   faith: 50, courage: 30, testimony: 20, charity: 25, wisdom: 15,
   maxFaith: 100, level: 1, faithPoints: 0, fpToNext: 100,
@@ -146,7 +146,7 @@ function resetGameState() {
   const keepScriptures = [];
   Object.keys(GameState).forEach(k => delete GameState[k]);
   Object.assign(GameState, {
-    playerName: keepName || 'Traveler',
+    playerName: keepName || 'Nephi',
     faith: 50, courage: 30, testimony: 20, charity: 25, wisdom: 15,
     maxFaith: 100, level: 1, faithPoints: 0, fpToNext: 100,
     scriptures: keepScriptures,
@@ -243,6 +243,7 @@ function px(g, x, y, color, alpha = 1) {
 }
 
 // Generate a character texture and register it with the scene
+// Pokemon Ruby/Sapphire overworld style: big round head, broad shoulders, short legs
 function generateCharacterTexture(scene, key, config) {
   const {
     skinTone = 0xd4a574,     // Middle Eastern olive/tan skin
@@ -266,7 +267,7 @@ function generateCharacterTexture(scene, key, config) {
     accessoryColor = 0xffd700,
   } = config;
 
-  const sprW = 32, sprH = 48; // sprite dimensions in 2x pixels
+  const sprW = 32, sprH = 48; // sprite dimensions in 2x pixels (16x24 grid)
   const g = scene.make.graphics({ x: 0, y: 0, add: false });
 
   const skinDark = darken(skinTone, 30);
@@ -274,22 +275,30 @@ function generateCharacterTexture(scene, key, config) {
   const robeDark = darken(robeColor, 30);
   const robeLight = lighten(robeColor, 30);
   const hairDark = darken(hairColor, 20);
+  const outlineColor = darken(robeColor, 60);
 
-  // === SANDALS (bottom) ===
+  // Pokemon style: Head rows 1-9, Body rows 10-18, Legs rows 19-22, Feet row 23
+  // Head is ~40% of height, shoulders wide (3-13), legs short (3-4 rows)
+
+  // === FEET / SANDALS (rows 22-23) ===
   px(g, 5, 22, sandals); px(g, 6, 22, sandals); px(g, 7, 22, sandals);
   px(g, 9, 22, sandals); px(g, 10, 22, sandals); px(g, 11, 22, sandals);
-  px(g, 5, 23, darken(sandals)); px(g, 6, 23, sandals); px(g, 7, 23, darken(sandals));
-  px(g, 9, 23, darken(sandals)); px(g, 10, 23, sandals); px(g, 11, 23, darken(sandals));
+  px(g, 5, 23, darken(sandals, 20)); px(g, 6, 23, sandals); px(g, 7, 23, darken(sandals, 20));
+  px(g, 9, 23, darken(sandals, 20)); px(g, 10, 23, sandals); px(g, 11, 23, darken(sandals, 20));
 
-  // === LEGS (showing below robe) ===
-  px(g, 6, 20, skinTone); px(g, 7, 20, skinTone);
-  px(g, 6, 21, skinTone); px(g, 7, 21, skinDark);
-  px(g, 9, 20, skinTone); px(g, 10, 20, skinTone);
-  px(g, 9, 21, skinDark); px(g, 10, 21, skinTone);
+  // === SHORT LEGS (rows 19-21) - Pokemon style stumpy legs ===
+  // Left leg
+  px(g, 6, 19, skinTone); px(g, 7, 19, skinTone);
+  px(g, 6, 20, skinTone); px(g, 7, 20, skinDark);
+  px(g, 6, 21, skinDark); px(g, 7, 21, skinTone);
+  // Right leg
+  px(g, 9, 19, skinTone); px(g, 10, 19, skinTone);
+  px(g, 9, 20, skinDark); px(g, 10, 20, skinTone);
+  px(g, 9, 21, skinTone); px(g, 10, 21, skinDark);
 
-  // === ROBE (main body) ===
-  // Lower robe (wider, flowing)
-  for (let y = 16; y <= 19; y++) {
+  // === ROBE / BODY (rows 13-18) - Wide torso, Pokemon proportions ===
+  // Lower robe skirt (wide, flows outward)
+  for (let y = 16; y <= 18; y++) {
     for (let x = 4; x <= 12; x++) {
       const c = (x === 4 || x === 12) ? robeDark : (x === 8 ? robeLight : robeColor);
       px(g, x, y, c);
@@ -297,182 +306,217 @@ function generateCharacterTexture(scene, key, config) {
   }
   // Robe hem detail
   for (let x = 4; x <= 12; x++) {
-    px(g, x, 19, (x % 2 === 0) ? robeAccent : robeDark);
+    px(g, x, 18, (x % 2 === 0) ? robeAccent : robeDark);
   }
 
-  // Upper robe / torso
-  for (let y = 10; y <= 15; y++) {
-    for (let x = 5; x <= 11; x++) {
-      const c = (x === 5 || x === 11) ? robeDark : robeColor;
+  // Upper torso (rows 13-15) - WIDE shoulders, muscular look
+  for (let y = 13; y <= 15; y++) {
+    for (let x = 3; x <= 13; x++) {
+      if (y === 13 && (x === 3 || x === 13)) continue; // slight shoulder rounding
+      const c = (x === 3 || x === 13) ? robeDark : (x <= 4 || x >= 12) ? robeDark : robeColor;
       px(g, x, y, c);
     }
   }
 
-  // Belt/sash
-  for (let x = 5; x <= 11; x++) {
-    px(g, x, 14, robeAccent);
-  }
-  px(g, 8, 15, robeAccent); // belt hanging bit
+  // Chest/muscle highlight for broad look
+  px(g, 7, 13, robeLight); px(g, 9, 13, robeLight);
+  px(g, 7, 14, robeLight); px(g, 9, 14, robeLight);
 
-  // Neckline / collar
-  px(g, 7, 10, skinTone); px(g, 8, 10, skinTone); px(g, 9, 10, skinTone);
+  // Belt/sash
+  for (let x = 4; x <= 12; x++) {
+    px(g, x, 16, robeAccent);
+  }
+
+  // Neckline / collar (row 12)
+  px(g, 6, 12, skinTone); px(g, 7, 12, skinTone); px(g, 8, 12, skinTone);
+  px(g, 9, 12, skinTone); px(g, 10, 12, skinTone);
 
   // === CLOAK (if specified) ===
   if (cloakColor) {
     const cloakDark = darken(cloakColor, 25);
     // Left cloak drape
-    px(g, 3, 11, cloakColor); px(g, 4, 11, cloakColor);
-    px(g, 3, 12, cloakColor); px(g, 3, 13, cloakDark);
-    px(g, 3, 14, cloakColor); px(g, 3, 15, cloakDark);
-    px(g, 3, 16, cloakColor); px(g, 4, 16, cloakDark);
+    px(g, 2, 13, cloakColor); px(g, 3, 13, cloakColor);
+    px(g, 2, 14, cloakColor); px(g, 2, 15, cloakDark);
+    px(g, 2, 16, cloakColor); px(g, 2, 17, cloakDark);
+    px(g, 3, 17, cloakColor);
     // Right cloak drape
-    px(g, 12, 11, cloakColor); px(g, 13, 11, cloakColor);
-    px(g, 13, 12, cloakColor); px(g, 13, 13, cloakDark);
-    px(g, 13, 14, cloakColor); px(g, 13, 15, cloakDark);
-    px(g, 13, 16, cloakColor); px(g, 12, 16, cloakDark);
-    // Shoulders
-    px(g, 4, 10, cloakColor); px(g, 5, 10, cloakColor);
-    px(g, 11, 10, cloakColor); px(g, 12, 10, cloakColor);
+    px(g, 13, 13, cloakColor); px(g, 14, 13, cloakColor);
+    px(g, 14, 14, cloakColor); px(g, 14, 15, cloakDark);
+    px(g, 14, 16, cloakColor); px(g, 14, 17, cloakDark);
+    px(g, 13, 17, cloakColor);
+    // Shoulder tops
+    px(g, 3, 12, cloakColor); px(g, 4, 12, cloakColor);
+    px(g, 12, 12, cloakColor); px(g, 13, 12, cloakColor);
   }
 
-  // === ARMS ===
+  // === ARMS (hanging at sides) ===
   // Left arm
-  px(g, 4, 11, robeColor); px(g, 3, 12, robeColor); px(g, 3, 13, robeColor);
-  px(g, 3, 14, skinTone); // hand
+  px(g, 3, 14, robeColor); px(g, 2, 15, robeColor); px(g, 2, 16, robeColor);
+  px(g, 2, 17, skinTone); // hand
   // Right arm
-  px(g, 12, 11, robeColor); px(g, 13, 12, robeColor); px(g, 13, 13, robeColor);
-  px(g, 13, 14, skinTone); // hand
+  px(g, 13, 14, robeColor); px(g, 14, 15, robeColor); px(g, 14, 16, robeColor);
+  px(g, 14, 17, skinTone); // hand
 
-  // === ARMOR (if specified) ===
+  // === ARMOR (if specified) - broad chest plate ===
   if (isArmored) {
     const armorLight = lighten(armorColor, 30);
-    for (let y = 11; y <= 13; y++) {
-      for (let x = 6; x <= 10; x++) {
-        px(g, x, y, (y === 12 && x === 8) ? armorLight : armorColor);
+    const armorDark = darken(armorColor, 20);
+    for (let y = 13; y <= 15; y++) {
+      for (let x = 5; x <= 11; x++) {
+        const c = (y === 14 && x === 8) ? armorLight : (x === 5 || x === 11) ? armorDark : armorColor;
+        px(g, x, y, c);
       }
     }
-    // Shoulder guards
-    px(g, 4, 10, armorColor); px(g, 5, 10, armorLight);
-    px(g, 11, 10, armorLight); px(g, 12, 10, armorColor);
+    // Shoulder pads (wide)
+    px(g, 3, 13, armorColor); px(g, 4, 13, armorLight);
+    px(g, 12, 13, armorLight); px(g, 13, 13, armorColor);
   }
 
-  // === HEAD ===
-  // Face shape (round-ish)
-  for (let y = 4; y <= 9; y++) {
-    for (let x = 6; x <= 10; x++) {
-      if (y === 4 && (x === 6 || x === 10)) continue; // round top corners
-      if (y === 9 && (x === 6 || x === 10)) continue; // round chin
+  // === HEAD (rows 1-11) - BIG round Pokemon head, ~45% of sprite ===
+  // Large round face (wider than before)
+  for (let y = 3; y <= 11; y++) {
+    for (let x = 4; x <= 12; x++) {
+      // Round the corners
+      if (y === 3 && (x <= 5 || x >= 11)) continue;
+      if (y === 4 && (x === 4 || x === 12)) continue;
+      if (y === 11 && (x <= 5 || x >= 11)) continue;
+      if (y === 10 && (x === 4 || x === 12)) continue;
       px(g, x, y, skinTone);
     }
   }
-  // Jaw/chin shading
-  px(g, 7, 9, skinDark); px(g, 8, 9, skinTone); px(g, 9, 9, skinDark);
+  // Chin/jaw shading
+  px(g, 6, 11, skinDark); px(g, 7, 11, skinTone); px(g, 8, 11, skinTone); px(g, 9, 11, skinTone); px(g, 10, 11, skinDark);
+  px(g, 7, 10, skinDark); px(g, 9, 10, skinDark);
 
-  // === EYES ===
-  // Eye whites
-  px(g, 7, 6, 0xffffff); px(g, 9, 6, 0xffffff);
-  // Pupils
-  px(g, 7, 6, eyeColor); px(g, 9, 6, eyeColor);
-  // Eyebrows
-  px(g, 7, 5, hairColor); px(g, 9, 5, hairColor);
+  // === BIG EXPRESSIVE EYES (Pokemon style - large, high on face) ===
+  // Eye whites (2px tall each for expressiveness)
+  px(g, 6, 6, 0xffffff); px(g, 6, 7, 0xffffff);
+  px(g, 7, 6, 0xffffff); px(g, 7, 7, 0xffffff);
+  px(g, 9, 6, 0xffffff); px(g, 9, 7, 0xffffff);
+  px(g, 10, 6, 0xffffff); px(g, 10, 7, 0xffffff);
+  // Large pupils
+  px(g, 7, 6, eyeColor); px(g, 7, 7, darken(eyeColor, 30));
+  px(g, 10, 6, eyeColor); px(g, 10, 7, darken(eyeColor, 30));
+  // Pupil shine (bright dot for Pokemon look)
+  px(g, 6, 6, 0xffffff);
+  px(g, 9, 6, 0xffffff);
+
+  // Eyebrows (thick for expression)
+  px(g, 6, 5, hairColor); px(g, 7, 5, hairColor);
+  px(g, 9, 5, hairColor); px(g, 10, 5, hairColor);
 
   // Expression variations
   if (expression === 'brave') {
-    px(g, 6, 5, hairColor); px(g, 10, 5, hairColor); // strong brows
+    px(g, 5, 5, hairColor); px(g, 11, 5, hairColor); // strong wide brows
+    // Determined mouth
+    px(g, 7, 9, darken(skinTone, 50)); px(g, 8, 9, darken(skinTone, 40)); px(g, 9, 9, darken(skinTone, 50));
   } else if (expression === 'wise') {
-    px(g, 7, 5, hairDark); px(g, 9, 5, hairDark);
+    // Softer brows
+    px(g, 6, 5, hairDark); px(g, 10, 5, hairDark);
+    // Gentle mouth
+    px(g, 8, 9, darken(skinTone, 35));
   } else if (expression === 'kind') {
-    // slight smile
-    px(g, 7, 8, darken(skinTone, 50)); px(g, 8, 8, darken(skinTone, 60)); px(g, 9, 8, darken(skinTone, 50));
+    // Smile
+    px(g, 7, 9, darken(skinTone, 40)); px(g, 8, 9, darken(skinTone, 55)); px(g, 9, 9, darken(skinTone, 40));
+    px(g, 6, 8, darken(skinTone, 25)); px(g, 10, 8, darken(skinTone, 25)); // cheek blush
+  } else {
+    // neutral mouth
+    px(g, 8, 9, darken(skinTone, 45));
   }
 
-  // Nose
-  px(g, 8, 7, skinDark);
-
-  // Mouth
-  px(g, 8, 8, darken(skinTone, 45));
+  // Nose (small, cute Pokemon style)
+  px(g, 8, 8, skinDark);
 
   // Ears
-  px(g, 6, 6, skinDark); px(g, 10, 6, skinDark);
+  px(g, 4, 7, skinDark); px(g, 12, 7, skinDark);
 
-  // === HAIR ===
+  // === HAIR (flows over big head) ===
   if (hairStyle === 'short') {
-    for (let x = 6; x <= 10; x++) px(g, x, 3, hairColor);
-    px(g, 6, 4, hairColor); px(g, 10, 4, hairColor);
-    px(g, 6, 5, hairDark); px(g, 10, 5, hairDark);
+    for (let x = 5; x <= 11; x++) px(g, x, 2, hairColor);
+    for (let x = 4; x <= 12; x++) px(g, x, 3, hairColor);
+    px(g, 4, 4, hairColor); px(g, 5, 4, hairDark);
+    px(g, 11, 4, hairDark); px(g, 12, 4, hairColor);
+    px(g, 4, 5, hairDark); px(g, 12, 5, hairDark);
   } else if (hairStyle === 'long') {
-    for (let x = 5; x <= 11; x++) px(g, x, 3, hairColor);
-    px(g, 5, 4, hairColor); px(g, 6, 4, hairColor); px(g, 10, 4, hairColor); px(g, 11, 4, hairColor);
-    px(g, 5, 5, hairDark); px(g, 11, 5, hairDark);
-    px(g, 5, 6, hairColor); px(g, 11, 6, hairColor);
-    px(g, 5, 7, hairDark); px(g, 11, 7, hairDark);
-    px(g, 5, 8, hairColor); px(g, 11, 8, hairColor);
+    for (let x = 5; x <= 11; x++) px(g, x, 1, hairColor);
+    for (let x = 4; x <= 12; x++) px(g, x, 2, hairColor);
+    for (let x = 4; x <= 12; x++) px(g, x, 3, hairDark);
+    px(g, 4, 4, hairColor); px(g, 12, 4, hairColor);
+    px(g, 3, 5, hairDark); px(g, 4, 5, hairColor); px(g, 12, 5, hairColor); px(g, 13, 5, hairDark);
+    px(g, 3, 6, hairColor); px(g, 13, 6, hairColor);
+    px(g, 3, 7, hairDark); px(g, 13, 7, hairDark);
+    px(g, 3, 8, hairColor); px(g, 13, 8, hairColor);
+    px(g, 3, 9, hairDark); px(g, 13, 9, hairDark);
   } else if (hairStyle === 'bald') {
-    for (let x = 7; x <= 9; x++) px(g, x, 3, skinLight);
-    px(g, 6, 4, skinLight); px(g, 10, 4, skinLight);
+    for (let x = 6; x <= 10; x++) px(g, x, 2, skinLight);
+    for (let x = 5; x <= 11; x++) px(g, x, 3, skinLight);
+    px(g, 5, 4, skinLight); px(g, 11, 4, skinLight);
   }
 
   // === BEARD ===
   if (beardStyle === 'short') {
-    px(g, 7, 9, hairColor); px(g, 8, 9, hairColor); px(g, 9, 9, hairColor);
-    px(g, 8, 10, hairColor);
+    px(g, 7, 10, hairColor); px(g, 8, 10, hairColor); px(g, 9, 10, hairColor);
+    px(g, 7, 11, hairColor); px(g, 8, 11, hairColor); px(g, 9, 11, hairColor);
   } else if (beardStyle === 'long') {
-    px(g, 7, 9, hairColor); px(g, 8, 9, hairColor); px(g, 9, 9, hairColor);
-    px(g, 7, 10, hairColor); px(g, 8, 10, hairColor); px(g, 9, 10, hairColor);
-    px(g, 8, 11, hairDark);
-  } else if (beardStyle === 'prophet') {
-    px(g, 6, 8, hairColor); px(g, 10, 8, hairColor);
-    px(g, 6, 9, hairColor); px(g, 7, 9, hairColor); px(g, 8, 9, hairColor);
-    px(g, 9, 9, hairColor); px(g, 10, 9, hairColor);
-    px(g, 7, 10, hairColor); px(g, 8, 10, hairColor); px(g, 9, 10, hairColor);
-    px(g, 7, 11, hairDark); px(g, 8, 11, hairColor); px(g, 9, 11, hairDark);
+    px(g, 6, 9, hairColor); px(g, 10, 9, hairColor);
+    px(g, 6, 10, hairColor); px(g, 7, 10, hairColor); px(g, 8, 10, hairColor); px(g, 9, 10, hairColor); px(g, 10, 10, hairColor);
+    px(g, 7, 11, hairColor); px(g, 8, 11, hairColor); px(g, 9, 11, hairColor);
     px(g, 8, 12, hairDark);
+  } else if (beardStyle === 'prophet') {
+    px(g, 5, 9, hairColor); px(g, 11, 9, hairColor);
+    px(g, 5, 10, hairColor); px(g, 6, 10, hairColor); px(g, 7, 10, hairColor);
+    px(g, 8, 10, hairColor); px(g, 9, 10, hairColor); px(g, 10, 10, hairColor); px(g, 11, 10, hairColor);
+    px(g, 6, 11, hairColor); px(g, 7, 11, hairColor); px(g, 8, 11, hairColor); px(g, 9, 11, hairColor); px(g, 10, 11, hairColor);
+    px(g, 7, 12, hairDark); px(g, 8, 12, hairColor); px(g, 9, 12, hairDark);
+    px(g, 8, 13, hairDark);
   }
 
   // === HEADWEAR ===
   if (headwear === 'headband') {
-    for (let x = 6; x <= 10; x++) px(g, x, 4, headwearColor);
-    px(g, 5, 4, headwearColor);
-    px(g, 11, 4, headwearColor);
+    for (let x = 4; x <= 12; x++) px(g, x, 4, headwearColor);
+    px(g, 3, 4, headwearColor); px(g, 13, 4, headwearColor);
   } else if (headwear === 'turban') {
-    for (let x = 5; x <= 11; x++) px(g, x, 2, headwearColor);
-    for (let x = 5; x <= 11; x++) px(g, x, 3, lighten(headwearColor, 15));
-    for (let x = 6; x <= 10; x++) px(g, x, 4, headwearColor);
-    px(g, 5, 4, darken(headwearColor, 15)); px(g, 11, 4, darken(headwearColor, 15));
+    for (let x = 4; x <= 12; x++) px(g, x, 1, headwearColor);
+    for (let x = 4; x <= 12; x++) px(g, x, 2, lighten(headwearColor, 15));
+    for (let x = 5; x <= 11; x++) px(g, x, 3, headwearColor);
+    px(g, 4, 3, darken(headwearColor, 15)); px(g, 12, 3, darken(headwearColor, 15));
+    for (let x = 5; x <= 11; x++) px(g, x, 4, darken(headwearColor, 10));
   } else if (headwear === 'hood') {
-    for (let x = 5; x <= 11; x++) px(g, x, 2, headwearColor);
-    for (let x = 5; x <= 11; x++) px(g, x, 3, darken(headwearColor, 15));
-    px(g, 5, 4, headwearColor); px(g, 11, 4, headwearColor);
-    px(g, 5, 5, darken(headwearColor, 15)); px(g, 11, 5, darken(headwearColor, 15));
-    px(g, 5, 6, headwearColor);
+    for (let x = 4; x <= 12; x++) px(g, x, 1, headwearColor);
+    for (let x = 3; x <= 13; x++) px(g, x, 2, headwearColor);
+    for (let x = 3; x <= 13; x++) px(g, x, 3, darken(headwearColor, 15));
+    px(g, 3, 4, headwearColor); px(g, 13, 4, headwearColor);
+    px(g, 3, 5, darken(headwearColor, 15)); px(g, 13, 5, darken(headwearColor, 15));
+    px(g, 3, 6, headwearColor); px(g, 13, 6, headwearColor);
   }
 
   // === STAFF ===
   if (hasStaff) {
-    for (let y = 3; y <= 22; y++) {
-      px(g, 14, y, staffColor);
+    for (let y = 2; y <= 22; y++) {
+      px(g, 15, y, staffColor);
     }
-    px(g, 14, 2, lighten(staffColor, 30));
-    px(g, 15, 2, lighten(staffColor, 30));
+    px(g, 15, 1, lighten(staffColor, 30));
+    px(g, 14, 1, lighten(staffColor, 20));
   }
 
   // === SWORD ===
   if (hasSword) {
     // Sword on hip
-    px(g, 13, 14, 0xaaaaaa); px(g, 14, 15, 0xcccccc); px(g, 14, 16, 0xcccccc);
-    px(g, 14, 17, 0xdddddd); px(g, 14, 18, 0xcccccc);
-    px(g, 13, 13, 0x8B6914); px(g, 14, 13, 0x8B6914); // hilt
+    px(g, 14, 15, 0x8B6914); px(g, 15, 15, 0x8B6914); // hilt
+    px(g, 15, 16, 0xaaaaaa); px(g, 15, 17, 0xcccccc);
+    px(g, 15, 18, 0xdddddd); px(g, 15, 19, 0xcccccc);
+    px(g, 15, 20, 0xbbbbbb);
   }
 
   // === ACCESSORY ===
   if (accessory === 'scroll') {
-    px(g, 2, 13, accessoryColor); px(g, 2, 14, accessoryColor);
-    px(g, 2, 15, lighten(accessoryColor, 30));
+    px(g, 1, 15, accessoryColor); px(g, 1, 16, accessoryColor);
+    px(g, 1, 17, lighten(accessoryColor, 30));
   } else if (accessory === 'plates') {
-    px(g, 1, 13, accessoryColor); px(g, 2, 13, accessoryColor);
-    px(g, 1, 14, darken(accessoryColor)); px(g, 2, 14, accessoryColor);
-    px(g, 1, 15, accessoryColor); px(g, 2, 15, darken(accessoryColor));
-    px(g, 1, 16, darken(accessoryColor)); px(g, 2, 16, accessoryColor);
+    px(g, 0, 14, accessoryColor); px(g, 1, 14, accessoryColor);
+    px(g, 0, 15, darken(accessoryColor)); px(g, 1, 15, accessoryColor);
+    px(g, 0, 16, accessoryColor); px(g, 1, 16, darken(accessoryColor));
+    px(g, 0, 17, darken(accessoryColor)); px(g, 1, 17, accessoryColor);
   }
 
   g.generateTexture(key, sprW, sprH);
@@ -555,18 +599,7 @@ function generateGuardTexture(scene, key) {
 
 // Pre-generate all character textures
 function generateAllSprites(scene) {
-  // Player (young traveler)
-  generateCharacterTexture(scene, 'player', {
-    skinTone: 0xd4a574,
-    hairColor: 0x3d2b1f,
-    hairStyle: 'short',
-    beardStyle: 'none',
-    robeColor: 0x5b8c5a,    // Green tunic
-    robeAccent: 0x3d6b3c,
-    headwear: 'headband',
-    headwearColor: 0x8B7355,
-    expression: 'brave',
-  });
+  // (Player IS Nephi — no separate 'player' texture needed)
 
   // Nephi (young, strong, faithful)
   generateCharacterTexture(scene, 'nephi', {
@@ -600,18 +633,7 @@ function generateAllSprites(scene) {
   // Guard
   generateGuardTexture(scene, 'guard');
 
-  // Battle-size player (larger)
-  generateCharacterTexture(scene, 'player_battle', {
-    skinTone: 0xd4a574,
-    hairColor: 0x3d2b1f,
-    hairStyle: 'short',
-    beardStyle: 'none',
-    robeColor: 0x5b8c5a,
-    robeAccent: 0x3d6b3c,
-    headwear: 'headband',
-    headwearColor: 0x8B7355,
-    expression: 'brave',
-  });
+  // (Player IS Nephi — no separate 'player_battle' texture needed)
 
   // Battle-size Nephi (armored)
   generateCharacterTexture(scene, 'nephi_battle', {
@@ -735,6 +757,332 @@ function generateAllSprites(scene) {
     eyeColor: 0x8899bb,
   });
 }
+
+// ============================================================
+// POKEMON-STYLE ENVIRONMENT HELPERS
+// ============================================================
+
+// Add Pokemon palette colors
+COLORS.pokGrassLight = 0x7ec850;
+COLORS.pokGrass = 0x58a830;
+COLORS.pokGrassDark = 0x408020;
+COLORS.pokDirt = 0xc8a868;
+COLORS.pokDirtDark = 0xa88848;
+COLORS.pokDirtLight = 0xe0c888;
+COLORS.pokWater = 0x3890f8;
+COLORS.pokWaterDark = 0x2870d0;
+COLORS.pokWaterLight = 0x68b0ff;
+COLORS.pokTreeTop = 0x48a028;
+COLORS.pokTreeDark = 0x307818;
+COLORS.pokTreeTrunk = 0x886030;
+COLORS.pokTrunkDark = 0x604020;
+COLORS.pokRoofRed = 0xd04040;
+COLORS.pokRoofBlue = 0x4080c0;
+COLORS.pokWallLight = 0xf0e8d8;
+COLORS.pokWallCream = 0xe8d8c0;
+COLORS.pokFence = 0xd8c8a0;
+COLORS.pokFenceDark = 0xb0a070;
+COLORS.pokFlowerRed = 0xf06060;
+COLORS.pokFlowerYellow = 0xf8e040;
+COLORS.pokFlowerPink = 0xf890c0;
+COLORS.pokFlowerBlue = 0x68a8f0;
+COLORS.pokSand = 0xe8d0a0;
+COLORS.pokSandDark = 0xc8b080;
+
+// Draw tile-based grass area with subtle variation and tiny flowers
+function drawPokemonGrass(g, x, y, w, h) {
+  const tileSize = 16;
+  for (let ty = 0; ty < h; ty += tileSize) {
+    for (let tx = 0; tx < w; tx += tileSize) {
+      // Alternate grass tile shading (checkerboard pattern)
+      const isAlt = ((Math.floor(tx / tileSize) + Math.floor(ty / tileSize)) % 2 === 0);
+      const baseColor = isAlt ? COLORS.pokGrass : COLORS.pokGrassLight;
+      g.fillStyle(baseColor);
+      g.fillRect(x + tx, y + ty, tileSize, tileSize);
+
+      // Subtle grass line detail (tiny darker grass blades)
+      g.fillStyle(COLORS.pokGrassDark, 0.3);
+      const seed = (tx * 7 + ty * 13) % 17;
+      if (seed < 6) {
+        g.fillRect(x + tx + 3, y + ty + 4, 1, 3);
+        g.fillRect(x + tx + 8, y + ty + 2, 1, 3);
+        g.fillRect(x + tx + 12, y + ty + 7, 1, 2);
+      }
+      if (seed > 10) {
+        g.fillRect(x + tx + 5, y + ty + 10, 1, 2);
+        g.fillRect(x + tx + 11, y + ty + 12, 1, 2);
+      }
+
+      // Occasional tiny flowers
+      const flowerSeed = (tx * 3 + ty * 11) % 41;
+      if (flowerSeed === 0) {
+        g.fillStyle(COLORS.pokFlowerRed);
+        g.fillRect(x + tx + 6, y + ty + 5, 3, 3);
+        g.fillStyle(COLORS.pokFlowerYellow);
+        g.fillRect(x + tx + 7, y + ty + 6, 1, 1);
+      } else if (flowerSeed === 7) {
+        g.fillStyle(COLORS.pokFlowerYellow);
+        g.fillRect(x + tx + 10, y + ty + 8, 3, 3);
+        g.fillStyle(0xffffff);
+        g.fillRect(x + tx + 11, y + ty + 9, 1, 1);
+      } else if (flowerSeed === 14) {
+        g.fillStyle(COLORS.pokFlowerPink);
+        g.fillRect(x + tx + 2, y + ty + 11, 3, 3);
+        g.fillStyle(COLORS.pokFlowerYellow);
+        g.fillRect(x + tx + 3, y + ty + 12, 1, 1);
+      }
+    }
+  }
+}
+
+// Draw a Pokemon-style round bushy tree (top-down overworld)
+function drawPokemonTree(g, x, y, scale) {
+  const s = scale || 1;
+  // Trunk visible below canopy
+  g.fillStyle(COLORS.pokTreeTrunk);
+  g.fillRect(x - 3 * s, y + 10 * s, 6 * s, 14 * s);
+  g.fillStyle(COLORS.pokTrunkDark);
+  g.fillRect(x - 1 * s, y + 10 * s, 2 * s, 14 * s);
+
+  // Round bushy canopy (layered circles for depth)
+  // Shadow underneath
+  g.fillStyle(COLORS.pokTreeDark, 0.5);
+  g.fillEllipse(x + 1, y + 4 * s, 28 * s, 22 * s);
+
+  // Main canopy (large oval)
+  g.fillStyle(COLORS.pokTreeTop);
+  g.fillEllipse(x, y, 26 * s, 20 * s);
+
+  // Lighter highlights on top
+  g.fillStyle(COLORS.pokGrassLight, 0.7);
+  g.fillEllipse(x - 3 * s, y - 3 * s, 14 * s, 10 * s);
+
+  // Darker bottom edge
+  g.fillStyle(COLORS.pokTreeDark);
+  g.fillEllipse(x + 2 * s, y + 6 * s, 18 * s, 8 * s);
+
+  // Small highlight circle for 3D feel
+  g.fillStyle(0x60c040, 0.5);
+  g.fillEllipse(x - 4 * s, y - 4 * s, 8 * s, 6 * s);
+}
+
+// Draw a Pokemon-style building with sloped/colored roof
+function drawPokemonBuilding(g, x, y, w, h, roofColor, wallColor) {
+  roofColor = roofColor || COLORS.pokRoofRed;
+  wallColor = wallColor || COLORS.pokWallLight;
+  const roofH = Math.floor(h * 0.3);
+
+  // Wall
+  g.fillStyle(wallColor);
+  g.fillRect(x, y + roofH, w, h - roofH);
+
+  // Wall border/outline
+  g.fillStyle(darken(wallColor, 30));
+  g.fillRect(x, y + roofH, w, 2);
+  g.fillRect(x, y + roofH, 2, h - roofH);
+  g.fillRect(x + w - 2, y + roofH, 2, h - roofH);
+
+  // Roof (trapezoid shape)
+  g.fillStyle(roofColor);
+  g.beginPath();
+  g.moveTo(x - 4, y + roofH);
+  g.lineTo(x + w / 2, y);
+  g.lineTo(x + w + 4, y + roofH);
+  g.closePath();
+  g.fill();
+
+  // Roof highlight
+  g.fillStyle(lighten(roofColor, 30));
+  g.beginPath();
+  g.moveTo(x + 4, y + roofH - 2);
+  g.lineTo(x + w / 2, y + 3);
+  g.lineTo(x + w / 2 + 4, y + roofH - 2);
+  g.closePath();
+  g.fill();
+
+  // Roof edge shadow
+  g.fillStyle(darken(roofColor, 30));
+  g.fillRect(x - 4, y + roofH - 3, w + 8, 3);
+
+  // Windows
+  const winW = Math.floor(w * 0.12);
+  const winH = Math.floor(winW * 1.2);
+  const winY = y + roofH + Math.floor((h - roofH) * 0.25);
+  // Left window
+  g.fillStyle(0x88bbdd);
+  g.fillRect(x + Math.floor(w * 0.2), winY, winW, winH);
+  g.fillStyle(0xaaddff, 0.5);
+  g.fillRect(x + Math.floor(w * 0.2), winY, Math.floor(winW / 2), Math.floor(winH / 2));
+  g.fillStyle(darken(wallColor, 40));
+  g.fillRect(x + Math.floor(w * 0.2) - 1, winY - 1, winW + 2, 1);
+  g.fillRect(x + Math.floor(w * 0.2) - 1, winY - 1, 1, winH + 2);
+  g.fillRect(x + Math.floor(w * 0.2) + winW, winY - 1, 1, winH + 2);
+  g.fillRect(x + Math.floor(w * 0.2) - 1, winY + winH, winW + 2, 1);
+  // Right window
+  g.fillStyle(0x88bbdd);
+  g.fillRect(x + Math.floor(w * 0.65), winY, winW, winH);
+  g.fillStyle(0xaaddff, 0.5);
+  g.fillRect(x + Math.floor(w * 0.65), winY, Math.floor(winW / 2), Math.floor(winH / 2));
+  g.fillStyle(darken(wallColor, 40));
+  g.fillRect(x + Math.floor(w * 0.65) - 1, winY - 1, winW + 2, 1);
+  g.fillRect(x + Math.floor(w * 0.65) - 1, winY - 1, 1, winH + 2);
+  g.fillRect(x + Math.floor(w * 0.65) + winW, winY - 1, 1, winH + 2);
+  g.fillRect(x + Math.floor(w * 0.65) - 1, winY + winH, winW + 2, 1);
+
+  // Door
+  const doorW = Math.floor(w * 0.18);
+  const doorH = Math.floor((h - roofH) * 0.5);
+  const doorX = x + Math.floor(w / 2 - doorW / 2);
+  const doorY = y + h - doorH;
+  g.fillStyle(COLORS.pokTreeTrunk);
+  g.fillRect(doorX, doorY, doorW, doorH);
+  g.fillStyle(darken(COLORS.pokTreeTrunk, 20));
+  g.fillRect(doorX, doorY, doorW, 2);
+  g.fillRect(doorX, doorY, 2, doorH);
+  g.fillRect(doorX + doorW - 2, doorY, 2, doorH);
+  // Doorknob
+  g.fillStyle(COLORS.gold);
+  g.fillCircle(doorX + doorW - 4, doorY + Math.floor(doorH / 2), 2);
+}
+
+// Draw Pokemon-style dirt/sand path tiles
+function drawPokemonPath(g, x, y, w, h) {
+  const tileSize = 16;
+  for (let ty = 0; ty < h; ty += tileSize) {
+    for (let tx = 0; tx < w; tx += tileSize) {
+      const isAlt = ((Math.floor(tx / tileSize) + Math.floor(ty / tileSize)) % 2 === 0);
+      g.fillStyle(isAlt ? COLORS.pokDirt : COLORS.pokDirtLight);
+      g.fillRect(x + tx, y + ty, tileSize, tileSize);
+      // Subtle grain
+      g.fillStyle(COLORS.pokDirtDark, 0.15);
+      const seed = (tx * 5 + ty * 9) % 13;
+      if (seed < 4) {
+        g.fillRect(x + tx + 4, y + ty + 3, 2, 1);
+        g.fillRect(x + tx + 10, y + ty + 9, 2, 1);
+      }
+    }
+  }
+  // Path edge (soft grass-to-dirt transition)
+  g.fillStyle(COLORS.pokGrassDark, 0.3);
+  g.fillRect(x, y, w, 2);
+  g.fillRect(x, y + h - 2, w, 2);
+}
+
+// Draw Pokemon-style water tiles with animated appearance
+function drawPokemonWater(g, x, y, w, h) {
+  const tileSize = 16;
+  for (let ty = 0; ty < h; ty += tileSize) {
+    for (let tx = 0; tx < w; tx += tileSize) {
+      const isAlt = ((Math.floor(tx / tileSize) + Math.floor(ty / tileSize)) % 2 === 0);
+      g.fillStyle(isAlt ? COLORS.pokWater : COLORS.pokWaterDark);
+      g.fillRect(x + tx, y + ty, tileSize, tileSize);
+      // Wave highlight
+      g.fillStyle(COLORS.pokWaterLight, 0.4);
+      const waveSeed = (tx * 3 + ty * 7) % 11;
+      if (waveSeed < 4) {
+        g.fillRect(x + tx + 2, y + ty + 4, 6, 2);
+      }
+      if (waveSeed > 7) {
+        g.fillRect(x + tx + 8, y + ty + 10, 5, 2);
+      }
+    }
+  }
+}
+
+// Draw Pokemon-style fence segments
+function drawPokemonFence(g, x, y, length, dir) {
+  dir = dir || 'h'; // h = horizontal, v = vertical
+  const postSpacing = 24;
+  const postW = 4;
+  const postH = 14;
+  const railH = 3;
+
+  if (dir === 'h') {
+    // Horizontal fence
+    // Top rail
+    g.fillStyle(COLORS.pokFence);
+    g.fillRect(x, y, length, railH);
+    // Bottom rail
+    g.fillRect(x, y + postH - railH, length, railH);
+    // Posts
+    g.fillStyle(COLORS.pokFenceDark);
+    for (let px = 0; px < length; px += postSpacing) {
+      g.fillRect(x + px, y - 2, postW, postH + 2);
+    }
+    // End post
+    g.fillRect(x + length - postW, y - 2, postW, postH + 2);
+  } else {
+    // Vertical fence
+    g.fillStyle(COLORS.pokFence);
+    g.fillRect(x, y, railH, length);
+    g.fillRect(x + postH - railH, y, railH, length);
+    g.fillStyle(COLORS.pokFenceDark);
+    for (let py = 0; py < length; py += postSpacing) {
+      g.fillRect(x - 2, y + py, postH + 2, postW);
+    }
+    g.fillRect(x - 2, y + length - postW, postH + 2, postW);
+  }
+}
+
+// Draw a Pokemon-style palm tree (for desert/Jerusalem scenes)
+function drawPokemonPalm(g, x, y, scale) {
+  const s = scale || 1;
+  // Curved trunk
+  g.fillStyle(COLORS.pokTreeTrunk);
+  g.fillRect(x - 3 * s, y + 5 * s, 6 * s, 30 * s);
+  g.fillStyle(COLORS.pokTrunkDark);
+  g.fillRect(x - 1 * s, y + 5 * s, 2 * s, 30 * s);
+  // Trunk segments
+  for (let sy = 0; sy < 30; sy += 6) {
+    g.fillStyle(COLORS.pokTrunkDark, 0.3);
+    g.fillRect(x - 3 * s, y + (5 + sy) * s, 6 * s, 1 * s);
+  }
+  // Palm fronds (round leaf clusters instead of spiky)
+  const frondColor = 0x48a028;
+  const frondDark = 0x307818;
+  g.fillStyle(frondColor);
+  // Central cluster
+  g.fillEllipse(x, y, 12 * s, 8 * s);
+  // Radiating fronds
+  for (let f = 0; f < 6; f++) {
+    const angle = (f / 6) * Math.PI * 2;
+    const fx = x + Math.cos(angle) * 14 * s;
+    const fy = y - 2 * s + Math.sin(angle) * 8 * s;
+    g.fillStyle(f % 2 === 0 ? frondColor : frondDark);
+    g.fillEllipse(fx, fy, 12 * s, 5 * s);
+  }
+  // Center tuft
+  g.fillStyle(0x60c040);
+  g.fillEllipse(x, y - 1 * s, 6 * s, 4 * s);
+}
+
+// Draw a Pokemon-style market stall
+function drawPokemonStall(g, x, y, canopyColor) {
+  canopyColor = canopyColor || 0xcc4444;
+  const stallW = 48, stallH = 36;
+  // Counter
+  g.fillStyle(COLORS.pokTreeTrunk);
+  g.fillRect(x - stallW / 2, y, stallW, stallH * 0.5);
+  g.fillStyle(COLORS.pokTrunkDark);
+  g.fillRect(x - stallW / 2, y, stallW, 3);
+  // Poles
+  g.fillStyle(COLORS.pokTreeTrunk);
+  g.fillRect(x - stallW / 2, y - stallH * 0.8, 4, stallH * 0.8);
+  g.fillRect(x + stallW / 2 - 4, y - stallH * 0.8, 4, stallH * 0.8);
+  // Canopy (striped)
+  for (let sx = 0; sx < stallW; sx += 8) {
+    g.fillStyle(sx % 16 === 0 ? canopyColor : lighten(canopyColor, 40));
+    g.fillRect(x - stallW / 2 + sx, y - stallH * 0.8, 8, 8);
+  }
+  // Items on counter
+  g.fillStyle(COLORS.pokFlowerYellow);
+  g.fillCircle(x - 8, y + 6, 3);
+  g.fillStyle(COLORS.pokFlowerRed);
+  g.fillCircle(x + 4, y + 6, 3);
+  g.fillStyle(0xdd8844);
+  g.fillCircle(x + 14, y + 6, 3);
+}
+
 
 // ============================================================
 // PREMIUM SYSTEMS: Procedural Textures, Lighting, Particles, Audio
@@ -1523,8 +1871,8 @@ function createHUD(scene) {
 
   // Companion portrait (if any).
   hud.compPortrait = null;
-  if (GameState.companion && scene.textures.exists('player')) {
-    const comp = makePortraitCircle(scene, 'player', 94, 36, 34, 160);
+  if (GameState.companion && scene.textures.exists('sam')) {
+    const comp = makePortraitCircle(scene, 'sam', 94, 36, 34, 160);
     comp.frame.setAlpha(0.7);
     comp.img.setAlpha(0.85);
     root.add(comp.frame);
@@ -1834,24 +2182,34 @@ class BootScene extends Phaser.Scene {
 
 
 // ============================================================
-// SCENE: CINEMATIC INTRO
+// SCENE: CINEMATIC INTRO — Pokemon-style fast, punchy, visual
 // ============================================================
 class CinematicIntro extends Phaser.Scene {
   constructor() { super('CinematicIntro'); }
 
   create() {
     this.phase = 0;
-    this.items = []; // track objects per panel for cleanup
+    this.items = [];
     AudioEngine.setTheme('spiritual');
     this.runPanel(0);
 
-    // SKIP button (updated per panel)
+    // SKIP button
     this.skipText = this.add.text(W - 20, H - 20, 'SKIP >', {
       fontSize: '12px', fontFamily: 'monospace', color: '#aaaaaa'
     }).setOrigin(1, 1).setDepth(1000).setInteractive();
     this.skipText.on('pointerdown', () => this.scene.start('Title'));
     this.skipText.on('pointerover', () => this.skipText.setColor('#ffffff'));
     this.skipText.on('pointerout', () => this.skipText.setColor('#aaaaaa'));
+
+    // Click/Space to advance panels (TASK 3)
+    this._skipHandler = () => {
+      if (this.phase < 4) { // panels 0-3 are auto-advancing
+        if (this.autoTimer) this.autoTimer.remove();
+        this.runPanel(this.phase + 1);
+      }
+    };
+    this.input.on('pointerdown', this._skipHandler);
+    this.input.keyboard.on('keydown-SPACE', this._skipHandler);
   }
 
   clearPanel() {
@@ -1875,222 +2233,353 @@ class CinematicIntro extends Phaser.Scene {
     this.items.push({ destroy: () => { if (this.autoTimer) this.autoTimer.remove(); } });
   }
 
-  // Panel 1: Green Hills (8s)
+  // Panel 1 (4s): "The Land" — Pokemon world intro, bright and lush
   panel1() {
     const bg = this.add2(this.add.graphics());
-    bg.fillStyle(0x87ceeb); bg.fillRect(0, 0, W, H);
-    bg.fillStyle(0xd4eaf8); bg.fillRect(0, H * 0.6, W, H * 0.4);
+    // Bright Pokemon sky
+    bg.fillStyle(0x68b8f8); bg.fillRect(0, 0, W, 260);
+    bg.fillStyle(0x88d0ff); bg.fillRect(0, 0, W, 130);
+    bg.fillStyle(0xa8e0ff); bg.fillRect(0, 0, W, 65);
 
-    const layers = [
-      { y: H * 0.55, h: 120, color: 0x8ba8c4, speed: 0.3 },
-      { y: H * 0.6, h: 140, color: 0x2d6b2e, speed: 0.6 },
-      { y: H * 0.7, h: 160, color: 0x3da33e, speed: 1.0 },
-    ];
-    layers.forEach(l => {
-      const g = this.add2(this.add.graphics());
-      g.fillStyle(l.color);
-      g.beginPath(); g.moveTo(-100, H);
-      for (let x = -100; x <= W + 200; x += 60) {
-        g.lineTo(x, l.y + Math.sin(x * 0.008) * 40 - 20);
-      }
-      g.lineTo(W + 200, H); g.closePath(); g.fillPath();
-      this.tweens.add({ targets: g, x: -50 * l.speed, duration: 8000, ease: 'Sine.easeInOut' });
+    // Sun
+    this.add2(this.add.circle(W - 90, 70, 28, 0xfff870));
+    this.add2(this.add.circle(W - 90, 70, 22, 0xffff98, 0.6));
+
+    // Pokemon clouds scrolling left
+    const drawCloud = (cx, cy, s) => {
+      const cg = this.add2(this.add.graphics());
+      cg.fillStyle(0xffffff, 0.9);
+      cg.fillEllipse(cx, cy, 60 * s, 24 * s);
+      cg.fillEllipse(cx - 18 * s, cy - 6 * s, 36 * s, 20 * s);
+      cg.fillEllipse(cx + 14 * s, cy - 4 * s, 40 * s, 18 * s);
+      this.tweens.add({ targets: cg, x: -60, duration: 4000, ease: 'Linear' });
+    };
+    drawCloud(120, 55, 1.2); drawCloud(380, 40, 1); drawCloud(600, 70, 0.8); drawCloud(750, 45, 0.6);
+
+    // Rolling green hills (parallax — fast)
+    const hills = this.add2(this.add.graphics());
+    hills.fillStyle(0x68b058, 0.7);
+    hills.beginPath(); hills.moveTo(0, H);
+    for (let x = 0; x <= W; x += 4) hills.lineTo(x, 340 + Math.sin(x * 0.006) * 30 + Math.sin(x * 0.015) * 12);
+    hills.lineTo(W, H); hills.closePath(); hills.fill();
+    hills.fillStyle(0x58a840);
+    hills.beginPath(); hills.moveTo(0, H);
+    for (let x = 0; x <= W; x += 4) hills.lineTo(x, 380 + Math.sin(x * 0.01 + 1) * 20 + Math.sin(x * 0.022) * 8);
+    hills.lineTo(W, H); hills.closePath(); hills.fill();
+
+    // Pokemon tile grass
+    const grassG = this.add2(this.add.graphics());
+    drawPokemonGrass(grassG, 0, 400, W, H - 400);
+
+    // Dirt path
+    const pathG = this.add2(this.add.graphics());
+    drawPokemonPath(pathG, 0, 440, W, 32);
+
+    // Pokemon trees at various depths (scroll in from right)
+    const treeG = this.add2(this.add.graphics());
+    [80, 200, 380, 560, 720].forEach((tx, i) => {
+      drawPokemonTree(treeG, tx, 400, 1.0 + (i % 2) * 0.3);
     });
+    treeG.x = 100;
+    this.tweens.add({ targets: treeG, x: 0, duration: 3500, ease: 'Sine.easeOut' });
 
-    // Mist particles
-    const pe = createEmitterCompat(this, W / 2, H * 0.75, 'particle_smoke', {
-      speed: { min: 5, max: 15 }, alpha: { start: 0.15, end: 0 }, scale: { start: 1.5, end: 3 },
-      lifespan: 4000, quantity: 1, frequency: 500, blendMode: 'ADD',
-      emitZone: { type: 'random', source: new Phaser.Geom.Rectangle(-W/2, -20, W, 40) }
-    });
-    this.items.push(pe.emitter);
+    // Pokemon buildings in the distance
+    const bldgG = this.add2(this.add.graphics());
+    drawPokemonBuilding(bldgG, 280, 350, 50, 45, COLORS.pokRoofRed, COLORS.pokWallLight);
+    drawPokemonBuilding(bldgG, 360, 343, 45, 50, COLORS.pokRoofBlue, COLORS.pokWallCream);
+    drawPokemonBuilding(bldgG, 430, 352, 40, 42, 0xd08040, COLORS.pokWallLight);
 
-    // Sun rising
-    const sun = this.add2(this.add.circle(W - 100, H * 0.5, 40, 0xffe066, 0.9));
-    const glow = this.add2(this.add.circle(W - 100, H * 0.5, 80, 0xffe066, 0.15));
-    this.tweens.add({ targets: [sun, glow], y: H * 0.3, duration: 8000, ease: 'Sine.easeOut' });
+    // Palm trees for Middle-East flavor
+    const palmG = this.add2(this.add.graphics());
+    drawPokemonPalm(palmG, 150, 400, 1.1);
+    drawPokemonPalm(palmG, 650, 395, 1.2);
 
-    this.advance(8000);
+    // Text: fade in fast
+    const txt = this.add2(this.add.text(W / 2, 280, 'Long ago, in the land of Jerusalem...', {
+      fontSize: '22px', fontFamily: 'Georgia, serif', color: '#ffffff', fontStyle: 'bold',
+      stroke: '#2060a0', strokeThickness: 4
+    }).setOrigin(0.5).setAlpha(0));
+    this.tweens.add({ targets: txt, alpha: 1, duration: 600, delay: 300 });
+
+    // Quick pan hint — scroll grass left slightly
+    this.tweens.add({ targets: grassG, x: -30, duration: 4000, ease: 'Linear' });
+
+    this.advance(4000);
   }
 
-  // Panel 2: Ancient City (6s)
+  // Panel 2 (4s): "The Prophet" — Night sky, Lehi + family, vision flash
   panel2() {
     AudioEngine.setTheme('jerusalem');
     const bg = this.add2(this.add.graphics());
-    bg.fillStyle(0xe8c97a); bg.fillRect(0, 0, W, H);
-    bg.fillStyle(0xc4a35a); bg.fillRect(0, H * 0.65, W, H * 0.35);
+    // Night sky
+    bg.fillStyle(0x0a1030); bg.fillRect(0, 0, W, H);
+    bg.fillStyle(0x182848); bg.fillRect(0, 0, W, 300);
 
-    const city = this.add2(this.add.container(W / 2, H * 0.45));
-    const cg = this.make.graphics();
-    // Buildings
-    const bColor = 0xd4a853;
-    [[-120,-60,50,80],[-60,-80,55,100],[10,-50,45,70],[70,-70,50,90],[130,-40,40,60],
-     [-150,-30,35,50],[160,-55,45,75]].forEach(([x,y,w,h]) => {
-      cg.fillStyle(bColor); cg.fillRect(x, y, w, h);
-      cg.fillStyle(0xb8903e); cg.fillRect(x + w*0.3, y + h - 15, 10, 15); // door
-    });
-    // Palm trees
-    [-170, 180].forEach(tx => {
-      cg.fillStyle(0x6b4226); cg.fillRect(tx, -50, 6, 60);
-      cg.fillStyle(0x228b22);
-      for (let a = 0; a < 5; a++) cg.fillEllipse(tx + 3 + Math.cos(a*1.3)*18, -55 - Math.sin(a*1.3)*8, 20, 6);
-    });
-    cg.generateTexture('_city', 400, 200);
-    const cityImg = this.add.image(0, 0, '_city');
-    city.add(cityImg);
-    city.setScale(0.8);
-    this.tweens.add({ targets: city, scaleX: 1.2, scaleY: 1.2, duration: 6000, ease: 'Sine.easeInOut' });
-    this.items.push(city);
+    // Stars (many, twinkling fast)
+    for (let i = 0; i < 50; i++) {
+      const star = this.add2(this.add.circle(
+        Phaser.Math.Between(0, W), Phaser.Math.Between(0, 250),
+        Phaser.Math.Between(1, 2), 0xffffff, Phaser.Math.FloatBetween(0.3, 0.9)
+      ));
+      this.tweens.add({ targets: star, alpha: 0.15, duration: Phaser.Math.Between(400, 1200), yoyo: true, repeat: -1 });
+    }
+    // Moon
+    this.add2(this.add.circle(640, 60, 18, 0xf0f0d0, 0.8));
+    this.add2(this.add.circle(645, 57, 14, 0xf8f8e8, 0.5));
 
-    // NPC silhouettes
-    for (let i = 0; i < 4; i++) {
-      const npc = this.add2(this.add.rectangle(200 + i * 120, H * 0.65, 8, 16, 0x3a2510));
-      this.tweens.add({ targets: npc, x: npc.x + (i % 2 ? 40 : -40), duration: 3000, yoyo: true, repeat: -1 });
+    // Jerusalem silhouette at bottom
+    const cityG = this.add2(this.add.graphics());
+    cityG.fillStyle(0x111828);
+    // Skyline blocks
+    [[-20,300,60,100],[50,280,50,120],[110,300,40,100],[160,270,55,130],[230,290,45,110],
+     [290,310,40,90],[340,275,50,125],[400,295,45,105],[460,310,35,90],[510,280,50,120],
+     [570,300,45,100],[630,285,40,115],[680,310,50,90],[740,295,45,105]].forEach(([x,y,w,h]) => {
+      cityG.fillRect(x, y, w, h);
+    });
+    // Ground
+    cityG.fillStyle(0x1a1228);
+    cityG.fillRect(0, 380, W, H - 380);
+
+    // Lehi sprite (large, center) — slides up
+    if (this.textures.exists('lehi')) {
+      const lehi = this.add2(this.add.image(W / 2, H * 0.72, 'lehi').setScale(4).setDepth(10));
+      lehi.y = H * 0.85;
+      this.tweens.add({ targets: lehi, y: H * 0.58, duration: 800, ease: 'Back.easeOut' });
     }
 
-    const txt = this.add2(this.add.text(W / 2, H * 0.88, '600 BC. The ancient world.', {
-      fontSize: '18px', fontFamily: 'Georgia, serif', color: '#4a3520'
-    }).setOrigin(0.5).setAlpha(0));
-    this.tweens.add({ targets: txt, alpha: 1, duration: 2000, delay: 1500 });
+    // Family sprites fade in around Lehi
+    const familySprites = ['sariah', 'nephi', 'sam', 'laman'];
+    const familyX = [W/2 - 80, W/2 + 80, W/2 - 50, W/2 + 50];
+    const familyY = [H * 0.68, H * 0.68, H * 0.72, H * 0.72];
+    familySprites.forEach((key, i) => {
+      if (this.textures.exists(key)) {
+        const spr = this.add2(this.add.image(familyX[i], familyY[i], key).setScale(2.5).setDepth(9).setAlpha(0));
+        this.tweens.add({ targets: spr, alpha: 1, duration: 400, delay: 800 + i * 150 });
+      }
+    });
 
-    this.advance(6000);
+    // Text
+    const txt = this.add2(this.add.text(W / 2, 160, 'A prophet named Lehi was warned\nby God to flee into the wilderness...', {
+      fontSize: '18px', fontFamily: 'Georgia, serif', color: '#ffe088', fontStyle: 'italic',
+      align: 'center', lineSpacing: 6, stroke: '#000000', strokeThickness: 3
+    }).setOrigin(0.5).setAlpha(0));
+    this.tweens.add({ targets: txt, alpha: 1, duration: 500, delay: 200 });
+
+    // Vision flash at end of panel
+    this.time.delayedCall(3200, () => {
+      if (this.phase !== 1) return;
+      this.cameras.main.flash(400, 255, 240, 180);
+      AudioEngine.sfx.chime();
+    });
+
+    this.advance(4000);
   }
 
-  // Panel 3: Gold Plates Rising (10s)
+  // Panel 3 (4s): "The Record" — Gold plates, heavy glow, impressive
   panel3() {
     AudioEngine.setTheme('spiritual');
     const bg = this.add2(this.add.graphics());
-    bg.fillStyle(0x1a1a1a); bg.fillRect(0, 0, W, H);
-    bg.fillStyle(0x3a2a1a); bg.fillRect(0, H * 0.8, W, H * 0.2);
+    bg.fillStyle(0x0a0808); bg.fillRect(0, 0, W, H);
 
-    // Gold plates
-    const plate = this.add2(this.add.container(W / 2, H + 60));
+    // Dark radial vignette
+    bg.fillStyle(0x1a1208, 0.5);
+    bg.fillRect(0, H * 0.7, W, H * 0.3);
+
+    // Gold plates — built with detail
+    const plateContainer = this.add2(this.add.container(W / 2, H + 80));
     const pg = this.make.graphics();
-    pg.fillStyle(0xd4a017); pg.fillRect(-40, -55, 80, 110);
-    pg.lineStyle(2, 0xb8860b); pg.strokeRect(-40, -55, 80, 110);
-    // Symbols
-    for (let row = 0; row < 6; row++) for (let col = 0; col < 4; col++) {
-      pg.fillStyle(0xb8860b); pg.fillRect(-30 + col * 18, -45 + row * 16, 12, 4);
+    // Main plate body
+    pg.fillStyle(0xd4a017); pg.fillRoundedRect(-45, -65, 90, 130, 4);
+    pg.lineStyle(2, 0xb8860b); pg.strokeRoundedRect(-45, -65, 90, 130, 4);
+    // Binding rings on left
+    pg.fillStyle(0xc89810);
+    for (let ry = -50; ry <= 40; ry += 18) {
+      pg.fillCircle(-45, ry, 5);
+      pg.fillStyle(0xa07808); pg.fillCircle(-45, ry, 3);
+      pg.fillStyle(0xc89810);
     }
-    pg.generateTexture('_plates', 100, 130);
-    plate.add(this.make.image({ x: 0, y: 0, key: '_plates', add: false }));
-    plate.setDepth(5);
-    this.tweens.add({ targets: plate, y: H * 0.4, duration: 4000, ease: 'Back.easeOut' });
+    // Engraved text lines (reformed Egyptian look)
+    for (let row = 0; row < 7; row++) {
+      for (let col = 0; col < 4; col++) {
+        pg.fillStyle(0xb8860b, 0.7);
+        const lw = 6 + Math.sin(row * 3 + col * 7) * 4;
+        pg.fillRect(-30 + col * 20, -50 + row * 17, lw, 3);
+      }
+    }
+    // Highlight shimmer stripe
+    pg.fillStyle(0xffe088, 0.15);
+    pg.fillRect(-20, -65, 15, 130);
+    pg.generateTexture('_introplates', 100, 140);
+    const plateImg = this.make.image({ x: 0, y: 0, key: '_introplates', add: false });
+    plateContainer.add(plateImg);
+    plateContainer.setScale(1.5);
+    plateContainer.setDepth(5);
 
-    // Glow
+    // Plates rise from below with bounce
+    this.tweens.add({ targets: plateContainer, y: H * 0.38, duration: 1200, ease: 'Back.easeOut' });
+
+    // HEAVY golden glow behind plates
     if (this.textures.exists('light_gold_256')) {
-      const glow = this.add2(this.add.image(W/2, H*0.4, 'light_gold_256').setScale(2.5).setAlpha(0).setBlendMode('ADD').setDepth(4));
-      this.tweens.add({ targets: glow, alpha: 0.4, duration: 3000, delay: 2000 });
+      const glow1 = this.add2(this.add.image(W/2, H*0.38, 'light_gold_256').setScale(3.5).setAlpha(0).setBlendMode('ADD').setDepth(3));
+      this.tweens.add({ targets: glow1, alpha: 0.5, duration: 1000, delay: 400 });
+      const glow2 = this.add2(this.add.image(W/2, H*0.38, 'light_gold_256').setScale(2).setAlpha(0).setBlendMode('ADD').setDepth(4));
+      this.tweens.add({ targets: glow2, alpha: 0.3, duration: 800, delay: 600 });
     }
 
-    // Rising particles
+    // Heavy gold particles rising
     const pe = createEmitterCompat(this, W/2, H*0.5, 'particle_spark', {
-      speed: { min: 10, max: 40 }, angle: { min: 250, max: 290 }, alpha: { start: 0.8, end: 0 },
-      scale: { start: 0.4, end: 0 }, lifespan: 2500, quantity: 1, frequency: 200, blendMode: 'ADD',
-      emitZone: { type: 'random', source: new Phaser.Geom.Rectangle(-50, -20, 100, 40) }
+      speed: { min: 20, max: 70 }, angle: { min: 240, max: 300 }, alpha: { start: 0.9, end: 0 },
+      scale: { start: 0.5, end: 0 }, lifespan: 2000, quantity: 2, frequency: 80, blendMode: 'ADD',
+      tint: [0xffd700, 0xffe066, 0xffaa44],
+      emitZone: { type: 'random', source: new Phaser.Geom.Rectangle(-80, -30, 160, 60) }
     }, 6);
     this.items.push(pe.emitter);
 
-    // Text word by word
-    const words = ['These...', 'are...', 'their...', 'stories.'];
-    words.forEach((w, i) => {
-      const t = this.add2(this.add.text(W/2, H*0.68, w, {
-        fontSize: '22px', fontFamily: 'Georgia, serif', color: '#d4a017'
-      }).setOrigin(0.5).setAlpha(0).setDepth(10));
-      this.tweens.add({ targets: t, alpha: 1, duration: 600, delay: 5000 + i * 1200 });
-      this.tweens.add({ targets: t, alpha: 0, duration: 400, delay: 5000 + i * 1200 + 900 });
-    });
+    // Text — punchy, fast
+    const txt = this.add2(this.add.text(W / 2, H * 0.72, 'Their story was written on plates of gold.', {
+      fontSize: '20px', fontFamily: 'Georgia, serif', color: '#ffd700', fontStyle: 'bold',
+      stroke: '#000000', strokeThickness: 3
+    }).setOrigin(0.5).setAlpha(0));
+    this.tweens.add({ targets: txt, alpha: 1, duration: 500, delay: 800 });
 
-    // Plates open
-    this.time.delayedCall(9200, () => {
-      if (this.phase !== 2) return;
-      const l = this.add2(this.add.rectangle(W/2-20, H*0.4, 40, 110, 0xd4a017).setDepth(6));
-      const r = this.add2(this.add.rectangle(W/2+20, H*0.4, 40, 110, 0xd4a017).setDepth(6));
-      plate.setVisible(false);
-      this.tweens.add({ targets: l, x: W/2 - 70, duration: 600 });
-      this.tweens.add({ targets: r, x: W/2 + 70, duration: 600 });
-    });
+    // Quick chime
+    this.time.delayedCall(500, () => AudioEngine.sfx.chime());
 
-    this.advance(10000);
+    this.advance(4000);
   }
 
-  // Panel 4: Nephi Introduction (8s)
+  // Panel 4 (4s): "The Hero" — Nephi reveal, dramatic, hype
   panel4() {
     const bg = this.add2(this.add.graphics());
-    bg.fillStyle(0x1a1510); bg.fillRect(0, 0, W, H);
-    // Gold border frame
-    const frame = this.add2(this.add.graphics());
-    frame.lineStyle(3, 0xd4a017); frame.strokeRect(60, 40, W-120, H-80);
-    frame.lineStyle(1, 0xb8860b); frame.strokeRect(65, 45, W-130, H-90);
+    // Dramatic gradient sky (sunrise behind mountains)
+    bg.fillStyle(0x1a2a4a); bg.fillRect(0, 0, W, H);
+    bg.fillStyle(0x2a4a6a); bg.fillRect(0, 0, W, 300);
+    bg.fillStyle(0x4a6a8a, 0.5); bg.fillRect(0, 200, W, 100);
+    // Golden light rays from center
+    if (this.textures.exists('light_gold_256')) {
+      const ray1 = this.add2(this.add.image(W/2, H*0.5, 'light_gold_256').setScale(5).setAlpha(0.08).setBlendMode('ADD'));
+      const ray2 = this.add2(this.add.image(W/2, H*0.3, 'light_gold_256').setScale(3).setAlpha(0.12).setBlendMode('ADD'));
+      this.tweens.add({ targets: ray1, alpha: 0.15, scaleX: 6, duration: 3000 });
+      this.tweens.add({ targets: ray2, alpha: 0.2, duration: 2000 });
+    }
 
-    // Letter-by-letter text
-    const quote = 'I, Nephi, having been born of\ngoodly parents, therefore I was\ntaught somewhat in all the\nlearning of my father...';
-    const txt = this.add2(this.add.text(W/2, H*0.35, '', {
-      fontSize: '16px', fontFamily: 'Georgia, serif', color: '#d4a017', align: 'center', lineSpacing: 6
-    }).setOrigin(0.5));
-    let ci = 0;
-    const typeTimer = this.time.addEvent({
-      delay: 45, repeat: quote.length - 1,
-      callback: () => { ci++; txt.setText(quote.substring(0, ci)); }
-    });
-    this.items.push({ destroy: () => typeTimer.remove() });
+    // Mountain silhouettes
+    const mtns = this.add2(this.add.graphics());
+    mtns.fillStyle(0x0a1828);
+    mtns.beginPath();
+    mtns.moveTo(0, H); mtns.lineTo(0, 400); mtns.lineTo(100, 340); mtns.lineTo(200, 380);
+    mtns.lineTo(300, 310); mtns.lineTo(400, 360); mtns.lineTo(500, 290); mtns.lineTo(600, 350);
+    mtns.lineTo(700, 320); mtns.lineTo(800, 380); mtns.lineTo(800, H);
+    mtns.closePath(); mtns.fill();
 
-    // Nephi sprite appears after text
-    this.time.delayedCall(5000, () => {
+    // Ground
+    mtns.fillStyle(0x0a1020);
+    mtns.fillRect(0, 400, W, H - 400);
+
+    // Nephi sprite SLAMS in from above with bounce — BIG
+    if (this.textures.exists('nephi')) {
+      const nephi = this.add2(this.add.image(W / 2, -80, 'nephi').setScale(5).setDepth(10));
+      this.tweens.add({
+        targets: nephi, y: H * 0.42, duration: 500, ease: 'Bounce.easeOut',
+        onComplete: () => {
+          // Impact flash
+          this.cameras.main.flash(150, 255, 215, 0);
+          AudioEngine.sfx.whoosh();
+          // Impact particles
+          const { emitter: impactE } = createEmitterCompat(this, W/2, H*0.55, 'particle_spark', {
+            speed: { min: 60, max: 200 }, lifespan: { min: 300, max: 700 },
+            scale: { start: 0.5, end: 0 }, alpha: { start: 1, end: 0 },
+            quantity: 20, blendMode: 'ADD', tint: [0xffd700, 0xffffff],
+          }, 15);
+          if (impactE && typeof impactE.explode === 'function') impactE.explode(25, W/2, H*0.55);
+        }
+      });
+    }
+
+    // Quote text — appears fast
+    const quote = this.add2(this.add.text(W / 2, H * 0.12, '"I, Nephi, having been born\nof goodly parents..."', {
+      fontSize: '20px', fontFamily: 'Georgia, serif', color: '#ffd700', fontStyle: 'italic',
+      align: 'center', lineSpacing: 6, stroke: '#000000', strokeThickness: 3
+    }).setOrigin(0.5).setAlpha(0));
+    this.tweens.add({ targets: quote, alpha: 1, duration: 400, delay: 600 });
+
+    // "This is YOUR story" — punchy follow-up
+    const yourStory = this.add2(this.add.text(W / 2, H * 0.78, 'This is YOUR story.', {
+      fontSize: '24px', fontFamily: 'monospace', color: '#ffffff', fontStyle: 'bold',
+      stroke: '#1a3060', strokeThickness: 4
+    }).setOrigin(0.5).setAlpha(0).setScale(0.5));
+    this.tweens.add({ targets: yourStory, alpha: 1, scaleX: 1, scaleY: 1, duration: 500, delay: 1800, ease: 'Back.easeOut' });
+
+    // Flash transition at end
+    this.time.delayedCall(3500, () => {
       if (this.phase !== 3) return;
-      const nephi = this.add2(this.add.sprite(W/2, H*0.65, 'nephi').setScale(0).setDepth(5));
-      this.tweens.add({ targets: nephi, scaleX: 3, scaleY: 3, duration: 1500, ease: 'Back.easeOut' });
-      const sub = this.add2(this.add.text(W/2, H*0.85, 'That young man is you.', {
-        fontSize: '14px', fontFamily: 'Georgia, serif', color: '#c0a040'
-      }).setOrigin(0.5).setAlpha(0));
-      this.tweens.add({ targets: sub, alpha: 1, duration: 1000, delay: 800 });
+      this.cameras.main.flash(300, 255, 255, 255);
     });
 
-    this.advance(8000);
+    this.advance(4000);
   }
 
-  // Panel 5: Title Card (wait for input)
+  // Panel 5 (wait): Title card — epic, Pokemon-style
   panel5() {
+    // Remove click/space skip handler for this panel (we want input to go to Title)
+    this.input.off('pointerdown', this._skipHandler);
+    this.input.keyboard.off('keydown-SPACE', this._skipHandler);
+
     const bg = this.add2(this.add.graphics());
     bg.fillStyle(0x0a0a18); bg.fillRect(0, 0, W, H);
 
-    // Stars
-    for (let i = 0; i < 60; i++) {
+    // Many stars
+    for (let i = 0; i < 80; i++) {
       const s = this.add2(this.add.circle(
         Phaser.Math.Between(0, W), Phaser.Math.Between(0, H * 0.7),
         Phaser.Math.Between(1, 2), 0xffffff, Phaser.Math.FloatBetween(0.3, 0.8)
       ));
-      this.tweens.add({ targets: s, alpha: 0.1, duration: Phaser.Math.Between(1000, 3000), yoyo: true, repeat: -1 });
+      this.tweens.add({ targets: s, alpha: 0.1, duration: Phaser.Math.Between(600, 2000), yoyo: true, repeat: -1 });
     }
 
-    // Title
-    const title = this.add2(this.add.text(W/2, H*0.35, 'NEPHI: A RECORD\nOF MY PEOPLE', {
-      fontSize: '28px', fontFamily: 'Georgia, serif', color: '#d4a017', align: 'center',
-      stroke: '#8b6914', strokeThickness: 2
-    }).setOrigin(0.5));
-
-    // Glow behind title
+    // Golden glow behind title
     if (this.textures.exists('light_gold_256')) {
-      this.add2(this.add.image(W/2, H*0.35, 'light_gold_256').setScale(3).setAlpha(0.15).setBlendMode('ADD').setDepth(-1));
+      const glow = this.add2(this.add.image(W/2, H*0.35, 'light_gold_256').setScale(4).setAlpha(0).setBlendMode('ADD').setDepth(-1));
+      this.tweens.add({ targets: glow, alpha: 0.2, duration: 1500 });
     }
 
-    const sub = this.add2(this.add.text(W/2, H*0.52, 'The Book of Mormon RPG', {
-      fontSize: '14px', fontFamily: 'Georgia, serif', color: '#a08030'
-    }).setOrigin(0.5));
+    // Pokemon-style title banner
+    const banner = this.add2(this.add.rectangle(W/2, H*0.33, 550, 60, 0x1a3060, 0.85).setStrokeStyle(3, 0xf8d830));
+    banner.setScale(0, 1);
+    this.tweens.add({ targets: banner, scaleX: 1, duration: 500, ease: 'Back.easeOut' });
 
-    // Ember particles
+    const title = this.add2(this.add.text(W/2, H*0.33, 'THE BOOK OF MORMON', {
+      fontSize: '30px', fontFamily: 'monospace', color: '#ffffff', fontStyle: 'bold',
+      stroke: '#1a3060', strokeThickness: 5
+    }).setOrigin(0.5).setAlpha(0));
+    this.tweens.add({ targets: title, alpha: 1, duration: 400, delay: 400 });
+
+    const sub1 = this.add2(this.add.text(W/2, H*0.44, 'An Interactive Journey', {
+      fontSize: '16px', fontFamily: 'monospace', color: '#f8d830', fontStyle: 'bold',
+      stroke: '#1a3060', strokeThickness: 3
+    }).setOrigin(0.5).setAlpha(0));
+    this.tweens.add({ targets: sub1, alpha: 1, duration: 400, delay: 700 });
+
+    const sub2 = this.add2(this.add.text(W/2, H*0.51, 'Another Testament of Jesus Christ', {
+      fontSize: '12px', fontFamily: 'Georgia, serif', color: '#c0a060', fontStyle: 'italic'
+    }).setOrigin(0.5).setAlpha(0));
+    this.tweens.add({ targets: sub2, alpha: 1, duration: 400, delay: 1000 });
+
+    // Ember particles rising from bottom
     const pe = createEmitterCompat(this, W/2, H, 'particle_spark', {
-      speed: { min: 15, max: 40 }, angle: { min: 250, max: 290 }, alpha: { start: 0.6, end: 0 },
-      scale: { start: 0.3, end: 0 }, lifespan: 3000, quantity: 1, frequency: 300, blendMode: 'ADD',
+      speed: { min: 15, max: 50 }, angle: { min: 250, max: 290 }, alpha: { start: 0.7, end: 0 },
+      scale: { start: 0.35, end: 0 }, lifespan: 3000, quantity: 1, frequency: 200, blendMode: 'ADD',
+      tint: [0xffd700, 0xffe066, 0xffaa44],
       emitZone: { type: 'random', source: new Phaser.Geom.Rectangle(-W/2, 0, W, 10) }
     });
     this.items.push(pe.emitter);
 
-    // Press any key
-    const prompt = this.add2(this.add.text(W/2, H*0.78, 'Press Any Key to Begin', {
-      fontSize: '14px', fontFamily: 'monospace', color: '#d4a017'
-    }).setOrigin(0.5));
-    this.tweens.add({ targets: prompt, alpha: 0.3, duration: 1000, yoyo: true, repeat: -1 });
+    // Press any key (delayed slightly)
+    const prompt = this.add2(this.add.text(W/2, H*0.72, 'Press Any Key to Begin', {
+      fontSize: '16px', fontFamily: 'monospace', color: '#ffd700', fontStyle: 'bold'
+    }).setOrigin(0.5).setAlpha(0));
+    this.tweens.add({ targets: prompt, alpha: 1, duration: 600, delay: 1500 });
+    this.tweens.add({ targets: prompt, alpha: 0.3, duration: 800, yoyo: true, repeat: -1, delay: 2300 });
 
     this.input.once('pointerdown', () => this.scene.start('Title'));
     this.input.keyboard.once('keydown', () => this.scene.start('Title'));
@@ -2107,170 +2596,151 @@ class TitleScene extends Phaser.Scene {
   create() {
     this.cameras.main.fadeIn(1000, 0, 0, 0);
 
-    // Bright daytime sky gradient
+    // Pokemon-style bright blue sky
     const sky = this.add.graphics();
-    const skyColors = [0x4a90d9, 0x6aade0, 0x8ec5e8, 0xb0d8f0, 0xd4eaf8, 0xe8f4fc];
-    const bandH = Math.ceil(H / skyColors.length);
-    skyColors.forEach((c, i) => {
-      sky.fillStyle(c);
-      sky.fillRect(0, i * bandH, W, bandH + 1);
-    });
+    sky.fillStyle(0x68b8f8);
+    sky.fillRect(0, 0, W, 320);
+    sky.fillStyle(0x88d0ff);
+    sky.fillRect(0, 0, W, 160);
+    sky.fillStyle(0xa8e0ff);
+    sky.fillRect(0, 0, W, 80);
 
-    // Sun with glow in upper right
-    const sunX = W - 120, sunY = 80;
-    for (let r = 60; r > 0; r -= 8) {
-      this.add.circle(sunX, sunY, r, 0xfff8a0, 0.08);
-    }
-    this.add.circle(sunX, sunY, 28, 0xfff44f);
-    this.add.circle(sunX, sunY, 22, 0xffff99, 0.7);
+    // Sun (Pokemon style - simple bright circle)
+    this.add.circle(W - 100, 70, 30, 0xfff870);
+    this.add.circle(W - 100, 70, 24, 0xffff98, 0.7);
 
-    // Floating clouds
+    // Fluffy Pokemon clouds
     const drawCloud = (cx, cy, scale) => {
       const cg = this.add.graphics();
-      cg.fillStyle(0xffffff, 0.85);
       const s = scale;
-      cg.fillEllipse(cx, cy, 80 * s, 30 * s);
-      cg.fillEllipse(cx - 25 * s, cy - 8 * s, 50 * s, 25 * s);
-      cg.fillEllipse(cx + 20 * s, cy - 5 * s, 55 * s, 22 * s);
-      this.tweens.add({ targets: cg, x: 15, duration: Phaser.Math.Between(6000, 10000), yoyo: true, repeat: -1 });
+      cg.fillStyle(0xffffff, 0.9);
+      cg.fillEllipse(cx, cy, 60 * s, 24 * s);
+      cg.fillEllipse(cx - 18 * s, cy - 6 * s, 36 * s, 20 * s);
+      cg.fillEllipse(cx + 14 * s, cy - 4 * s, 40 * s, 18 * s);
+      cg.fillStyle(0xeef8ff, 0.5);
+      cg.fillEllipse(cx - 8 * s, cy - 4 * s, 30 * s, 12 * s);
+      this.tweens.add({ targets: cg, x: 20, duration: Phaser.Math.Between(6000, 10000), yoyo: true, repeat: -1 });
     };
-    drawCloud(150, 70, 1);
-    drawCloud(450, 50, 0.8);
-    drawCloud(650, 90, 0.6);
-    drawCloud(80, 120, 0.5);
+    drawCloud(120, 55, 1.2);
+    drawCloud(380, 40, 1);
+    drawCloud(600, 70, 0.8);
+    drawCloud(750, 45, 0.6);
 
-    // Distant blue-green mountains
-    const mtns = this.add.graphics();
-    mtns.fillStyle(0x5b8faa, 0.6);
-    mtns.beginPath();
-    mtns.moveTo(0, H); mtns.lineTo(0, 340); mtns.lineTo(80, 300); mtns.lineTo(160, 330);
-    mtns.lineTo(250, 280); mtns.lineTo(340, 320); mtns.lineTo(420, 270); mtns.lineTo(520, 310);
-    mtns.lineTo(600, 275); mtns.lineTo(700, 320); mtns.lineTo(800, 295); mtns.lineTo(800, H);
-    mtns.closePath(); mtns.fill();
-
-    mtns.fillStyle(0x6a9f7a, 0.5);
-    mtns.beginPath();
-    mtns.moveTo(0, H); mtns.lineTo(0, 370); mtns.lineTo(100, 340); mtns.lineTo(200, 360);
-    mtns.lineTo(300, 320); mtns.lineTo(400, 355); mtns.lineTo(500, 330); mtns.lineTo(600, 350);
-    mtns.lineTo(700, 335); mtns.lineTo(800, 360); mtns.lineTo(800, H);
-    mtns.closePath(); mtns.fill();
-
-    // 3 layers of rolling green hills using sine waves
+    // Distant green hills (Pokemon layered style)
     const hills = this.add.graphics();
-    const hillLayers = [
-      { baseY: 400, amp: 25, freq: 0.008, color: 0x5a9e4b },
-      { baseY: 430, amp: 20, freq: 0.012, color: 0x4a8e3b },
-      { baseY: 455, amp: 15, freq: 0.015, color: 0x3a7e2b },
-    ];
-    hillLayers.forEach(({ baseY, amp, freq, color }) => {
-      hills.fillStyle(color);
-      hills.beginPath();
-      hills.moveTo(0, H);
-      for (let x = 0; x <= W; x += 2) {
-        const y = baseY + Math.sin(x * freq) * amp + Math.sin(x * freq * 2.3 + 1) * amp * 0.4;
-        hills.lineTo(x, y);
-      }
-      hills.lineTo(W, H);
-      hills.closePath();
-      hills.fill();
-    });
+    // Far hills
+    hills.fillStyle(0x68b058, 0.7);
+    hills.beginPath(); hills.moveTo(0, H);
+    for (let x = 0; x <= W; x += 4) { hills.lineTo(x, 360 + Math.sin(x * 0.006) * 30 + Math.sin(x * 0.015) * 12); }
+    hills.lineTo(W, H); hills.closePath(); hills.fill();
+    // Mid hills
+    hills.fillStyle(0x58a840);
+    hills.beginPath(); hills.moveTo(0, H);
+    for (let x = 0; x <= W; x += 4) { hills.lineTo(x, 400 + Math.sin(x * 0.01 + 1) * 20 + Math.sin(x * 0.022) * 8); }
+    hills.lineTo(W, H); hills.closePath(); hills.fill();
 
-    // Green ground
-    this.add.rectangle(W/2, H - 35, W, 70, 0x2d6e1e);
-
-    // Grass tufts
+    // Pokemon tile-based grass ground
     const grassG = this.add.graphics();
-    grassG.fillStyle(0x3a8528);
-    for (let i = 0; i < 40; i++) {
-      const gx = Phaser.Math.Between(0, W);
-      const gy = Phaser.Math.Between(H - 65, H - 10);
-      grassG.fillRect(gx, gy, 2, 6);
-      grassG.fillRect(gx + 3, gy + 1, 2, 5);
-      grassG.fillRect(gx - 2, gy + 2, 2, 4);
-    }
+    drawPokemonGrass(grassG, 0, 420, W, H - 420);
 
-    // Simple trees on hills
+    // Dirt path running through middle
+    const pathG = this.add.graphics();
+    drawPokemonPath(pathG, 0, 460, W, 32);
+
+    // Small Pokemon town in background
+    const townG = this.add.graphics();
+    drawPokemonBuilding(townG, 280, 365, 50, 45, COLORS.pokRoofRed, COLORS.pokWallLight);
+    drawPokemonBuilding(townG, 360, 358, 45, 50, COLORS.pokRoofBlue, COLORS.pokWallCream);
+    drawPokemonBuilding(townG, 430, 368, 40, 42, 0xd08040, COLORS.pokWallLight);
+
+    // Fence in front of town
+    const fenceG = this.add.graphics();
+    drawPokemonFence(fenceG, 260, 412, 230, 'h');
+
+    // Pokemon-style round bushy trees on hills
     const treeG = this.add.graphics();
-    const treePositions = [60, 180, 350, 520, 680, 760];
+    const treePositions = [50, 160, 520, 680, 760];
     treePositions.forEach(tx => {
-      const ty = 440 + Math.sin(tx * 0.012) * 20;
-      treeG.fillStyle(0x5a3a1a);
-      treeG.fillRect(tx - 3, ty - 20, 6, 25);
-      treeG.fillStyle(0x2d7a1e);
-      treeG.fillTriangle(tx, ty - 45, tx - 18, ty - 15, tx + 18, ty - 15);
-      treeG.fillStyle(0x3a8e28);
-      treeG.fillTriangle(tx, ty - 55, tx - 14, ty - 25, tx + 14, ty - 25);
+      const ty = 430 + Math.sin(tx * 0.012) * 15;
+      drawPokemonTree(treeG, tx, ty - 20, 1.2);
+    });
+    // Background trees (smaller)
+    [100, 240, 490, 620, 720].forEach(tx => {
+      drawPokemonTree(treeG, tx, 380 + Math.sin(tx * 0.015) * 10, 0.7);
     });
 
-    // Character lineup walking on the hills
-    const chars = ['lehi', 'nephi', 'player', 'sam', 'sariah'];
+    // Character lineup walking on the path (Pokemon style)
+    const chars = ['lehi', 'nephi', 'sam', 'sariah'];
     chars.forEach((c, i) => {
       if (this.textures.exists(c)) {
-        const cx = 200 + i * 90;
-        const cy = 430 + Math.sin(cx * 0.012) * 20 - 30;
+        const cx = 100 + i * 70;
+        const cy = 468;
         const spr = this.add.image(cx, cy, c).setScale(2.5);
         spr.setAlpha(0);
         this.tweens.add({ targets: spr, alpha: 1, duration: 500, delay: 800 + i * 200 });
-        this.tweens.add({ targets: spr, y: cy - 3, duration: 1800 + i * 300, yoyo: true, repeat: -1 });
+        this.tweens.add({ targets: spr, y: cy - 2, duration: 600 + i * 100, yoyo: true, repeat: -1 });
       }
     });
 
-    // Title text with brown stroke for contrast on light bg
+    // Pokemon-style title text with shadow
+    // Title background banner
+    this.add.rectangle(W/2, 140, 500, 50, 0x2060a0, 0.85).setStrokeStyle(3, 0xf8d830);
     this.add.text(W/2, 140, 'THE BOOK OF MORMON', {
-      fontSize: '36px', fontFamily: 'monospace', color: '#ffd700', fontStyle: 'bold',
-      stroke: '#5a3a1a', strokeThickness: 4
+      fontSize: '32px', fontFamily: 'monospace', color: '#ffffff', fontStyle: 'bold',
+      stroke: '#1a3060', strokeThickness: 5
     }).setOrigin(0.5);
 
-    this.add.text(W/2, 185, 'An Interactive Journey', {
-      fontSize: '18px', fontFamily: 'monospace', color: '#8b6914', fontStyle: 'italic',
-      stroke: '#ffffff', strokeThickness: 2
+    this.add.text(W/2, 180, 'An Interactive Journey', {
+      fontSize: '16px', fontFamily: 'monospace', color: '#f8d830', fontStyle: 'bold',
+      stroke: '#2060a0', strokeThickness: 3
     }).setOrigin(0.5);
 
-    this.add.text(W/2, 215, 'Another Testament of Jesus Christ', {
-      fontSize: '13px', fontFamily: 'monospace', color: '#5a4a2a',
-      stroke: '#ffffff', strokeThickness: 1
+    this.add.text(W/2, 210, 'Another Testament of Jesus Christ', {
+      fontSize: '12px', fontFamily: 'monospace', color: '#ffffff',
+      stroke: '#406080', strokeThickness: 2
     }).setOrigin(0.5);
 
-    const line = this.add.rectangle(W/2, 245, 300, 2, COLORS.gold, 0.7);
+    const line = this.add.rectangle(W/2, 235, 280, 3, 0xf8d830, 0.9);
     this.tweens.add({ targets: line, scaleX: 0.5, duration: 2000, yoyo: true, repeat: -1 });
 
-    this.add.text(W/2, 275, 'WORLD 1: THE FAMILY OF LEHI', {
-      fontSize: '14px', fontFamily: 'monospace', color: '#3a6e1e',
-      stroke: '#ffffff', strokeThickness: 1
+    this.add.text(W/2, 258, 'WORLD 1: THE FAMILY OF LEHI', {
+      fontSize: '14px', fontFamily: 'monospace', color: '#ffffff', fontStyle: 'bold',
+      stroke: '#2d7a1e', strokeThickness: 3
     }).setOrigin(0.5);
-    this.add.text(W/2, 295, '1 Nephi \u2014 600 BC', {
-      fontSize: '11px', fontFamily: 'monospace', color: '#5a5a5a',
-      stroke: '#ffffff', strokeThickness: 1
+    this.add.text(W/2, 280, '1 Nephi \u2014 600 BC', {
+      fontSize: '11px', fontFamily: 'monospace', color: '#e0e0e0',
+      stroke: '#406080', strokeThickness: 2
     }).setOrigin(0.5);
 
     const hasSave = hasSaveGame();
 
     if (hasSave) {
       const last = GameState.journal[GameState.journal.length - 1]?.entry || 'The journey continues...';
-      this.add.text(W/2, 330, 'Previously in 1 Nephi...', {
-        fontSize: '14px', fontFamily: 'Palatino Linotype, Book Antiqua, Palatino, serif', color: '#6b4e1a', fontStyle: 'italic',
-        stroke: '#ffffff', strokeThickness: 1
+      this.add.rectangle(W/2, 350, 500, 70, 0x2060a0, 0.7).setStrokeStyle(2, 0xf8d830, 0.6);
+      this.add.text(W/2, 325, 'Previously in 1 Nephi...', {
+        fontSize: '13px', fontFamily: 'monospace', color: '#f8d830', fontStyle: 'bold',
+        stroke: '#1a3060', strokeThickness: 2
       }).setOrigin(0.5);
-      this.add.text(W/2, 355, last, {
-        fontSize: '12px', fontFamily: 'Georgia, serif', color: '#4a4a4a', wordWrap: { width: 620 }, align: 'center', lineSpacing: 4,
-        stroke: '#ffffff', strokeThickness: 1
+      this.add.text(W/2, 350, last, {
+        fontSize: '11px', fontFamily: 'monospace', color: '#ffffff', wordWrap: { width: 460 }, align: 'center', lineSpacing: 4,
+        stroke: '#2060a0', strokeThickness: 2
       }).setOrigin(0.5);
-      this.add.text(W/2, 395, `Scriptures found: ${GameState.scriptures.length}`, {
-        fontSize: '11px', fontFamily: 'monospace', color: '#5a5a5a',
-        stroke: '#ffffff', strokeThickness: 1
+      this.add.text(W/2, 380, `Scriptures found: ${GameState.scriptures.length}`, {
+        fontSize: '10px', fontFamily: 'monospace', color: '#a0d0ff',
+        stroke: '#1a3060', strokeThickness: 2
       }).setOrigin(0.5);
     }
 
-    // Green-colored buttons
+    // Pokemon-style buttons (rounded look with bold outline)
     const mkButton = (y, label) => {
-      const btn = this.add.rectangle(W/2, y, 360, 44, 0x2d7a1e, 0.85)
-        .setStrokeStyle(2, 0x1a5c10, 0.8).setInteractive({ useHandCursor: true });
+      const btn = this.add.rectangle(W/2, y, 320, 42, 0x3088e8, 0.95)
+        .setStrokeStyle(3, 0xf8d830, 1).setInteractive({ useHandCursor: true });
       const txt = this.add.text(W/2, y, label, {
         fontSize: '18px', fontFamily: 'monospace', color: '#ffffff', fontStyle: 'bold',
-        stroke: '#1a4a0e', strokeThickness: 2
+        stroke: '#1a3060', strokeThickness: 3
       }).setOrigin(0.5);
-      btn.on('pointerover', () => btn.setFillStyle(0x3a9e2b, 0.95));
-      btn.on('pointerout', () => btn.setFillStyle(0x2d7a1e, 0.85));
+      btn.on('pointerover', () => { btn.setFillStyle(0x48a0ff, 1); btn.setStrokeStyle(3, 0xffff60, 1); });
+      btn.on('pointerout', () => { btn.setFillStyle(0x3088e8, 0.95); btn.setStrokeStyle(3, 0xf8d830, 1); });
       return { btn, txt };
     };
 
@@ -2339,7 +2809,7 @@ class CharacterCreateScene extends Phaser.Scene {
     const rowH = 52;
     const startY = 80;
 
-    this.add.text(W/2, 30, 'CREATE YOUR TRAVELER', {
+    this.add.text(W/2, 30, 'CUSTOMIZE NEPHI', {
       fontSize: '24px', fontFamily: 'monospace', color: '#5a3a1a', fontStyle: 'bold'
     }).setOrigin(0.5);
 
@@ -2357,10 +2827,10 @@ class CharacterCreateScene extends Phaser.Scene {
         headwearColor: 0x8B7355,
         expression: 'brave',
       };
-      if (this.textures.exists('player_preview')) this.textures.remove('player_preview');
-      generateCharacterTexture(this, 'player_preview', app);
+      if (this.textures.exists('nephi_preview')) this.textures.remove('nephi_preview');
+      generateCharacterTexture(this, 'nephi_preview', app);
       if (this.previewSprite) this.previewSprite.destroy();
-      this.previewSprite = this.add.image(W - 140, 250, 'player_preview').setScale(6);
+      this.previewSprite = this.add.image(W - 140, 250, 'nephi_preview').setScale(6);
 
       // Update display elements
       keys.forEach(k => {
@@ -2447,10 +2917,10 @@ class CharacterCreateScene extends Phaser.Scene {
       };
 
       // Regenerate player textures with chosen appearance
-      if (this.textures.exists('player')) this.textures.remove('player');
-      if (this.textures.exists('player_battle')) this.textures.remove('player_battle');
-      generateCharacterTexture(this, 'player', GameState.playerAppearance);
-      generateCharacterTexture(this, 'player_battle', GameState.playerAppearance);
+      if (this.textures.exists('nephi')) this.textures.remove('nephi');
+      if (this.textures.exists('nephi_battle')) this.textures.remove('nephi_battle');
+      generateCharacterTexture(this, 'nephi', GameState.playerAppearance);
+      generateCharacterTexture(this, 'nephi_battle', GameState.playerAppearance);
 
       saveGame({ scene: 'WorldMap' });
       AudioEngine.sfx.click();
@@ -2470,9 +2940,24 @@ class WorldMapScene extends Phaser.Scene {
   create() {
     AudioEngine.setTheme('jerusalem');
     this.cameras.main.fadeIn(500);
-    this.add.rectangle(W/2, H/2, W, H, COLORS.deepBlue);
-    this.add.rectangle(W/2, H/2, W - 60, H - 60, COLORS.sand, 0.2)
-      .setStrokeStyle(2, COLORS.gold);
+    // Pokemon-style world map background
+    const mapBg = this.add.graphics();
+    mapBg.fillStyle(0x68b8f8);
+    mapBg.fillRect(0, 0, W, H);
+    // Pokemon water for ocean areas
+    drawPokemonWater(mapBg, 0, 0, W, H);
+    // Land masses
+    drawPokemonGrass(mapBg, 400, 60, 350, 200);
+    drawPokemonPath(mapBg, 200, 140, 250, 200);
+    drawPokemonGrass(mapBg, 50, 250, 200, 150);
+    drawPokemonGrass(mapBg, 380, 380, 280, 180);
+    // Map border
+    mapBg.fillStyle(0x2060a0);
+    mapBg.fillRect(0, 0, W, 6); mapBg.fillRect(0, H - 6, W, 6);
+    mapBg.fillRect(0, 0, 6, H); mapBg.fillRect(W - 6, 0, 6, H);
+    mapBg.fillStyle(0xf8d830);
+    mapBg.fillRect(6, 6, W - 12, 3); mapBg.fillRect(6, H - 9, W - 12, 3);
+    mapBg.fillRect(6, 6, 3, H - 12); mapBg.fillRect(W - 9, 6, 3, H - 12);
 
     this._lighting = FX.createLightingRig(this, { mode: 'day' });
     // Soft god rays drifting over the parchment map frame.
@@ -2482,8 +2967,11 @@ class WorldMapScene extends Phaser.Scene {
 
     this._pause = attachPauseMenu(this);
 
-    this.add.text(W/2, 40, 'BOOK OF MORMON LANDS', {
-      fontSize: '20px', fontFamily: 'monospace', color: '#ffd700', fontStyle: 'bold'
+    // Pokemon-style map title
+    this.add.rectangle(W/2, 30, 400, 36, 0x2060a0, 0.9).setStrokeStyle(2, 0xf8d830);
+    this.add.text(W/2, 30, 'BOOK OF MORMON LANDS', {
+      fontSize: '18px', fontFamily: 'monospace', color: '#ffffff', fontStyle: 'bold',
+      stroke: '#1a3060', strokeThickness: 3
     }).setOrigin(0.5);
 
     // Determine which scenes are accessible based on progress
@@ -2559,8 +3047,8 @@ class WorldMapScene extends Phaser.Scene {
     });
 
     // Player character on current world
-    if (this.textures.exists('player')) {
-      const p = this.add.image(playerWorld.x + 20, playerWorld.y, 'player').setScale(1.5);
+    if (this.textures.exists('nephi')) {
+      const p = this.add.image(playerWorld.x + 20, playerWorld.y, 'nephi').setScale(1.5);
       this.tweens.add({ targets: p, y: playerWorld.y - 3, duration: 800, yoyo: true, repeat: -1 });
     }
 
@@ -2589,7 +3077,7 @@ class JerusalemScene extends Phaser.Scene {
   create() {
     AudioEngine.setTheme('jerusalem');
     this.cameras.main.fadeIn(800);
-    GameState.companion = { name: 'Nephi', title: 'Son of Lehi', color: COLORS.faithBlue };
+    GameState.companion = { name: 'Sam', title: 'Brother of Nephi', color: COLORS.brown };
 
     const worldW = 1600, worldH = 900;
     this.physics.world.setBounds(0, 0, worldW, worldH);
@@ -2602,59 +3090,91 @@ class JerusalemScene extends Phaser.Scene {
     const rays = this._lighting.addLight(520, 140, 'light_white_256', 5.0, 0.04, 0.0);
     this.tweens.add({ targets: rays.spr, x: 620, alpha: 0.08, duration: 9000, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
 
-    // Sky
-    this.add.rectangle(worldW/2, 0, worldW, 300, COLORS.nightBlue).setOrigin(0.5, 0);
-    this.add.rectangle(worldW/2, 200, worldW, 200, 0x2c3e50).setOrigin(0.5, 0);
+    // Pokemon-style night sky (deep blue with stars)
+    const skyG = this.add.graphics();
+    skyG.fillStyle(0x182848);
+    skyG.fillRect(0, 0, worldW, 320);
+    skyG.fillStyle(0x203860, 0.6);
+    skyG.fillRect(0, 200, worldW, 120);
 
-    // Stars in sky
-    for (let i = 0; i < 50; i++) {
-      this.add.circle(Phaser.Math.Between(0, worldW), Phaser.Math.Between(0, 250),
-        1, 0xffffff, Phaser.Math.FloatBetween(0.3, 0.8));
+    // Stars in sky (twinkling)
+    for (let i = 0; i < 60; i++) {
+      const star = this.add.circle(Phaser.Math.Between(0, worldW), Phaser.Math.Between(0, 260),
+        Phaser.Math.Between(1, 2), 0xffffff, Phaser.Math.FloatBetween(0.3, 0.9));
+      if (i % 3 === 0) this.tweens.add({ targets: star, alpha: 0.2, duration: Phaser.Math.Between(800, 2000), yoyo: true, repeat: -1 });
     }
+    // Moon
+    this.add.circle(200, 80, 20, 0xf0f0d0, 0.8);
+    this.add.circle(206, 76, 16, 0xf8f8e8, 0.5);
 
-    // Distant birds (tiny silhouettes).
-    for (let i = 0; i < 6; i++) {
-      const b = this.add.triangle(Phaser.Math.Between(0, worldW), Phaser.Math.Between(50, 170), 0, 0, 10, 4, 0, 8, 0x000000, 0.25);
-      b.setBlendMode(Phaser.BlendModes.MULTIPLY);
-      this.tweens.add({ targets: b, x: b.x + Phaser.Math.Between(400, 900), y: b.y + Phaser.Math.Between(-30, 30), duration: Phaser.Math.Between(14000, 22000), repeat: -1, delay: i * 900 });
-    }
+    // Pokemon-style sand tile ground
+    const groundG = this.add.graphics();
+    drawPokemonPath(groundG, 0, 320, worldW, worldH - 320);
 
-    // Ground
-    this.add.rectangle(worldW/2, worldH/2 + 100, worldW, worldH - 200, COLORS.sand).setOrigin(0.5, 0);
-
-    // Buildings
+    // Pokemon-style buildings (ancient Jerusalem with flat/colored roofs)
+    const bldgG = this.add.graphics();
     const buildings = [
-      { x: 100, y: 400, w: 120, h: 160, color: COLORS.lightBrown },
-      { x: 250, y: 350, w: 80, h: 210, color: COLORS.darkSand },
-      { x: 370, y: 380, w: 140, h: 180, color: COLORS.lightBrown },
-      { x: 550, y: 340, w: 100, h: 220, color: COLORS.darkSand },
-      { x: 700, y: 370, w: 130, h: 190, color: COLORS.lightBrown },
-      { x: 900, y: 360, w: 90, h: 200, color: COLORS.darkSand },
-      { x: 1050, y: 390, w: 110, h: 170, color: COLORS.lightBrown },
-      { x: 1200, y: 350, w: 100, h: 210, color: COLORS.darkSand },
-      { x: 1380, y: 370, w: 120, h: 190, color: COLORS.lightBrown },
+      { x: 100, y: 380, w: 100, h: 100, roof: 0xc8a060, wall: COLORS.pokSand },
+      { x: 230, y: 360, w: 80, h: 120, roof: 0xb89050, wall: COLORS.pokWallCream },
+      { x: 340, y: 370, w: 110, h: 110, roof: 0xd0a868, wall: COLORS.pokSand },
+      { x: 520, y: 350, w: 90, h: 130, roof: 0xc89848, wall: COLORS.pokWallCream },
+      { x: 900, y: 360, w: 80, h: 120, roof: 0xb89050, wall: COLORS.pokSand },
+      { x: 1020, y: 375, w: 95, h: 105, roof: 0xd0a868, wall: COLORS.pokWallCream },
+      { x: 1150, y: 355, w: 85, h: 125, roof: 0xc89848, wall: COLORS.pokSand },
+      { x: 1380, y: 370, w: 100, h: 110, roof: 0xb89050, wall: COLORS.pokWallCream },
     ];
-
     buildings.forEach(b => {
-      this.add.rectangle(b.x, b.y, b.w, b.h, b.color).setOrigin(0, 0);
-      // Flat roof top
-      this.add.rectangle(b.x - 3, b.y, b.w + 6, 6, darken(b.color, 20)).setOrigin(0, 0);
-      for (let wy = b.y + 20; wy < b.y + b.h - 20; wy += 35) {
-        for (let wx = b.x + 15; wx < b.x + b.w - 15; wx += 25) {
-          this.add.rectangle(wx, wy, 10, 14, 0xffdd88, 0.6);
-        }
-      }
-      // Doorway
-      this.add.rectangle(b.x + b.w/2, b.y + b.h - 20, 16, 24, darken(b.color, 40)).setOrigin(0.5, 0);
+      drawPokemonBuilding(bldgG, b.x, b.y, b.w, b.h, b.roof, b.wall);
     });
 
-    // Temple of Solomon
-    this.add.rectangle(750, 280, 200, 280, 0xcdb891).setOrigin(0.5, 0);
-    this.add.rectangle(750, 260, 220, 30, COLORS.gold).setOrigin(0.5, 0);
-    // Temple pillars
-    this.add.rectangle(660, 290, 10, 260, 0xb8a07a).setOrigin(0.5, 0);
-    this.add.rectangle(840, 290, 10, 260, 0xb8a07a).setOrigin(0.5, 0);
-    this.add.text(750, 270, 'Temple of Solomon', { fontSize: '10px', fontFamily: 'monospace', color: '#333' }).setOrigin(0.5);
+    // Temple of Solomon (large, impressive Pokemon building with gold roof)
+    const templeG = this.add.graphics();
+    // Temple base
+    templeG.fillStyle(COLORS.pokWallLight);
+    templeG.fillRect(660, 320, 180, 240);
+    // Temple walls
+    templeG.fillStyle(darken(COLORS.pokWallLight, 20));
+    templeG.fillRect(660, 320, 180, 3);
+    templeG.fillRect(660, 320, 3, 240);
+    templeG.fillRect(837, 320, 3, 240);
+    // Gold flat roof with ornamental top
+    templeG.fillStyle(COLORS.gold);
+    templeG.fillRect(650, 310, 200, 14);
+    templeG.fillStyle(lighten(COLORS.gold, 20));
+    templeG.fillRect(655, 305, 190, 8);
+    // Triangular pediment
+    templeG.fillStyle(COLORS.gold);
+    templeG.beginPath();
+    templeG.moveTo(660, 310);
+    templeG.lineTo(750, 275);
+    templeG.lineTo(840, 310);
+    templeG.closePath(); templeG.fill();
+    templeG.fillStyle(lighten(COLORS.gold, 30));
+    templeG.beginPath();
+    templeG.moveTo(680, 310);
+    templeG.lineTo(750, 283);
+    templeG.lineTo(820, 310);
+    templeG.closePath(); templeG.fill();
+    // Pillars
+    for (let px = 675; px <= 825; px += 30) {
+      templeG.fillStyle(0xe0d0b0);
+      templeG.fillRect(px - 4, 324, 8, 230);
+      templeG.fillStyle(0xf0e0c8, 0.4);
+      templeG.fillRect(px - 2, 324, 4, 230);
+    }
+    // Temple windows (golden glow)
+    for (let wy = 370; wy < 520; wy += 50) {
+      templeG.fillStyle(0xffdd88, 0.7);
+      templeG.fillRect(690, wy, 14, 18);
+      templeG.fillRect(730, wy, 14, 18);
+      templeG.fillRect(770, wy, 14, 18);
+    }
+    // Temple door
+    templeG.fillStyle(0x8B6914);
+    templeG.fillRect(735, 520, 30, 40);
+    templeG.fillStyle(COLORS.gold);
+    templeG.fillCircle(760, 540, 2);
+    this.add.text(750, 290, 'Temple of Solomon', { fontSize: '10px', fontFamily: 'monospace', color: '#ffd700', stroke: '#000000', strokeThickness: 2 }).setOrigin(0.5);
 
     // Temple lamps (warm light pools + flicker).
     [
@@ -2677,11 +3197,15 @@ class JerusalemScene extends Phaser.Scene {
       }, 5);
     });
 
-    // Laban's house
-    this.add.rectangle(1300, 420, 100, 140, 0x8B0000).setOrigin(0.5, 0);
-    this.add.rectangle(1300, 410, 110, 15, COLORS.darkRed).setOrigin(0.5, 0);
-    this.add.text(1300, 500, 'Laban\'s\nTreasury', {
-      fontSize: '10px', fontFamily: 'monospace', color: '#ffaaaa', align: 'center'
+    // Laban's house (Pokemon style - dark red roof building)
+    const labanG = this.add.graphics();
+    drawPokemonBuilding(labanG, 1255, 400, 90, 120, 0x8B0000, 0xd0c0a0);
+    // Extra detail - gold trim
+    labanG.fillStyle(COLORS.gold, 0.5);
+    labanG.fillRect(1255, 430, 90, 3);
+    this.add.text(1300, 490, 'Laban\'s\nTreasury', {
+      fontSize: '10px', fontFamily: 'monospace', color: '#ffaaaa', align: 'center',
+      stroke: '#000000', strokeThickness: 2
     }).setOrigin(0.5);
     // Guard at Laban's door
     if (this.textures.exists('guard')) {
@@ -2696,34 +3220,21 @@ class JerusalemScene extends Phaser.Scene {
     this.tweens.add({ targets: labanFlame, scale: 1.4, alpha: 0.55, duration: 200, yoyo: true, repeat: -1 });
     this._lighting.addLight(1300, 528, 'light_warm_256', 0.9, 0.55, 0.35);
 
-    // Ground path
-    this.add.rectangle(worldW/2, 620, worldW, 40, COLORS.darkSand, 0.5);
+    // Pokemon-style ground path
+    const pathG = this.add.graphics();
+    drawPokemonPath(pathG, 0, 600, worldW, 48);
 
-    // Palm trees (better drawn)
+    // Market stalls along the path
+    const stallG = this.add.graphics();
+    drawPokemonStall(stallG, 200, 590, 0xcc4444);
+    drawPokemonStall(stallG, 1000, 590, 0x4488aa);
+    drawPokemonStall(stallG, 1450, 590, 0xcc8844);
+
+    // Pokemon-style palm trees
+    const palmG = this.add.graphics();
     [150, 480, 850, 1100, 1450].forEach(tx => {
-      // Trunk (curved)
-      const trunk = this.add.graphics();
-      trunk.fillStyle(0x8B6914);
-      trunk.fillRect(tx - 3, 530, 6, 60);
-      trunk.fillRect(tx - 2, 525, 4, 10);
-      // Palm fronds
-      const fronds = this.add.graphics();
-      fronds.fillStyle(COLORS.olive);
-      for (let f = 0; f < 6; f++) {
-        const angle = (f / 6) * Math.PI * 2;
-        const fx = tx + Math.cos(angle) * 22;
-        const fy = 520 + Math.sin(angle) * 10;
-        fronds.fillEllipse(fx, fy, 18, 6);
-      }
+      drawPokemonPalm(palmG, tx, 530, 1.2);
     });
-
-    // === NPC: Nephi (with proper sprite) ===
-    if (this.textures.exists('nephi')) {
-      this.nephiSprite = this.add.image(350, 610, 'nephi').setScale(2).setDepth(10);
-      const nephiGlow = this.add.circle(350, 612, 22, COLORS.faithBlue, 0.08);
-      this.tweens.add({ targets: nephiGlow, scale: 1.8, alpha: 0, duration: 2000, repeat: -1 });
-    }
-    this.add.text(350, 580, 'Nephi', { fontSize: '10px', fontFamily: 'monospace', color: '#ffd700' }).setOrigin(0.5).setDepth(11);
 
     // === NPC: Lehi ===
     if (this.textures.exists('lehi')) {
@@ -2777,11 +3288,11 @@ class JerusalemScene extends Phaser.Scene {
     this.oldWomanZone = this.add.zone(150, 610, 50, 50);
     this.physics.add.existing(this.oldWomanZone, true);
 
-    // === PLAYER (with sprite) ===
-    if (this.textures.exists('player')) {
-      this.player = this.add.image(200, 612, 'player').setScale(2).setDepth(15);
+    // === PLAYER (Nephi) ===
+    if (this.textures.exists('nephi')) {
+      this.player = this.add.image(200, 612, 'nephi').setScale(2).setDepth(15);
     } else {
-      this.player = this.add.rectangle(200, 620, 20, 28, COLORS.green).setOrigin(0.5, 1);
+      this.player = this.add.rectangle(200, 620, 20, 28, COLORS.faithBlue).setOrigin(0.5, 1);
     }
     this.physics.add.existing(this.player);
     this.player.body.setCollideWorldBounds(true);
@@ -2810,14 +3321,11 @@ class JerusalemScene extends Phaser.Scene {
     this.physics.add.existing(this.battleZone, true);
     this.battleTriggered = false;
 
-    this.nephiZone = this.add.zone(350, 610, 60, 60);
-    this.physics.add.existing(this.nephiZone, true);
     this.lehiZone = this.add.zone(500, 610, 60, 60);
     this.physics.add.existing(this.lehiZone, true);
     this.labanZone = this.add.zone(1300, 530, 100, 60);
     this.physics.add.existing(this.labanZone, true);
 
-    this.physics.add.overlap(this.player, this.nephiZone, () => this.nearNephi = true);
     this.physics.add.overlap(this.player, this.lehiZone, () => this.nearLehi = true);
     this.physics.add.overlap(this.player, this.labanZone, () => this.nearLaban = true);
     this.physics.add.overlap(this.player, this.ironRodZone, () => this.nearIronRod = true);
@@ -2856,7 +3364,7 @@ class JerusalemScene extends Phaser.Scene {
             showDialogue(this, 'Nephi',
               'I do not know what waits for us in Laban\u2019s house. But I know the Lord can prepare a way to accomplish what He has commanded. Will you come with me?',
               () => {
-                showDialogue(this, 'Traveler', 'How do you answer?', null, {
+                showDialogue(this, 'Nephi', 'How do you answer?', null, {
                   choices: [
                     {
                       id: 'follow_nephi_faith',
@@ -2914,7 +3422,6 @@ class JerusalemScene extends Phaser.Scene {
       return;
     }
 
-    this.nearNephi = false;
     this.nearLehi = false;
     this.nearLaban = false;
     this.nearIronRod = false;
@@ -2957,9 +3464,7 @@ class JerusalemScene extends Phaser.Scene {
     }
 
     this.interactPrompt.setVisible(false);
-    if (this.nearNephi) {
-      this.interactPrompt.setPosition(350, 565).setVisible(true);
-    } else if (this.nearLehi) {
+    if (this.nearLehi) {
       this.interactPrompt.setPosition(500, 565).setVisible(true);
     } else if (this.nearLaban) {
       this.interactPrompt.setPosition(1300, 410).setVisible(true);
@@ -2979,64 +3484,15 @@ class JerusalemScene extends Phaser.Scene {
     if (Phaser.Input.Keyboard.JustDown(this.spaceKey) && this.interactCooldown <= 0) {
       this.interactCooldown = 500;
 
-      if (this.nearNephi) {
-        if (!GameState.brassPlatesObtained) {
-          showDialogue(this, 'Nephi', 'We must go east to Laban\'s treasury and retrieve the brass plates. They contain the record of our fathers and the commandments of God. We cannot go into the wilderness without them.');
-        } else if (!GameState.ironRodComplete) {
-          showDialogue(this, 'Nephi', 'My father Lehi has had a vision \u2014 a dream of a tree whose fruit was most precious. Go to the west and experience the vision. Hold to the iron rod!');
-        } else if (!GameState.questFlags.packingDone) {
-          showDialogue(this, 'Nephi', 'Father says we must decide what to bring before we leave. Speak with Lehi about packing.');
-        } else {
-          // === Departure scene (after packing) ===
-          showDialogue(this, 'Nephi', 'We have the plates, Father has shared his vision, and we are packed. It is time. Are you ready to leave Jerusalem forever?', () => {
-            showDialogue(this, 'Traveler', '', null, {
-              choices: [
-                { id: 'leave_jerusalem', text: 'Let us go. The Lord will guide us.', faithVsDoubt: 1, onSelect: () => {
-                  GameState.faith = Math.min(GameState.faith + 5, GameState.maxFaith);
-                  gainFP(10);
-                  addJournal('Left Jerusalem with the family of Lehi');
-                  // === Departure Cutscene ===
-                  const cx = this.cameras.main.scrollX + 400;
-                  const cy = this.cameras.main.scrollY + 300;
-                  const overlay = this.add.rectangle(cx, cy, 900, 700, 0x000000, 0).setDepth(200);
-                  this.tweens.add({ targets: overlay, alpha: 0.92, duration: 1200, onComplete: () => {
-                    const silY = cy + 80;
-                    const silX = cx - 200;
-                    for (let i = 0; i < 5; i++) {
-                      const fig = this.add.ellipse(silX + i * 60, silY, 14, 28, 0x111122, 0.9).setDepth(201);
-                      const head = this.add.circle(silX + i * 60, silY - 18, 5, 0x111122, 0.9).setDepth(201);
-                      this.tweens.add({ targets: [fig, head], x: '+=' + 300, duration: 4000, ease: 'Sine.easeInOut' });
-                    }
-                    const depText = this.add.text(cx, cy + 200,
-                      '"And he left his house, and the land of his inheritance,\nand his gold, and his silver, and his precious things,\nand took nothing with him, save it were his family..."\n\n\u2014 1 Nephi 2:4', {
-                      fontSize: '14px', fontFamily: 'Georgia, serif', color: '#ccccaa',
-                      align: 'center', lineSpacing: 6, wordWrap: { width: 500 }
-                    }).setOrigin(0.5).setDepth(202).setAlpha(0);
-                    this.tweens.add({ targets: depText, alpha: 1, duration: 2000, delay: 800 });
-                    this.time.delayedCall(6000, () => {
-                      this.cameras.main.fadeOut(1500);
-                      this.time.delayedCall(1500, () => {
-                        saveGame({ scene: 'ChapterTransition' });
-                        this.scene.start('ChapterTransition', {
-                          chapter: 'II', title: 'Into the Wilderness', quote: '"And my father dwelt in a tent."  \u2014 1 Nephi 2:15',
-                          nextScene: 'WildernessCamp'
-                        });
-                      });
-                    });
-                  }});
-                }},
-                { id: 'not_ready', text: 'Not yet \u2014 let me look around more.', faithVsDoubt: 0, onSelect: () => {} }
-              ]
-            });
-          });
-        }
-      }
-
       if (this.nearLehi) {
-        if (GameState.brassPlatesObtained && GameState.ironRodComplete && !GameState.questFlags.packingDone) {
+        if (!GameState.brassPlatesObtained) {
+          showDialogue(this, 'Lehi', 'Nephi, you and your brothers must go east to Laban\'s treasury and retrieve the brass plates. They contain the record of our fathers and the commandments of God. We cannot go into the wilderness without them.');
+        } else if (!GameState.ironRodComplete) {
+          showDialogue(this, 'Lehi', 'I have had a vision, Nephi \u2014 a dream of a tree whose fruit was most precious. Go to the west and experience the vision. Hold to the iron rod!');
+        } else if (!GameState.questFlags.packingDone) {
           // === Packing Decision ===
           showDialogue(this, 'Lehi', 'The time has come, my child. We take only what we can carry into the wilderness. What would you have us bring?', () => {
-            showDialogue(this, 'Traveler', '', null, {
+            showDialogue(this, 'Nephi', '', null, {
               choices: [
                 { id: 'pack_food', text: 'Extra food \u2014 we will need strength.', faithVsDoubt: 0, onSelect: () => {
                   GameState.questFlags.packingDone = true;
@@ -3078,7 +3534,7 @@ class JerusalemScene extends Phaser.Scene {
             GameState.questFlags.lehiFullTalk = true;
             showDialogue(this, 'Lehi', 'I have seen a vision. The Lord has shown me that Jerusalem will be destroyed. Fire will consume this city, and all who remain will perish. We must flee into the wilderness.', () => {
               showDialogue(this, 'Sariah', '', () => {
-                showDialogue(this, 'Traveler', 'How do you respond to Lehi\'s vision?', null, {
+                showDialogue(this, 'Nephi', 'How do you respond to Lehi\'s vision?', null, {
                   choices: [
                     { id: 'lehi_vision_faith', text: 'I will go, father. The Lord has spoken.', faithVsDoubt: 1, onSelect: () => {
                       GameState.faith = Math.min(GameState.faith + 15, GameState.maxFaith);
@@ -3103,27 +3559,73 @@ class JerusalemScene extends Phaser.Scene {
               }, { thought: 'Sariah\'s eyes fill with tears. She looks around at the home she has known all her life, but says nothing.' });
             });
           });
+        } else if (GameState.brassPlatesObtained && GameState.ironRodComplete && GameState.questFlags.packingDone) {
+          // === Departure scene (after packing) ===
+          showDialogue(this, 'Lehi', 'We have the plates, I have shared my vision, and we are packed. It is time, Nephi. Are you ready to leave Jerusalem forever?', () => {
+            showDialogue(this, 'Nephi', '', null, {
+              choices: [
+                { id: 'leave_jerusalem', text: 'Let us go. The Lord will guide us.', faithVsDoubt: 1, onSelect: () => {
+                  GameState.faith = Math.min(GameState.faith + 5, GameState.maxFaith);
+                  gainFP(10);
+                  addJournal('Left Jerusalem with the family of Lehi');
+                  const cx = this.cameras.main.scrollX + 400;
+                  const cy = this.cameras.main.scrollY + 300;
+                  const overlay = this.add.rectangle(cx, cy, 900, 700, 0x000000, 0).setDepth(200);
+                  this.tweens.add({ targets: overlay, alpha: 0.92, duration: 1200, onComplete: () => {
+                    const silY = cy + 80;
+                    const silX = cx - 200;
+                    for (let i = 0; i < 5; i++) {
+                      const fig = this.add.ellipse(silX + i * 60, silY, 14, 28, 0x111122, 0.9).setDepth(201);
+                      const head = this.add.circle(silX + i * 60, silY - 18, 5, 0x111122, 0.9).setDepth(201);
+                      this.tweens.add({ targets: [fig, head], x: '+=' + 300, duration: 4000, ease: 'Sine.easeInOut' });
+                    }
+                    const depText = this.add.text(cx, cy + 200,
+                      '"And he left his house, and the land of his inheritance,\nand his gold, and his silver, and his precious things,\nand took nothing with him, save it were his family..."\n\n\u2014 1 Nephi 2:4', {
+                      fontSize: '14px', fontFamily: 'Georgia, serif', color: '#ccccaa',
+                      align: 'center', lineSpacing: 6, wordWrap: { width: 500 }
+                    }).setOrigin(0.5).setDepth(202).setAlpha(0);
+                    this.tweens.add({ targets: depText, alpha: 1, duration: 2000, delay: 800 });
+                    this.time.delayedCall(6000, () => {
+                      this.cameras.main.fadeOut(1500);
+                      this.time.delayedCall(1500, () => {
+                        saveGame({ scene: 'ChapterTransition' });
+                        this.scene.start('ChapterTransition', {
+                          chapter: 'II', title: 'Into the Wilderness', quote: '"And my father dwelt in a tent."  \u2014 1 Nephi 2:15',
+                          nextScene: 'WildernessCamp'
+                        });
+                      });
+                    });
+                  }});
+                }},
+                { id: 'not_ready', text: 'Not yet \u2014 let me look around more.', faithVsDoubt: 0, onSelect: () => {} }
+              ]
+            });
+          });
         } else {
-          showDialogue(this, 'Lehi', 'Go with Nephi, my child. The brass plates must be retrieved before we can depart.');
+          showDialogue(this, 'Lehi', 'The brass plates must be retrieved before we can depart. Go east to Laban\'s treasury.');
         }
       }
 
-      if (this.nearLaban && !GameState.brassPlatesObtained) {
+      if (this.nearLaban && !GameState.brassPlatesObtained && !this._dialogueOpen) {
         saveGame({ scene: 'BrassPlates' });
         this.scene.pause();
         this.scene.launch('BrassPlates');
       }
 
-      if (this.nearIronRod) {
-        saveGame({ scene: 'IronRod' });
-        this.cameras.main.fadeOut(500);
-        this.time.delayedCall(500, () => this.scene.start('IronRod'));
+      if (this.nearIronRod && !this._dialogueOpen) {
+        if (!GameState.brassPlatesObtained) {
+          showDialogue(this, 'Nephi', 'I feel drawn to this place, but we must retrieve the brass plates first. Lehi waits for us.');
+        } else if (!GameState.ironRodComplete) {
+          saveGame({ scene: 'IronRod' });
+          this.cameras.main.fadeOut(500);
+          this.time.delayedCall(500, () => this.scene.start('IronRod'));
+        }
       }
 
       // === New NPC Interactions ===
       if (this.nearMerchant) {
         showDialogue(this, 'Merchant', 'Have you heard? Lehi is raving again about visions and destruction. The elders say he has lost his mind.', () => {
-          showDialogue(this, 'Traveler', '', null, {
+          showDialogue(this, 'Nephi', '', null, {
             choices: [
               { id: 'merchant_faith', text: 'My father is a prophet.', faithVsDoubt: 1, onSelect: () => {
                 GameState.faith = Math.min(GameState.faith + 5, GameState.maxFaith);
@@ -3143,7 +3645,7 @@ class JerusalemScene extends Phaser.Scene {
 
       if (this.nearNeighbor) {
         showDialogue(this, 'Neighbor', 'Your father should be careful. Speaking against Jerusalem... the elders do not take kindly to such talk.', () => {
-          showDialogue(this, 'Traveler', '', null, {
+          showDialogue(this, 'Nephi', '', null, {
             choices: [
               { id: 'neighbor_faith', text: 'The Lord will protect him.', faithVsDoubt: 1, onSelect: () => {
                 GameState.faith = Math.min(GameState.faith + 5, GameState.maxFaith);
@@ -3197,16 +3699,27 @@ class BrassPlatesScene extends Phaser.Scene {
     this.alertLevel = 0;
     this.throwCooldown = 0;
 
-    // Dark interior
+    // Pokemon-style dark interior with tile floor
     this.add.rectangle(W/2, H/2, W, H, 0x1a0a0a);
-    this.add.rectangle(W/2, H/2, W - 40, H - 80, 0x2a1a0a).setStrokeStyle(2, 0x4a2a0a);
-
-    // Stone floor tiles
-    for (let fy = 80; fy < H - 40; fy += 40) {
-      for (let fx = 30; fx < W - 30; fx += 40) {
-        this.add.rectangle(fx + 20, fy + 20, 38, 38, 0x332211, 0.3).setStrokeStyle(1, 0x221100, 0.2);
+    const floorG = this.add.graphics();
+    // Stone tile floor (Pokemon dungeon style)
+    for (let fy = 80; fy < H - 40; fy += 16) {
+      for (let fx = 30; fx < W - 30; fx += 16) {
+        const isAlt = ((Math.floor(fx / 16) + Math.floor(fy / 16)) % 2 === 0);
+        floorG.fillStyle(isAlt ? 0x3a2a1a : 0x2a1a0a);
+        floorG.fillRect(fx, fy, 16, 16);
+        // Tile border
+        floorG.fillStyle(0x1a0a00, 0.3);
+        floorG.fillRect(fx, fy, 16, 1);
+        floorG.fillRect(fx, fy, 1, 16);
       }
     }
+    // Wall border
+    floorG.fillStyle(0x4a2a0a);
+    floorG.fillRect(28, 78, W - 56, 3);
+    floorG.fillRect(28, 78, 3, H - 118);
+    floorG.fillRect(W - 31, 78, 3, H - 118);
+    floorG.fillRect(28, H - 43, W - 56, 3);
 
     // Torches
     [60, W - 60, W/2].forEach(tx => {
@@ -3294,10 +3807,10 @@ class BrassPlatesScene extends Phaser.Scene {
     this.tweens.add({ targets: plateGlow, scale: 2, alpha: 0, duration: 1500, repeat: -1 });
 
     // Player sprite
-    if (this.textures.exists('player')) {
-      this.player = this.add.image(100, H - 100, 'player').setScale(1.5);
+    if (this.textures.exists('nephi')) {
+      this.player = this.add.image(100, H - 100, 'nephi').setScale(1.5);
     } else {
-      this.player = this.add.rectangle(100, H - 100, 16, 22, COLORS.green).setOrigin(0.5, 1);
+      this.player = this.add.rectangle(100, H - 100, 16, 22, COLORS.faithBlue).setOrigin(0.5, 1);
     }
     this.physics.add.existing(this.player);
     this.player.body.setSize(16, 22);
@@ -3540,11 +4053,8 @@ class BattleScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     // Player characters in battle (larger sprites)
-    if (this.textures.exists('player_battle')) {
-      this.add.image(230, 370, 'player_battle').setScale(3);
-    }
     if (this.textures.exists('nephi_battle')) {
-      this.add.image(170, 375, 'nephi_battle').setScale(2.5).setAlpha(0.9);
+      this.add.image(200, 370, 'nephi_battle').setScale(3);
     }
 
     // Enemy HP bar
@@ -3560,7 +4070,7 @@ class BattleScene extends Phaser.Scene {
     // Player HP bar
     this.add.rectangle(220, 430, 164, 14, 0x222222).setStrokeStyle(1, 0x555555);
     this.playerHpBar = this.add.rectangle(140, 424, 156, 8, COLORS.green).setOrigin(0);
-    this.add.text(220, 415, `${GameState.playerName} & Nephi`, {
+    this.add.text(220, 415, `${GameState.playerName}`, {
       fontSize: '12px', fontFamily: 'monospace', color: '#ffd700', fontStyle: 'bold'
     }).setOrigin(0.5);
     this.playerHpText = this.add.text(305, 421, `${GameState.faith}/${GameState.maxFaith}`, {
@@ -3942,10 +4452,10 @@ class IronRodScene extends Phaser.Scene {
     }, 6);
 
     // Player sprite
-    if (this.textures.exists('player')) {
-      this.player = this.add.image(60, worldH - 65, 'player').setScale(2).setDepth(10);
+    if (this.textures.exists('nephi')) {
+      this.player = this.add.image(60, worldH - 65, 'nephi').setScale(2).setDepth(10);
     } else {
-      this.player = this.add.rectangle(60, worldH - 65, 16, 22, COLORS.green).setOrigin(0.5, 1);
+      this.player = this.add.rectangle(60, worldH - 65, 16, 22, COLORS.faithBlue).setOrigin(0.5, 1);
     }
     this.physics.add.existing(this.player);
     this.player.body.setCollideWorldBounds(true);
@@ -4408,71 +4918,112 @@ class WildernessCamp extends Phaser.Scene {
     AudioEngine.setTheme('wilderness');
     this.cameras.main.fadeIn(800);
     GameState.chapter = { book: '1 Nephi', chapter: 2, label: '1 Nephi · Ch. 2' };
-    GameState.companion = { name: 'Nephi', title: 'Son of Lehi', color: COLORS.faithBlue };
+    GameState.companion = { name: 'Sam', title: 'Brother of Nephi', color: COLORS.brown };
 
     const worldW = 1200, worldH = 700;
     this.physics.world.setBounds(0, 0, worldW, worldH);
     this.cameras.main.setBounds(0, 0, worldW, worldH);
 
-    // Desert sky
-    this.add.rectangle(worldW/2, 0, worldW, 250, 0x1a1a3e).setOrigin(0.5, 0);
-    for (let i = 0; i < 60; i++) {
-      this.add.circle(Phaser.Math.Between(0, worldW), Phaser.Math.Between(0, 200),
-        1, 0xffffff, Phaser.Math.FloatBetween(0.3, 0.9));
+    // Pokemon-style night sky
+    const skyG = this.add.graphics();
+    skyG.fillStyle(0x182040);
+    skyG.fillRect(0, 0, worldW, 260);
+    skyG.fillStyle(0x203050, 0.5);
+    skyG.fillRect(0, 180, worldW, 80);
+    // Stars
+    for (let i = 0; i < 70; i++) {
+      const star = this.add.circle(Phaser.Math.Between(0, worldW), Phaser.Math.Between(0, 220),
+        Phaser.Math.Between(1, 2), 0xffffff, Phaser.Math.FloatBetween(0.3, 0.9));
+      if (i % 4 === 0) this.tweens.add({ targets: star, alpha: 0.2, duration: Phaser.Math.Between(800, 1500), yoyo: true, repeat: -1 });
     }
 
-    // Desert ground
-    this.add.rectangle(worldW/2, 350, worldW, 400, COLORS.sand).setOrigin(0.5, 0);
-    // Sandy variation
-    for (let i = 0; i < 30; i++) {
-      this.add.circle(Phaser.Math.Between(0, worldW), Phaser.Math.Between(350, worldH),
-        Phaser.Math.Between(20, 60), COLORS.darkSand, 0.15);
-    }
+    // Pokemon tile ground (grass with sandy patches)
+    const groundG = this.add.graphics();
+    drawPokemonGrass(groundG, 0, 350, worldW, worldH - 350);
+    // Sandy area around camp
+    drawPokemonPath(groundG, 200, 400, 600, 100);
 
-    // River Laman (flowing left to right)
-    for (let rx = 0; rx < worldW; rx += 8) {
-      const ry = 500 + Math.sin(rx * 0.02) * 15;
-      this.add.rectangle(rx + 4, ry, 8, 30, 0x2266aa, 0.6);
+    // Pokemon-style river (tile-based water)
+    const riverG = this.add.graphics();
+    for (let rx = 0; rx < worldW; rx += 16) {
+      const ry = 510 + Math.sin(rx * 0.02) * 12;
+      drawPokemonWater(riverG, rx, ry, 16, 36);
     }
-    this.add.text(600, 480, 'River Laman', {
-      fontSize: '10px', fontFamily: 'monospace', color: '#4488cc', fontStyle: 'italic'
+    this.add.text(600, 495, 'River Laman', {
+      fontSize: '10px', fontFamily: 'monospace', color: '#68b0ff', fontStyle: 'italic',
+      stroke: '#000000', strokeThickness: 2
     }).setOrigin(0.5);
 
-    // Valley walls (distant mountains)
+    // Valley walls (Pokemon-style distant hills/mountains)
     const mtns = this.add.graphics();
-    mtns.fillStyle(0x3d2b1f, 0.3);
+    mtns.fillStyle(0x5a7858, 0.5);
     mtns.beginPath();
-    mtns.moveTo(0, 350); mtns.lineTo(100, 280); mtns.lineTo(250, 320);
-    mtns.lineTo(400, 260); mtns.lineTo(600, 310); mtns.lineTo(800, 270);
-    mtns.lineTo(1000, 300); mtns.lineTo(1200, 280); mtns.lineTo(1200, 350);
+    mtns.moveTo(0, 350); mtns.lineTo(100, 290); mtns.lineTo(250, 320);
+    mtns.lineTo(400, 270); mtns.lineTo(600, 310); mtns.lineTo(800, 280);
+    mtns.lineTo(1000, 305); mtns.lineTo(1200, 285); mtns.lineTo(1200, 350);
+    mtns.closePath(); mtns.fill();
+    mtns.fillStyle(0x486848, 0.3);
+    mtns.beginPath();
+    mtns.moveTo(0, 350); mtns.lineTo(150, 300); mtns.lineTo(350, 335);
+    mtns.lineTo(550, 290); mtns.lineTo(750, 320); mtns.lineTo(950, 295);
+    mtns.lineTo(1200, 310); mtns.lineTo(1200, 350);
     mtns.closePath(); mtns.fill();
     this.add.text(200, 310, 'Valley of Lemuel', {
-      fontSize: '9px', fontFamily: 'monospace', color: '#887766', fontStyle: 'italic'
+      fontSize: '9px', fontFamily: 'monospace', color: '#aabbaa', fontStyle: 'italic',
+      stroke: '#000000', strokeThickness: 1
     }).setOrigin(0.5);
 
-    // Tents
+    // Scattered Pokemon trees
+    const treeG = this.add.graphics();
+    [80, 180, 950, 1050, 1130].forEach(tx => {
+      drawPokemonTree(treeG, tx, 390 + Math.sin(tx * 0.01) * 10, 1);
+    });
+
+    // Tents (Pokemon-style small buildings/huts)
     const tentPositions = [
-      { x: 300, y: 430, color: 0x8b7355, label: "Lehi's Tent" },
-      { x: 500, y: 440, color: 0x6b8e5a, label: "Nephi's Tent" },
-      { x: 700, y: 435, color: 0x8b5a2b, label: '' },
+      { x: 300, y: 410, color: 0x8b7355, label: "Lehi's Tent" },
+      { x: 500, y: 420, color: 0x6b8e5a, label: "Nephi's Tent" },
+      { x: 700, y: 415, color: 0x8b5a2b, label: '' },
     ];
     tentPositions.forEach(t => {
-      // Tent shape (triangle)
       const tent = this.add.graphics();
+      // Pokemon-style tent/hut with triangular roof
+      const tw = 50, th = 35;
+      // Tent body
       tent.fillStyle(t.color);
+      tent.fillRect(t.x - tw/2, t.y - th/2, tw, th);
+      tent.fillStyle(darken(t.color, 20));
+      tent.fillRect(t.x - tw/2, t.y - th/2, tw, 3);
+      tent.fillRect(t.x - tw/2, t.y - th/2, 3, th);
+      tent.fillRect(t.x + tw/2 - 3, t.y - th/2, 3, th);
+      // Triangular roof
+      tent.fillStyle(lighten(t.color, 20));
       tent.beginPath();
-      tent.moveTo(t.x, t.y - 40); tent.lineTo(t.x - 30, t.y + 10);
-      tent.lineTo(t.x + 30, t.y + 10); tent.closePath(); tent.fill();
-      // Tent poles
-      tent.fillStyle(COLORS.brown); tent.fillRect(t.x - 1, t.y - 42, 2, 52);
+      tent.moveTo(t.x - tw/2 - 4, t.y - th/2);
+      tent.lineTo(t.x, t.y - th/2 - 22);
+      tent.lineTo(t.x + tw/2 + 4, t.y - th/2);
+      tent.closePath(); tent.fill();
+      // Roof highlight
+      tent.fillStyle(lighten(t.color, 40), 0.5);
+      tent.beginPath();
+      tent.moveTo(t.x - tw/4, t.y - th/2);
+      tent.lineTo(t.x, t.y - th/2 - 18);
+      tent.lineTo(t.x + tw/4, t.y - th/2);
+      tent.closePath(); tent.fill();
       // Door flap
-      tent.fillStyle(darken(t.color, 20)); tent.fillRect(t.x - 6, t.y - 5, 12, 15);
+      tent.fillStyle(darken(t.color, 30));
+      tent.fillRect(t.x - 6, t.y - 4, 12, 18);
       if (t.label) {
-        this.add.text(t.x, t.y - 50, t.label, {
-          fontSize: '9px', fontFamily: 'monospace', color: '#ccaa88'
+        this.add.text(t.x, t.y - th/2 - 28, t.label, {
+          fontSize: '9px', fontFamily: 'monospace', color: '#f8d830',
+          stroke: '#000000', strokeThickness: 2
         }).setOrigin(0.5);
       }
     });
+
+    // Fence around camp area
+    const fenceG = this.add.graphics();
+    drawPokemonFence(fenceG, 220, 470, 560, 'h');
 
     // Campfire with particles
     this.add.circle(400, 450, 6, 0xff6600, 0.8);
@@ -4488,9 +5039,8 @@ class WildernessCamp extends Phaser.Scene {
     // NPCs
     const npcs = [
       { key: 'lehi', x: 310, y: 445, name: 'Lehi', scale: 2 },
-      { key: 'nephi', x: 510, y: 445, name: 'Nephi', scale: 2 },
       { key: 'sariah', x: 340, y: 448, name: 'Sariah', scale: 1.8 },
-      { key: 'sam', x: 540, y: 448, name: 'Sam', scale: 1.8 },
+      { key: 'sam', x: 510, y: 448, name: 'Sam', scale: 1.8 },
       { key: 'laman', x: 800, y: 445, name: 'Laman', scale: 1.8 },
       { key: 'lemuel', x: 840, y: 448, name: 'Lemuel', scale: 1.6 },
     ];
@@ -4514,10 +5064,10 @@ class WildernessCamp extends Phaser.Scene {
     }
 
     // Player
-    if (this.textures.exists('player')) {
-      this.player = this.add.image(200, 445, 'player').setScale(2).setDepth(15);
+    if (this.textures.exists('nephi')) {
+      this.player = this.add.image(200, 445, 'nephi').setScale(2).setDepth(15);
     } else {
-      this.player = this.add.rectangle(200, 445, 20, 28, COLORS.green);
+      this.player = this.add.rectangle(200, 445, 20, 28, COLORS.faithBlue);
     }
     this.physics.add.existing(this.player);
     this.player.body.setCollideWorldBounds(true);
@@ -4527,8 +5077,8 @@ class WildernessCamp extends Phaser.Scene {
     // Interaction zones
     this.lehiZone = this.add.zone(310, 445, 60, 50);
     this.physics.add.existing(this.lehiZone, true);
-    this.nephiZone = this.add.zone(510, 445, 60, 50);
-    this.physics.add.existing(this.nephiZone, true);
+    this.samZone = this.add.zone(510, 448, 60, 50);
+    this.physics.add.existing(this.samZone, true);
     this.sariahZone = this.add.zone(340, 448, 50, 50);
     this.physics.add.existing(this.sariahZone, true);
     this.lamanZone = this.add.zone(820, 445, 80, 50);
@@ -4545,12 +5095,12 @@ class WildernessCamp extends Phaser.Scene {
     this.campfireZone = this.add.zone(400, 450, 50, 50);
     this.physics.add.existing(this.campfireZone, true);
 
-    this.nearLehi = false; this.nearNephi = false; this.nearSariah = false;
+    this.nearLehi = false; this.nearSam = false; this.nearSariah = false;
     this.nearLaman = false; this.nearLiahona = false; this.nearExit = false;
     this.nearCampfire = false;
 
     this.physics.add.overlap(this.player, this.lehiZone, () => this.nearLehi = true);
-    this.physics.add.overlap(this.player, this.nephiZone, () => this.nearNephi = true);
+    this.physics.add.overlap(this.player, this.samZone, () => this.nearSam = true);
     this.physics.add.overlap(this.player, this.sariahZone, () => this.nearSariah = true);
     this.physics.add.overlap(this.player, this.lamanZone, () => this.nearLaman = true);
     if (this.liahonaZone) this.physics.add.overlap(this.player, this.liahonaZone, () => this.nearLiahona = true);
@@ -4585,7 +5135,7 @@ class WildernessCamp extends Phaser.Scene {
       if (this.player?.body) this.player.body.setVelocity(0);
       return;
     }
-    this.nearLehi = false; this.nearNephi = false; this.nearSariah = false;
+    this.nearLehi = false; this.nearSam = false; this.nearSariah = false;
     this.nearLaman = false; this.nearLiahona = false; this.nearExit = false;
     this.nearCampfire = false;
 
@@ -4605,7 +5155,7 @@ class WildernessCamp extends Phaser.Scene {
     this.interactPrompt.setVisible(false);
     const show = (x, y) => this.interactPrompt.setPosition(x, y).setVisible(true);
     if (this.nearLehi) show(310, 415);
-    else if (this.nearNephi) show(510, 415);
+    else if (this.nearSam) show(510, 415);
     else if (this.nearSariah) show(340, 418);
     else if (this.nearLaman) show(820, 415);
     else if (this.nearLiahona) show(450, 440);
@@ -4630,11 +5180,11 @@ class WildernessCamp extends Phaser.Scene {
           });
         }
       }
-      if (this.nearNephi) {
+      if (this.nearSam) {
         if (!GameState.questFlags.nephiPrayer) {
-          showDialogue(this, 'Nephi', 'Tonight I prayed by the river. I wanted to know for myself if Father\'s words were true.', () => {
-            showDialogue(this, 'Nephi', 'And the Lord softened my heart. I believe Father. My testimony is now my own.', () => {
-              showDialogue(this, 'Traveler', '', null, { choices: [
+          showDialogue(this, 'Sam', 'Brother, have you prayed about Father\'s words? I believe him, but I want to hear what the Lord tells you.', () => {
+            showDialogue(this, 'Narrator', 'You kneel by the river to pray.', () => {
+              showDialogue(this, 'Nephi', '', null, { choices: [
                 { id: 'prayer_faith', text: 'Lord, I want to know if my father\'s words are true.', onSelect: () => {
                   GameState.faith = Math.min(GameState.maxFaith, GameState.faith + 15); gainFP(15);
                   showScriptureUnlock(this, '1 Nephi 2:19-20', 'Blessed art thou, Nephi, because of thy faith, for thou hast sought me diligently, with lowliness of heart.', () => {
@@ -4668,7 +5218,7 @@ class WildernessCamp extends Phaser.Scene {
             });
           });
         } else {
-          showDialogue(this, 'Nephi', 'The wilderness is hard, but the Lord is with us. I know it now for myself.');
+          showDialogue(this, 'Sam', 'The wilderness is hard, but I believe the Lord is with us, Nephi. I know it now for myself.');
         }
       }
       if (this.nearSariah) {
@@ -4687,7 +5237,7 @@ class WildernessCamp extends Phaser.Scene {
       }
       if (this.nearLaman) {
         showDialogue(this, 'Laman', 'This wilderness... Father drags us from our riches, our home, for what? Visions? Dreams?', () => {
-          showDialogue(this, 'Traveler', '', null, {
+          showDialogue(this, 'Nephi', '', null, {
             choices: [
               { id: 'encourage_laman', text: 'I understand it\'s hard. But the Lord has shown signs.', faithVsDoubt: 0, compassionVsHarshness: 1, onSelect: () => {
                 showDialogue(this, 'Laman', '...Perhaps. I saw the angel too. I cannot deny it. But it is still hard.', () => {
@@ -4721,9 +5271,9 @@ class WildernessCamp extends Phaser.Scene {
       }
       if (this.nearExit && GameState.liahonaActive && GameState.questFlags.ishmaelDone) {
         saveGame({ scene: 'WildernessMontage' });
-        this.cameras.main.fadeOut(800);
-        this.time.delayedCall(800, () => {
-          showMormonNarration(this, 'And thus we see that by small means the Lord can bring about great things.', () => {
+        showMormonNarration(this, 'And thus we see that by small means the Lord can bring about great things.', () => {
+          this.cameras.main.fadeOut(800);
+          this.time.delayedCall(800, () => {
             this.scene.start('WildernessMontage');
           });
         });
@@ -4799,20 +5349,44 @@ class IshmaelScene extends Phaser.Scene {
     this.cameras.main.fadeIn(800);
     GameState.chapter = { book: '1 Nephi', chapter: 7, label: '1 Nephi · Ch. 7' };
 
-    // Warm interior background
-    this.add.rectangle(W/2, H/2, W, H, 0x3d2b1f);
-    // Walls
-    this.add.rectangle(W/2, 0, W, 60, 0x2a1f14).setOrigin(0.5, 0);
-    this.add.rectangle(0, H/2, 20, H, 0x2a1f14).setOrigin(0, 0.5);
-    this.add.rectangle(W, H/2, 20, H, 0x2a1f14).setOrigin(1, 0.5);
-    // Cushions
+    // Pokemon-style warm interior (tiled floor, clean walls)
+    const interiorG = this.add.graphics();
+    // Floor tiles
+    for (let ty = 60; ty < H; ty += 16) {
+      for (let tx = 20; tx < W - 20; tx += 16) {
+        const isAlt = ((Math.floor(tx / 16) + Math.floor(ty / 16)) % 2 === 0);
+        interiorG.fillStyle(isAlt ? 0xc8a878 : 0xb89868);
+        interiorG.fillRect(tx, ty, 16, 16);
+      }
+    }
+    // Walls (Pokemon-style clean)
+    interiorG.fillStyle(0xe0d0b0);
+    interiorG.fillRect(0, 0, W, 65);
+    interiorG.fillStyle(0xd0c0a0);
+    interiorG.fillRect(0, 0, 22, H);
+    interiorG.fillRect(W - 22, 0, 22, H);
+    // Wall trim
+    interiorG.fillStyle(0x886830);
+    interiorG.fillRect(0, 60, W, 4);
+    interiorG.fillRect(20, 0, 2, H);
+    interiorG.fillRect(W - 22, 0, 2, H);
+    // Pokemon-style rug/cushion circles
     [200, 400, 550].forEach(x => {
-      this.add.ellipse(x, 480, 40, 18, 0x8b4513, 0.6);
+      interiorG.fillStyle(0xcc4444, 0.5);
+      interiorG.fillEllipse(x, 480, 40, 18);
+      interiorG.fillStyle(0xdd6666, 0.3);
+      interiorG.fillEllipse(x, 478, 28, 12);
     });
-    // Oil lamp glow
+    // Oil lamp with warm glow
     this.add.circle(400, 350, 8, 0xffaa44, 0.9).setDepth(5);
-    const glow = this.add.circle(400, 350, 40, 0xffaa44, 0.12).setDepth(4);
-    this.tweens.add({ targets: glow, scale: 1.5, alpha: 0.06, duration: 1500, yoyo: true, repeat: -1 });
+    const glow = this.add.circle(400, 350, 50, 0xffaa44, 0.1).setDepth(4);
+    this.tweens.add({ targets: glow, scale: 1.4, alpha: 0.05, duration: 1500, yoyo: true, repeat: -1 });
+    // Table
+    interiorG.fillStyle(0x886830);
+    interiorG.fillRect(360, 360, 80, 10);
+    interiorG.fillStyle(0x704828);
+    interiorG.fillRect(365, 370, 4, 20);
+    interiorG.fillRect(431, 370, 4, 20);
 
     // Ishmael NPC
     if (this.textures.exists('ishmael')) this.add.image(400, 430, 'ishmael').setScale(2.5).setDepth(10);
@@ -4875,7 +5449,7 @@ class IshmaelScene extends Phaser.Scene {
           } else { this.nextExchange(); }
         }
       }));
-      showDialogue(this, 'Traveler', '', null, { choices: choiceObjs });
+      showDialogue(this, 'Nephi', '', null, { choices: choiceObjs });
     });
   }
 
@@ -4897,9 +5471,11 @@ class IshmaelScene extends Phaser.Scene {
     this.cameras.main.fadeOut(600);
     this.time.delayedCall(600, () => {
       this.cameras.main.fadeIn(600);
-      // Switch to desert background
-      this.add.rectangle(W/2, H/2, W, H, 0x1a1a3e).setDepth(0);
-      this.add.rectangle(W/2, 350, W, 300, COLORS.sand).setOrigin(0.5, 0).setDepth(0);
+      // Switch to Pokemon-style wilderness background
+      const desertG = this.add.graphics().setDepth(0);
+      desertG.fillStyle(0x182040);
+      desertG.fillRect(0, 0, W, 350);
+      drawPokemonPath(desertG, 0, 350, W, 250);
 
       showDialogue(this, 'Narrator', 'On the return journey through the wilderness, Laman and some of Ishmael\'s household rebelled. They wished to return to Jerusalem.', () => {
         showDialogue(this, 'Laman', 'We will not follow Nephi any further! Let us go back to our homes!', () => {
@@ -4952,7 +5528,7 @@ class IshmaelScene extends Phaser.Scene {
           } else { this.nextPrayerRound(boundText); }
         }
       }));
-      showDialogue(this, 'Traveler', '', null, { choices: choiceObjs });
+      showDialogue(this, 'Nephi', '', null, { choices: choiceObjs });
     });
   }
 
@@ -4960,7 +5536,7 @@ class IshmaelScene extends Phaser.Scene {
     boundText.destroy();
     showDialogue(this, 'Narrator', 'One of Ishmael\'s daughters, moved with compassion, pleaded with Laman. Her tears softened their hearts. They loosed Nephi from the tree.', () => {
       showDialogue(this, 'Narrator', 'Laman and his allies fell before Nephi, ashamed. How do you respond?', () => {
-        showDialogue(this, 'Traveler', '', null, { choices: [
+        showDialogue(this, 'Nephi', '', null, { choices: [
           { id: 'forgive', text: 'I forgive you.', onSelect: () => {
             GameState.charity = (GameState.charity || 0) + 20; gainFP(20);
             addJournal('Forgave Laman and his allies — charity increased greatly');
@@ -5012,44 +5588,45 @@ class BountifulScene extends Phaser.Scene {
     this.physics.world.setBounds(0, 0, worldW, worldH);
     this.cameras.main.setBounds(0, 0, worldW, worldH);
 
-    // Sky
-    this.add.rectangle(worldW/2, 0, worldW, 250, 0x4488cc).setOrigin(0.5, 0);
+    // Pokemon-style bright blue sky
+    const skyG = this.add.graphics();
+    skyG.fillStyle(0x68b8f8);
+    skyG.fillRect(0, 0, worldW, 260);
+    skyG.fillStyle(0x88d0ff);
+    skyG.fillRect(0, 0, worldW, 130);
     // Clouds
     for (let i = 0; i < 6; i++) {
       const cx = Phaser.Math.Between(0, worldW);
-      const cloud = this.add.ellipse(cx, Phaser.Math.Between(40, 150), Phaser.Math.Between(80, 150), 30, 0xffffff, 0.4);
-      this.tweens.add({ targets: cloud, x: cx + 100, duration: 15000, yoyo: true, repeat: -1 });
+      const cloudG = this.add.graphics();
+      cloudG.fillStyle(0xffffff, 0.85);
+      cloudG.fillEllipse(cx, Phaser.Math.Between(50, 140), Phaser.Math.Between(60, 100), 24);
+      cloudG.fillEllipse(cx - 20, Phaser.Math.Between(50, 140) - 6, 40, 18);
+      this.tweens.add({ targets: cloudG, x: 80, duration: 15000, yoyo: true, repeat: -1 });
     }
 
-    // Lush green land
-    this.add.rectangle(worldW/2, 400, worldW, 350, 0x4a8c3f).setOrigin(0.5, 0);
-    // Grass variation
-    for (let i = 0; i < 40; i++) {
-      this.add.circle(Phaser.Math.Between(0, worldW), Phaser.Math.Between(400, worldH),
-        Phaser.Math.Between(15, 40), 0x3d7a34, 0.3);
-    }
+    // Pokemon tile-based lush grass
+    const grassG = this.add.graphics();
+    drawPokemonGrass(grassG, 0, 340, 920, worldH - 340);
 
-    // Ocean (right side)
-    for (let oy = 380; oy < worldH; oy += 8) {
-      for (let ox = 900; ox < worldW; ox += 10) {
-        const wave = this.add.rectangle(ox, oy, 10, 8, 0x2266aa, 0.5 + Math.sin(ox * 0.05) * 0.1);
-      }
-    }
+    // Ocean (right side - Pokemon water tiles)
+    const waterG = this.add.graphics();
+    drawPokemonWater(waterG, 960, 340, worldW - 960, worldH - 340);
     // Beach sand strip
-    this.add.rectangle(950, 450, 50, 300, COLORS.sand, 0.6).setOrigin(0.5, 0);
-    this.add.text(1100, 370, '~ Ocean ~', {
-      fontSize: '12px', fontFamily: 'monospace', color: '#4488cc', fontStyle: 'italic'
+    const beachG = this.add.graphics();
+    drawPokemonPath(beachG, 920, 340, 48, worldH - 340);
+    this.add.text(1150, 370, '~ Ocean ~', {
+      fontSize: '12px', fontFamily: 'monospace', color: '#ffffff', fontStyle: 'italic',
+      stroke: '#2060a0', strokeThickness: 2
     }).setOrigin(0.5);
 
-    // Tropical trees
+    // Pokemon-style tropical trees
+    const treeG = this.add.graphics();
     [100, 300, 500, 750].forEach(tx => {
-      this.add.rectangle(tx, 370, 8, 50, 0x6b4e14);
-      const fronds = this.add.graphics();
-      fronds.fillStyle(0x228b22);
-      for (let f = 0; f < 5; f++) {
-        const angle = (f / 5) * Math.PI * 2;
-        fronds.fillEllipse(tx + Math.cos(angle) * 18, 345 + Math.sin(angle) * 8, 16, 5);
-      }
+      drawPokemonPalm(treeG, tx, 340, 1.3);
+    });
+    // Round bushy trees too
+    [180, 420, 650, 830].forEach(tx => {
+      drawPokemonTree(treeG, tx, 370 + Math.sin(tx * 0.01) * 10, 1);
     });
 
     // Fruit on ground (collectible resources)
@@ -5091,17 +5668,14 @@ class BountifulScene extends Phaser.Scene {
     }).setOrigin(0.5).setDepth(12);
 
     // NPCs
-    if (this.textures.exists('nephi')) this.add.image(820, 455, 'nephi').setScale(2).setDepth(10);
-    this.add.text(820, 425, 'Nephi', { fontSize: '9px', fontFamily: 'monospace', color: '#ffd700' }).setOrigin(0.5).setDepth(11);
-
     if (this.textures.exists('laman')) this.add.image(200, 455, 'laman').setScale(1.8).setDepth(10);
     this.add.text(200, 425, 'Laman', { fontSize: '9px', fontFamily: 'monospace', color: '#cc6666' }).setOrigin(0.5).setDepth(11);
 
     // Player
-    if (this.textures.exists('player')) {
-      this.player = this.add.image(400, 450, 'player').setScale(2).setDepth(15);
+    if (this.textures.exists('nephi')) {
+      this.player = this.add.image(400, 450, 'nephi').setScale(2).setDepth(15);
     } else {
-      this.player = this.add.rectangle(400, 450, 20, 28, COLORS.green);
+      this.player = this.add.rectangle(400, 450, 20, 28, COLORS.faithBlue);
     }
     this.physics.add.existing(this.player);
     this.player.body.setCollideWorldBounds(true);
@@ -5257,18 +5831,25 @@ class OceanStorm extends Phaser.Scene {
     this.cameras.main.fadeIn(800);
     GameState.chapter = { book: '1 Nephi', chapter: 18, label: '1 Nephi · Ch. 18' };
 
-    // Dark stormy sky
-    this.add.rectangle(W/2, H/2, W, H, 0x1a2a3e);
+    // Dark stormy sky (Pokemon style - dark gradient)
+    const stormSky = this.add.graphics();
+    stormSky.fillStyle(0x182838);
+    stormSky.fillRect(0, 0, W, 200);
+    stormSky.fillStyle(0x203848);
+    stormSky.fillRect(0, 200, W, 100);
 
-    // Ocean waves (animated)
+    // Pokemon-style ocean waves (tile-based water with animated overlays)
+    const oceanBase = this.add.graphics();
+    drawPokemonWater(oceanBase, 0, 200, W, H - 200);
+    // Stormy wave overlays
     this.waves = [];
-    for (let y = 200; y < H; y += 12) {
-      for (let x = -20; x < W + 20; x += 15) {
-        const wave = this.add.ellipse(x, y, 20, 8, 0x224488, 0.3 + (y / H) * 0.3);
+    for (let y = 220; y < H; y += 20) {
+      for (let x = -20; x < W + 20; x += 25) {
+        const wave = this.add.ellipse(x, y, 24, 8, COLORS.pokWaterLight, 0.15 + (y / H) * 0.15);
         this.waves.push(wave);
         this.tweens.add({
-          targets: wave, x: x + Phaser.Math.Between(-8, 8), y: y + Phaser.Math.Between(-4, 4),
-          duration: 1500 + Math.random() * 1000, yoyo: true, repeat: -1
+          targets: wave, x: x + Phaser.Math.Between(-10, 10), y: y + Phaser.Math.Between(-5, 5),
+          duration: 1200 + Math.random() * 800, yoyo: true, repeat: -1
         });
       }
     }
@@ -5289,9 +5870,9 @@ class OceanStorm extends Phaser.Scene {
     // Ship rocking
     this.tweens.add({ targets: shipG, rotation: 0.05, duration: 2000, yoyo: true, repeat: -1 });
 
-    // Characters on deck
+    // Player (Nephi) on deck
     if (this.textures.exists('nephi')) {
-      this.nephiSprite = this.add.image(W/2, 310, 'nephi').setScale(1.5).setDepth(22);
+      this.player = this.add.image(W/2, 310, 'nephi').setScale(1.5).setDepth(22);
     }
     if (this.textures.exists('lehi')) {
       this.add.image(W/2 - 30, 315, 'lehi').setScale(1.2).setDepth(21).setAlpha(0.8);
@@ -5371,7 +5952,7 @@ class OceanStorm extends Phaser.Scene {
         this.stormPhase = 2;
         showDialogue(this, 'Narrator', 'The storm raged for three days. The compass ceased to work. Laman and Lemuel were terrified. Even Sariah and Lehi were brought near to death.', () => {
           showDialogue(this, 'Laman', 'We will perish! Perhaps... perhaps we were wrong to bind Nephi.', () => {
-            showDialogue(this, 'Traveler', '', null, {
+            showDialogue(this, 'Nephi', '', null, {
               choices: [
                 { id: 'forgive_brothers', text: 'Forgive them. Untie Nephi so he can pray.', faithVsDoubt: 1, compassionVsHarshness: 1, onSelect: () => {
                   this.tied = false;
@@ -5414,6 +5995,7 @@ class OceanStorm extends Phaser.Scene {
             '1 Nephi 18:21',
             'And it came to pass that I, Nephi, did guide the ship, that we sailed again towards the promised land.',
             () => {
+              GameState.questFlags.reachedPromised = true;
               saveGame({ scene: 'PromisedLand' });
               this.cameras.main.fadeOut(1000);
               this.time.delayedCall(1000, () => this.scene.start('ChapterTransition', {
@@ -5441,43 +6023,58 @@ class PromisedLand extends Phaser.Scene {
     this.cameras.main.fadeIn(1200);
     GameState.chapter = { book: '1 Nephi', chapter: 18, label: '1 Nephi · Ch. 18-22' };
 
-    // Bright beautiful sky
-    this.add.rectangle(W/2, 0, W, 200, 0x5599dd).setOrigin(0.5, 0);
+    // Pokemon-style bright sky
+    const skyG = this.add.graphics();
+    skyG.fillStyle(0x68b8f8);
+    skyG.fillRect(0, 0, W, 220);
+    skyG.fillStyle(0x88d0ff);
+    skyG.fillRect(0, 0, W, 110);
     // Sun
-    const sun = this.add.circle(600, 60, 25, 0xffdd44, 0.9);
-    this.add.circle(600, 60, 35, 0xffdd44, 0.15);
+    this.add.circle(600, 55, 28, 0xfff870);
+    this.add.circle(600, 55, 22, 0xffff98, 0.6);
+    // Clouds
+    const cloudG = this.add.graphics();
+    cloudG.fillStyle(0xffffff, 0.85);
+    cloudG.fillEllipse(150, 60, 80, 28);
+    cloudG.fillEllipse(130, 52, 50, 22);
+    cloudG.fillEllipse(400, 80, 60, 22);
 
-    // Lush green rolling hills
+    // Pokemon rolling green hills
     const hills = this.add.graphics();
-    hills.fillStyle(0x4a8c3f);
-    hills.beginPath();
-    hills.moveTo(0, 300); hills.lineTo(100, 260); hills.lineTo(250, 280);
-    hills.lineTo(400, 240); hills.lineTo(550, 270); hills.lineTo(700, 250);
-    hills.lineTo(800, 280); hills.lineTo(800, H); hills.lineTo(0, H);
-    hills.closePath(); hills.fill();
+    hills.fillStyle(0x68b058);
+    hills.beginPath(); hills.moveTo(0, 300);
+    for (let x = 0; x <= W; x += 4) { hills.lineTo(x, 280 + Math.sin(x * 0.008) * 30 + Math.sin(x * 0.02) * 10); }
+    hills.lineTo(W, H); hills.lineTo(0, H); hills.closePath(); hills.fill();
 
-    // Darker green below
-    this.add.rectangle(W/2, 400, W, 250, 0x3d7a34).setOrigin(0.5, 0);
+    // Pokemon tile grass
+    const grassG = this.add.graphics();
+    drawPokemonGrass(grassG, 0, 320, W, 200);
 
-    // Beach at bottom
-    this.add.rectangle(W/2, H - 60, W, 60, COLORS.sand);
+    // Beach at bottom (Pokemon sand)
+    const beachG = this.add.graphics();
+    drawPokemonPath(beachG, 0, H - 60, W, 40);
 
-    // Ocean at very bottom
-    this.add.rectangle(W/2, H - 20, W, 40, 0x3366aa, 0.6);
+    // Ocean at very bottom (Pokemon water)
+    const waterG = this.add.graphics();
+    drawPokemonWater(waterG, 0, H - 24, W, 24);
 
-    // Trees and flowers
+    // Pokemon-style round bushy trees and flowers
+    const treeG = this.add.graphics();
     [120, 280, 500, 680].forEach(tx => {
-      this.add.rectangle(tx, 310, 10, 60, 0x5c3d1e);
-      this.add.circle(tx, 280, 25, 0x228b22, 0.8);
-      this.add.circle(tx - 10, 275, 15, 0x2da536, 0.6);
+      drawPokemonTree(treeG, tx, 300, 1.3);
     });
 
-    // Flowers
-    for (let i = 0; i < 15; i++) {
-      const fx = Phaser.Math.Between(50, 750);
-      const fy = Phaser.Math.Between(330, 450);
-      const colors = [0xff6b6b, 0xffdd44, 0xff88cc, 0xffaa44, 0x88ccff];
-      this.add.circle(fx, fy, 3, Phaser.Utils.Array.GetRandom(colors), 0.8);
+    // Flowers scattered on grass (Pokemon style)
+    const flowerG = this.add.graphics();
+    for (let i = 0; i < 20; i++) {
+      const fx = Phaser.Math.Between(40, 760);
+      const fy = Phaser.Math.Between(340, 460);
+      const colors = [COLORS.pokFlowerRed, COLORS.pokFlowerYellow, COLORS.pokFlowerPink, COLORS.pokFlowerBlue];
+      const fc = Phaser.Utils.Array.GetRandom(colors);
+      flowerG.fillStyle(fc);
+      flowerG.fillRect(fx, fy, 4, 4);
+      flowerG.fillStyle(COLORS.pokFlowerYellow);
+      flowerG.fillRect(fx + 1, fy + 1, 2, 2);
     }
 
     // Family on the beach, celebrating
@@ -5543,21 +6140,34 @@ class FinalScene extends Phaser.Scene {
     AudioEngine.setTheme('spiritual');
     this.cameras.main.fadeIn(2000);
 
-    // Hilltop at sunset
-    this.add.rectangle(W/2, 0, W, H/2, 0xcc7744).setOrigin(0.5, 0); // sunset sky
-    this.add.rectangle(W/2, H/2 - 30, W, 60, 0xffaa55, 0.3); // horizon glow
+    // Pokemon-style sunset sky
+    const skyG = this.add.graphics();
+    skyG.fillStyle(0xf89858);
+    skyG.fillRect(0, 0, W, 150);
+    skyG.fillStyle(0xe87848);
+    skyG.fillRect(0, 150, W, 80);
+    skyG.fillStyle(0xc86040);
+    skyG.fillRect(0, 230, W, 50);
+    // Horizon glow
+    skyG.fillStyle(0xffc880, 0.4);
+    skyG.fillRect(0, 260, W, 30);
 
-    // Rolling green hills
+    // Pokemon rolling green hills
     const hill = this.add.graphics();
-    hill.fillStyle(0x3d7a34);
-    hill.beginPath();
-    hill.moveTo(0, 350); hill.lineTo(200, 310); hill.lineTo(400, 290);
-    hill.lineTo(500, 280); hill.lineTo(600, 295); hill.lineTo(800, 320);
-    hill.lineTo(800, H); hill.lineTo(0, H);
-    hill.closePath(); hill.fill();
+    hill.fillStyle(0x58a840);
+    hill.beginPath(); hill.moveTo(0, 350);
+    for (let x = 0; x <= W; x += 4) { hill.lineTo(x, 310 + Math.sin(x * 0.007) * 25 + Math.sin(x * 0.018) * 10); }
+    hill.lineTo(W, H); hill.lineTo(0, H); hill.closePath(); hill.fill();
 
-    // Darker ground
-    this.add.rectangle(W/2, 420, W, 200, 0x2d6025).setOrigin(0.5, 0);
+    // Pokemon tile grass
+    const grassG = this.add.graphics();
+    drawPokemonGrass(grassG, 0, 340, W, H - 340);
+
+    // Trees in background
+    const treeG = this.add.graphics();
+    [80, 200, 620, 740].forEach(tx => {
+      drawPokemonTree(treeG, tx, 330 + Math.sin(tx * 0.01) * 10, 0.9);
+    });
 
     // Nephi sitting on hilltop
     if (this.textures.exists('nephi')) {
