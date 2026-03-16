@@ -1357,6 +1357,385 @@ function ensureCanvasTexture(scene, key, width, height, drawFn) {
   return key;
 }
 
+// ============================================================
+// PIXEL ART TILE TEXTURE SYSTEM
+// Generates authentic GBA-style 16x16 tile textures via Canvas2D
+// ============================================================
+function hexToRGB(hex) {
+  return [(hex >> 16) & 0xff, (hex >> 8) & 0xff, hex & 0xff];
+}
+
+function setPixel(imgData, x, y, w, r, g, b, a) {
+  if (x < 0 || y < 0 || x >= w || y >= imgData.height) return;
+  const i = (y * w + x) * 4;
+  imgData.data[i] = r; imgData.data[i+1] = g; imgData.data[i+2] = b; imgData.data[i+3] = a ?? 255;
+}
+
+function mixColor(r1, g1, b1, r2, g2, b2, t) {
+  return [
+    Math.round(r1 + (r2 - r1) * t),
+    Math.round(g1 + (g2 - g1) * t),
+    Math.round(b1 + (b2 - b1) * t)
+  ];
+}
+
+function generateTileTextures(scene) {
+  const S = 16; // tile size
+
+  // --- GRASS TILE (lush Pokemon GBA grass) ---
+  ensureCanvasTexture(scene, 'tile_grass', S * 2, S * 2, (ctx, w, h) => {
+    const img = ctx.createImageData(w, h);
+    // 2x2 tile grid for variety
+    for (let ty = 0; ty < 2; ty++) {
+      for (let tx = 0; tx < 2; tx++) {
+        const ox = tx * S, oy = ty * S;
+        const isAlt = (tx + ty) % 2 === 0;
+        const base = isAlt ? [88, 168, 48] : [120, 200, 80]; // pokGrass / pokGrassLight
+        const dark = [56, 128, 24];
+        const vdark = [40, 96, 16];
+
+        for (let y = 0; y < S; y++) {
+          for (let x = 0; x < S; x++) {
+            // Base color with subtle noise
+            const noise = ((x * 7 + y * 13 + tx * 31 + ty * 47) % 5) - 2;
+            const r = Math.max(0, Math.min(255, base[0] + noise * 3));
+            const g = Math.max(0, Math.min(255, base[1] + noise * 4));
+            const b = Math.max(0, Math.min(255, base[2] + noise * 2));
+            setPixel(img, ox + x, oy + y, w, r, g, b);
+          }
+        }
+
+        // Grass blade details (darker strokes)
+        const seed = tx * 17 + ty * 31;
+        const bladePositions = [
+          [3, 2, 1, 4], [8, 1, 1, 3], [13, 3, 1, 3],
+          [5, 8, 1, 3], [10, 7, 1, 4], [2, 12, 1, 3],
+          [7, 11, 1, 3], [12, 10, 1, 4], [4, 14, 1, 2],
+        ];
+        bladePositions.forEach(([bx, by, bw, bh], i) => {
+          if ((seed + i) % 3 === 0) return; // skip some for variety
+          for (let dy = 0; dy < bh; dy++) {
+            setPixel(img, ox + bx, oy + by + dy, w, dark[0], dark[1], dark[2]);
+          }
+        });
+
+        // Occasional flower
+        const flowerSeed = (tx * 23 + ty * 41) % 7;
+        if (flowerSeed === 0) {
+          // Red flower
+          setPixel(img, ox + 6, oy + 5, w, 240, 80, 80);
+          setPixel(img, ox + 7, oy + 5, w, 240, 96, 96);
+          setPixel(img, ox + 6, oy + 6, w, 220, 64, 64);
+          setPixel(img, ox + 7, oy + 6, w, 248, 224, 64); // yellow center
+        } else if (flowerSeed === 3) {
+          // Yellow flower
+          setPixel(img, ox + 10, oy + 9, w, 248, 224, 64);
+          setPixel(img, ox + 11, oy + 9, w, 248, 240, 80);
+          setPixel(img, ox + 10, oy + 10, w, 232, 200, 48);
+          setPixel(img, ox + 11, oy + 10, w, 255, 255, 255); // white center
+        }
+
+        // Subtle tile edge shading (bottom and right edges slightly darker)
+        for (let x = 0; x < S; x++) {
+          setPixel(img, ox + x, oy + S - 1, w, vdark[0], vdark[1], vdark[2], 40);
+        }
+        for (let y = 0; y < S; y++) {
+          setPixel(img, ox + S - 1, oy + y, w, vdark[0], vdark[1], vdark[2], 30);
+        }
+      }
+    }
+    ctx.putImageData(img, 0, 0);
+  });
+
+  // --- SAND TILE (desert/wilderness) ---
+  ensureCanvasTexture(scene, 'tile_sand', S * 2, S * 2, (ctx, w, h) => {
+    const img = ctx.createImageData(w, h);
+    for (let ty = 0; ty < 2; ty++) {
+      for (let tx = 0; tx < 2; tx++) {
+        const ox = tx * S, oy = ty * S;
+        const isAlt = (tx + ty) % 2 === 0;
+        const base = isAlt ? [232, 208, 160] : [240, 224, 184];
+        const dark = [200, 176, 120];
+
+        for (let y = 0; y < S; y++) {
+          for (let x = 0; x < S; x++) {
+            const noise = ((x * 11 + y * 7 + tx * 19 + ty * 37) % 7) - 3;
+            setPixel(img, ox + x, oy + y, w,
+              Math.max(0, Math.min(255, base[0] + noise * 2)),
+              Math.max(0, Math.min(255, base[1] + noise * 2)),
+              Math.max(0, Math.min(255, base[2] + noise * 2)));
+          }
+        }
+        // Sand grain dots
+        [[4, 3], [10, 5], [2, 9], [12, 11], [7, 14], [14, 7]].forEach(([sx, sy], i) => {
+          if ((tx * 13 + ty * 7 + i) % 3 === 0) return;
+          setPixel(img, ox + sx, oy + sy, w, dark[0], dark[1], dark[2], 100);
+        });
+        // Small pebble
+        if ((tx + ty) % 3 === 0) {
+          setPixel(img, ox + 8, oy + 12, w, dark[0] - 20, dark[1] - 20, dark[2] - 10);
+          setPixel(img, ox + 9, oy + 12, w, dark[0], dark[1], dark[2]);
+        }
+      }
+    }
+    ctx.putImageData(img, 0, 0);
+  });
+
+  // --- DIRT PATH TILE ---
+  ensureCanvasTexture(scene, 'tile_dirt', S * 2, S * 2, (ctx, w, h) => {
+    const img = ctx.createImageData(w, h);
+    for (let ty = 0; ty < 2; ty++) {
+      for (let tx = 0; tx < 2; tx++) {
+        const ox = tx * S, oy = ty * S;
+        const isAlt = (tx + ty) % 2 === 0;
+        const base = isAlt ? [208, 168, 104] : [200, 160, 96];
+        const light = [224, 192, 136];
+
+        for (let y = 0; y < S; y++) {
+          for (let x = 0; x < S; x++) {
+            const noise = ((x * 5 + y * 9 + tx * 23) % 5) - 2;
+            setPixel(img, ox + x, oy + y, w,
+              Math.max(0, Math.min(255, base[0] + noise * 2)),
+              Math.max(0, Math.min(255, base[1] + noise * 2)),
+              Math.max(0, Math.min(255, base[2] + noise)));
+          }
+        }
+        // Gravel/grain detail
+        [[3, 4], [9, 2], [5, 10], [12, 8], [7, 13]].forEach(([gx, gy], i) => {
+          if ((tx + i) % 2 === 0) return;
+          setPixel(img, ox + gx, oy + gy, w, light[0], light[1], light[2], 150);
+        });
+      }
+    }
+    ctx.putImageData(img, 0, 0);
+  });
+
+  // --- WATER TILE ---
+  ensureCanvasTexture(scene, 'tile_water', S * 2, S * 2, (ctx, w, h) => {
+    const img = ctx.createImageData(w, h);
+    for (let ty = 0; ty < 2; ty++) {
+      for (let tx = 0; tx < 2; tx++) {
+        const ox = tx * S, oy = ty * S;
+        const isAlt = (tx + ty) % 2 === 0;
+        const base = isAlt ? [56, 136, 240] : [32, 96, 192];
+        const light = [96, 168, 255];
+        const deep = [24, 56, 128];
+
+        for (let y = 0; y < S; y++) {
+          for (let x = 0; x < S; x++) {
+            const wave = Math.sin((x + tx * 8) * 0.8 + (y + ty * 8) * 0.3) * 0.5 + 0.5;
+            const c = mixColor(base[0], base[1], base[2], deep[0], deep[1], deep[2], wave * 0.3);
+            setPixel(img, ox + x, oy + y, w, c[0], c[1], c[2]);
+          }
+        }
+        // Wave highlight streaks
+        const waveY = 4 + (tx * 3 + ty * 7) % 8;
+        for (let x = 2 + tx * 2; x < 2 + tx * 2 + 6; x++) {
+          setPixel(img, ox + x, oy + waveY, w, light[0], light[1], light[2], 120);
+        }
+        const waveY2 = (waveY + 7) % S;
+        for (let x = 6 + ty * 3; x < 6 + ty * 3 + 5; x++) {
+          if (x < S) setPixel(img, ox + x, oy + waveY2, w, light[0], light[1], light[2], 90);
+        }
+      }
+    }
+    ctx.putImageData(img, 0, 0);
+  });
+
+  // --- STONE WALL TILE ---
+  ensureCanvasTexture(scene, 'tile_wall', S * 2, S * 2, (ctx, w, h) => {
+    const img = ctx.createImageData(w, h);
+    const base = [200, 168, 104]; // sandstone
+    const mortar = [168, 140, 88];
+    const light = [224, 192, 136];
+
+    for (let ty = 0; ty < 2; ty++) {
+      for (let tx = 0; tx < 2; tx++) {
+        const ox = tx * S, oy = ty * S;
+        // Fill base
+        for (let y = 0; y < S; y++) {
+          for (let x = 0; x < S; x++) {
+            const noise = ((x * 3 + y * 7 + tx * 11 + ty * 13) % 5) - 2;
+            setPixel(img, ox + x, oy + y, w,
+              base[0] + noise * 3, base[1] + noise * 3, base[2] + noise * 2);
+          }
+        }
+        // Brick lines (horizontal every 5px, vertical offset by row)
+        for (let y = 0; y < S; y++) {
+          if (y % 5 === 0) {
+            for (let x = 0; x < S; x++) {
+              setPixel(img, ox + x, oy + y, w, mortar[0], mortar[1], mortar[2]);
+            }
+          }
+          // Vertical mortar lines, offset per row
+          const row = Math.floor(y / 5);
+          const vOffset = (row % 2) * 8;
+          if (((y % 5) !== 0) && ((y + vOffset) % 8 === 0 || ((y + vOffset + 8) % 16 === 0))) {
+            // skip - too complex, just do simple verticals
+          }
+        }
+        // Vertical mortar
+        for (let row = 0; row < 3; row++) {
+          const vy = row * 5 + 1;
+          const vx = (row % 2 === 0) ? 7 : 0;
+          for (let dy = 0; dy < 4 && vy + dy < S; dy++) {
+            setPixel(img, ox + vx, oy + vy + dy, w, mortar[0], mortar[1], mortar[2]);
+            if (vx + 8 < S) setPixel(img, ox + vx + 8, oy + vy + dy, w, mortar[0], mortar[1], mortar[2]);
+          }
+        }
+        // Highlight on top edge of each brick
+        for (let x = 0; x < S; x++) {
+          if (x % 8 !== 0) {
+            setPixel(img, ox + x, oy + 1, w, light[0], light[1], light[2], 80);
+            setPixel(img, ox + x, oy + 6, w, light[0], light[1], light[2], 80);
+            setPixel(img, ox + x, oy + 11, w, light[0], light[1], light[2], 80);
+          }
+        }
+      }
+    }
+    ctx.putImageData(img, 0, 0);
+  });
+
+  // --- JUNGLE GRASS TILE (darker, denser) ---
+  ensureCanvasTexture(scene, 'tile_jungle', S * 2, S * 2, (ctx, w, h) => {
+    const img = ctx.createImageData(w, h);
+    for (let ty = 0; ty < 2; ty++) {
+      for (let tx = 0; tx < 2; tx++) {
+        const ox = tx * S, oy = ty * S;
+        const isAlt = (tx + ty) % 2 === 0;
+        const base = isAlt ? [32, 136, 40] : [24, 120, 32];
+        const dark = [16, 104, 24];
+        const light = [48, 168, 56];
+
+        for (let y = 0; y < S; y++) {
+          for (let x = 0; x < S; x++) {
+            const noise = ((x * 11 + y * 5 + tx * 29) % 7) - 3;
+            setPixel(img, ox + x, oy + y, w,
+              Math.max(0, base[0] + noise), Math.max(0, base[1] + noise * 3), Math.max(0, base[2] + noise));
+          }
+        }
+        // Dense grass blades
+        for (let i = 0; i < 8; i++) {
+          const bx = (i * 7 + tx * 3 + ty * 11) % S;
+          const by = (i * 5 + tx * 7 + ty * 3) % (S - 3);
+          for (let dy = 0; dy < 3 + (i % 2); dy++) {
+            setPixel(img, ox + bx, oy + by + dy, w, dark[0], dark[1], dark[2]);
+          }
+        }
+        // Light spots
+        if ((tx + ty) % 2 === 0) {
+          setPixel(img, ox + 5, oy + 4, w, light[0], light[1], light[2], 120);
+          setPixel(img, ox + 11, oy + 10, w, light[0], light[1], light[2], 100);
+        }
+      }
+    }
+    ctx.putImageData(img, 0, 0);
+  });
+
+  // --- TREE SPRITE (Pokemon-style round bushy tree, 32x40) ---
+  ensureCanvasTexture(scene, 'sprite_tree', 32, 40, (ctx, w, h) => {
+    const img = ctx.createImageData(w, h);
+    // Trunk (centered, bottom)
+    for (let y = 24; y < 38; y++) {
+      for (let x = 13; x < 19; x++) {
+        const shade = (x < 15) ? [96, 64, 32] : [136, 96, 48];
+        setPixel(img, x, y, w, shade[0], shade[1], shade[2]);
+      }
+    }
+    // Round canopy — draw filled circle
+    const drawLeafCircle = (cx, cy, r, color) => {
+      for (let y = cy - r; y <= cy + r; y++) {
+        for (let x = cx - r; x <= cx + r; x++) {
+          if ((x - cx) * (x - cx) + (y - cy) * (y - cy) <= r * r) {
+            setPixel(img, x, y, w, color[0], color[1], color[2]);
+          }
+        }
+      }
+    };
+    // Shadow layer
+    drawLeafCircle(17, 17, 12, [40, 112, 16]);
+    // Main canopy
+    drawLeafCircle(16, 15, 11, [72, 160, 40]);
+    // Highlight (top-left)
+    drawLeafCircle(13, 12, 6, [104, 192, 64]);
+    // Dark bottom edge
+    drawLeafCircle(17, 20, 7, [48, 120, 24]);
+    // Bright spot
+    drawLeafCircle(12, 10, 3, [128, 208, 80]);
+    ctx.putImageData(img, 0, 0);
+  });
+
+  // --- PALM TREE SPRITE (40x48) ---
+  ensureCanvasTexture(scene, 'sprite_palm', 40, 48, (ctx, w, h) => {
+    const img = ctx.createImageData(w, h);
+    // Trunk
+    for (let y = 15; y < 46; y++) {
+      const sway = Math.sin(y * 0.15) * 1.5;
+      for (let dx = -2; dx <= 2; dx++) {
+        const x = Math.round(20 + sway + dx);
+        const shade = dx < 0 ? [96, 64, 32] : [136, 96, 48];
+        setPixel(img, x, y, w, shade[0], shade[1], shade[2]);
+        // Trunk rings
+        if (y % 5 === 0) setPixel(img, x, y, w, 80, 56, 24);
+      }
+    }
+    // Fronds (leaf clusters radiating from top)
+    const drawFrond = (angle, len, color) => {
+      for (let i = 0; i < len; i++) {
+        const fx = Math.round(20 + Math.cos(angle) * i);
+        const fy = Math.round(14 + Math.sin(angle) * i);
+        for (let w2 = -1; w2 <= 1; w2++) {
+          setPixel(img, fx + w2, fy, w, color[0], color[1], color[2]);
+        }
+      }
+    };
+    const frondColors = [[72, 160, 40], [56, 136, 32], [88, 176, 48]];
+    for (let f = 0; f < 8; f++) {
+      const angle = (f / 8) * Math.PI * 2 - Math.PI * 0.1;
+      drawFrond(angle, 10 + (f % 3) * 2, frondColors[f % 3]);
+    }
+    // Center cluster
+    for (let y = 12; y < 18; y++) {
+      for (let x = 17; x < 23; x++) {
+        if ((x - 20) * (x - 20) + (y - 15) * (y - 15) < 10) {
+          setPixel(img, x, y, w, 96, 192, 56);
+        }
+      }
+    }
+    ctx.putImageData(img, 0, 0);
+  });
+
+  // --- ACACIA TREE SPRITE (40x40) ---
+  ensureCanvasTexture(scene, 'sprite_acacia', 40, 40, (ctx, w, h) => {
+    const img = ctx.createImageData(w, h);
+    // Thin tall trunk
+    for (let y = 8; y < 38; y++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        setPixel(img, 20 + dx, y, w, dx < 0 ? 96 : 136, dx < 0 ? 64 : 96, dx < 0 ? 32 : 48);
+      }
+    }
+    // Branch forks
+    for (let x = 12; x < 20; x++) setPixel(img, x, 10, w, 112, 80, 40);
+    for (let x = 20; x < 28; x++) setPixel(img, x, 10, w, 112, 80, 40);
+    // Flat wide canopy (signature acacia shape)
+    for (let y = 2; y < 12; y++) {
+      const spread = 16 - Math.abs(y - 6) * 1.5;
+      for (let x = Math.round(20 - spread); x < Math.round(20 + spread); x++) {
+        if (x >= 0 && x < w) {
+          const isLight = y < 5 && Math.abs(x - 20) < spread * 0.5;
+          setPixel(img, x, y, w,
+            isLight ? 104 : 80, isLight ? 168 : 136, isLight ? 48 : 32);
+        }
+      }
+    }
+    // Dark bottom edge of canopy
+    for (let x = 10; x < 30; x++) {
+      setPixel(img, x, 11, w, 48, 96, 24, 180);
+    }
+    ctx.putImageData(img, 0, 0);
+  });
+}
+
 function hexToCss(hex) {
   return `#${hex.toString(16).padStart(6, '0')}`;
 }
@@ -2437,6 +2816,7 @@ class BootScene extends Phaser.Scene {
 
     // Generate all pixel art character textures
     generateAllSprites(this);
+    generateTileTextures(this);
     initPremiumTextures(this);
 
     this.cameras.main.fadeIn(500, 0, 0, 0);
@@ -3786,7 +4166,7 @@ class JerusalemCityScene extends Phaser.Scene {
     this._pause = attachPauseMenu(this);
     this._lighting = FX.createLightingRig(this, { mode: 'day' });
 
-    // === GREEN CANAAN LANDSCAPE (matching reference) ===
+    // === GREEN CANAAN LANDSCAPE (canvas tile textures) ===
     // Sky gradient
     const skyG = this.add.graphics();
     skyG.fillStyle(0x68b8f8);
@@ -3796,7 +4176,7 @@ class JerusalemCityScene extends Phaser.Scene {
     this.add.circle(300, 70, 24, 0xfff870);
     this.add.circle(300, 70, 18, 0xffff98, 0.6);
 
-    // Green rolling hills (background, Canaan style)
+    // Green rolling hills (background)
     const hillsG = this.add.graphics();
     hillsG.fillStyle(0x58a830);
     hillsG.fillEllipse(200, 260, 500, 80);
@@ -3810,13 +4190,21 @@ class JerusalemCityScene extends Phaser.Scene {
     hillsG.fillEllipse(1100, 290, 450, 65);
     hillsG.fillEllipse(1500, 285, 400, 60);
 
-    // Ground — lush Pokemon grass tiles
-    const groundG = this.add.graphics();
-    drawPokemonGrass(groundG, 0, 300, worldW, worldH - 300);
+    // Ground — TILE SPRITE (pixel art grass texture)
+    this.add.tileSprite(worldW / 2, 300 + (worldH - 300) / 2, worldW, worldH - 300, 'tile_grass').setOrigin(0.5);
 
-    // City walls (sandstone with crenellations)
+    // City walls — TILE SPRITE (stone wall texture)
+    this.add.tileSprite(worldW / 2, 370, worldW, 60, 'tile_wall').setOrigin(0.5);
+    // Wall crenellations on top
     const wallG = this.add.graphics();
-    drawCityWall(wallG, 0, 340, worldW, 60, 0xc8a868);
+    for (let wx = 0; wx < worldW; wx += 12) {
+      wallG.fillStyle(0xc8a868);
+      wallG.fillRect(wx, 335, 6, 7);
+      wallG.fillStyle(lighten(0xc8a868, 15));
+      wallG.fillRect(wx, 335, 6, 1);
+      wallG.fillStyle(darken(0xc8a868, 20));
+      wallG.fillRect(wx + 5, 335, 1, 7);
+    }
 
     // Buildings (sandstone/cream with colored roofs)
     const bldgG = this.add.graphics();
@@ -3862,18 +4250,24 @@ class JerusalemCityScene extends Phaser.Scene {
     drawPokemonStall(stallG, 550, 540, 0x4488aa);
     drawPokemonStall(stallG, 1000, 540, 0xcc8844);
 
-    // Trees (mix of round Pokemon trees and palms)
-    const treeG = this.add.graphics();
-    [80, 350, 750, 1100, 1450].forEach(tx => drawPokemonTree(treeG, tx, 500, 1.4));
-    [200, 500, 900, 1200, 1600].forEach(tx => drawPokemonPalm(treeG, tx, 490, 1.0));
+    // Trees — SPRITE TEXTURES (pixel art trees)
+    [80, 350, 750, 1100, 1450].forEach(tx => {
+      this.add.image(tx, 500, 'sprite_tree').setScale(1.8).setDepth(5);
+    });
+    [200, 500, 900, 1200, 1600].forEach(tx => {
+      this.add.image(tx, 490, 'sprite_palm').setScale(1.5).setDepth(5);
+    });
 
-    // Main walkway (dirt path for player)
-    const pathG = this.add.graphics();
-    drawPokemonPath(pathG, 0, 540, worldW, 160);
+    // Main walkway — TILE SPRITE (dirt path texture)
+    this.add.tileSprite(worldW / 2, 620, worldW, 160, 'tile_dirt').setOrigin(0.5);
+    // Path edges (grass-to-dirt transition)
+    const pathEdge = this.add.graphics();
+    pathEdge.fillStyle(0x408020, 0.4);
+    pathEdge.fillRect(0, 540, worldW, 3);
+    pathEdge.fillRect(0, 697, worldW, 3);
 
-    // Grass below path
-    const bottomGrass = this.add.graphics();
-    drawPokemonGrass(bottomGrass, 0, 700, worldW, worldH - 700);
+    // Grass below path — TILE SPRITE
+    this.add.tileSprite(worldW / 2, 700 + (worldH - 700) / 2, worldW, worldH - 700, 'tile_grass').setOrigin(0.5);
 
     // === NPCs ===
     this.npcSprites = [];
@@ -4442,9 +4836,9 @@ class WildernessJourneyScene extends Phaser.Scene {
     skyG.fillStyle(0x98d8ff, 0.4);
     skyG.fillRect(0, 0, worldW, 140);
 
-    // Sand ground tiles
-    const groundG = this.add.graphics();
-    drawSandTiles(groundG, 0, 380, worldW, worldH - 380);
+    // Sand ground — TILE SPRITE (pixel art sand texture)
+    this.add.tileSprite(worldW / 2, 380 + (worldH - 380) / 2, worldW, worldH - 380, 'tile_sand').setOrigin(0.5);
+    const groundG = this.add.graphics(); // keep for compatibility
 
     // Desert hills/dunes in background
     const hills = this.add.graphics();
@@ -4457,8 +4851,10 @@ class WildernessJourneyScene extends Phaser.Scene {
     for (let x = 0; x <= worldW; x += 4) hills.lineTo(x, 355 + Math.sin(x * 0.009 + 1) * 20 + Math.sin(x * 0.025) * 8);
     hills.lineTo(worldW, 380); hills.closePath(); hills.fill();
 
-    // Acacia trees in background
-    [80, 300, 550, 800, 1050].forEach(ax => drawAcaciaTree(hills, ax, 350, 0.8));
+    // Acacia trees in background — SPRITE TEXTURES
+    [80, 300, 550, 800, 1050].forEach(ax => {
+      this.add.image(ax, 350, 'sprite_acacia').setScale(1.3).setDepth(3);
+    });
 
     // Rocky outcrops
     [[200, 365, 8], [650, 370, 6], [950, 360, 7]].forEach(([rx, ry, rs]) => {
@@ -4545,28 +4941,25 @@ class WildernessJourneyScene extends Phaser.Scene {
       if (i % 4 === 0) this.tweens.add({ targets: star, alpha: 0.2, duration: Phaser.Math.Between(800, 1500), yoyo: true, repeat: -1 });
     }
 
-    // Desert valley ground (sand tiles, like reference wilderness)
-    const groundG = this.add.graphics();
-    drawSandTiles(groundG, 0, 350, worldW, worldH - 350);
-    drawPokemonPath(groundG, 200, 400, 600, 100);
+    // Desert valley ground — TILE SPRITE (pixel art sand)
+    this.add.tileSprite(worldW / 2, 350 + (worldH - 350) / 2, worldW, worldH - 350, 'tile_sand').setOrigin(0.5);
+    // Dirt path in camp area — TILE SPRITE
+    this.add.tileSprite(500, 450, 600, 100, 'tile_dirt').setOrigin(0.5);
+    const groundG = this.add.graphics(); // keep for compatibility
 
-    // River Laman (wider, more visible, with shoreline)
+    // River Laman — TILE SPRITE (pixel art water)
     const riverG = this.add.graphics();
-    // River banks (darker sand)
+    // River banks
     riverG.fillStyle(COLORS.pokSandDark);
-    for (let rx = 0; rx < worldW; rx += 16) {
-      const ry = 508 + Math.sin(rx * 0.02) * 12;
-      riverG.fillRect(rx, ry - 4, 16, 48);
-    }
-    for (let rx = 0; rx < worldW; rx += 16) {
-      const ry = 510 + Math.sin(rx * 0.02) * 12;
-      drawPokemonWater(riverG, rx, ry, 16, 40);
-    }
-    // Shore foam
-    for (let rx = 0; rx < worldW; rx += 24) {
-      const ry = 510 + Math.sin(rx * 0.02) * 12;
-      riverG.fillStyle(0xffffff, 0.3);
-      riverG.fillRect(rx + 4, ry - 1, 8, 1);
+    riverG.fillRect(0, 504, worldW, 52);
+    // Water tile sprite
+    this.add.tileSprite(worldW / 2, 530, worldW, 40, 'tile_water').setOrigin(0.5).setDepth(1);
+    // Shore foam detail
+    for (let rx = 0; rx < worldW; rx += 18) {
+      riverG.fillStyle(0xffffff, 0.35);
+      riverG.fillRect(rx + 3, 509, 8, 1);
+      riverG.fillStyle(0x90c8ff, 0.3);
+      riverG.fillRect(rx + 5, 550, 6, 1);
     }
     this.add.text(600, 495, 'River Laman', {
       fontSize: '11px', fontFamily: 'monospace', color: '#68b0ff', fontStyle: 'bold',
@@ -4590,8 +4983,10 @@ class WildernessJourneyScene extends Phaser.Scene {
     mtns.lineTo(1000, 315); mtns.lineTo(1200, 310); mtns.lineTo(1200, 350);
     mtns.closePath(); mtns.fill();
 
-    // Acacia trees on valley edges
-    [100, 350, 650, 900, 1100].forEach(ax => drawAcaciaTree(mtns, ax, 335, 0.5));
+    // Acacia trees on valley edges — SPRITE TEXTURES
+    [100, 350, 650, 900, 1100].forEach(ax => {
+      this.add.image(ax, 335, 'sprite_acacia').setScale(1.2).setDepth(3);
+    });
 
     this.add.text(200, 285, 'Valley of Lemuel', {
       fontSize: '11px', fontFamily: 'monospace', color: '#ccaa88', fontStyle: 'bold',
