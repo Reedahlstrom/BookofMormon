@@ -5260,752 +5260,762 @@ class WorldMapScene extends Phaser.Scene {
 
 
 // ============================================================
-// JERUSALEM BACKGROUND — Pre-rendered via Canvas 2D
+// JERUSALEM TILESET & MAP — Pokemon-style tile-based rendering
 // ============================================================
-function generateJerusalemBackground(sceneW, sceneH) {
-  const canvas = document.createElement('canvas');
-  canvas.width = sceneW;
-  canvas.height = sceneH;
-  const ctx = canvas.getContext('2d');
+const JT = {
+  GRASS:1, GRASS_F:2, COBBLE:3, COBBLE_V:4, DIRT:5,
+  WALL:6, WALL_TOP:7, TOWER:8, GATE:9,
+  SAND_W:10, DARK_W:11, WINDOW:12, DOOR:13,
+  ROOF_R:14, ROOF_F:15, DOME_G:16, DOME_B:17,
+  TREE_T:18, TREE_B:19, BUSH:20,
+  CRATE:21, BARREL:22, POT:23, FOUNTAIN:24,
+  BANNER_R:25, AWNING_R:26, AWNING_B:27,
+  COLUMN:28, STEPS:29, SIGN:30, MARKET:31
+};
 
-  // Wall bounds
-  const WL = 72, WT = 80, WR = sceneW - 72, WB = sceneH - 72;
-  const wallT = 26;
-  const gateX = Math.floor(sceneW / 2), gateW = 80;
+function generateJerusalemTileset() {
+  const T = 16, COLS = 16, ROWS = 2;
+  const cv = document.createElement('canvas');
+  cv.width = COLS * T; cv.height = ROWS * T;
+  const ctx = cv.getContext('2d');
+  ctx.imageSmoothingEnabled = false;
 
-  // === HELPER: stone pattern fill ===
-  function makePattern(baseR, baseG, baseB, bw, bh) {
-    const pc = document.createElement('canvas');
-    pc.width = 32; pc.height = 32;
-    const p = pc.getContext('2d');
-    p.fillStyle = `rgb(${baseR},${baseG},${baseB})`;
-    p.fillRect(0, 0, 32, 32);
-    for (let row = 0; row < Math.ceil(32 / bh); row++) {
-      const off = (row % 2) * Math.floor(bw / 2);
-      for (let col = -1; col < Math.ceil(32 / bw) + 1; col++) {
-        const bx = col * bw + off, by = row * bh;
-        const n = ((col * 7 + row * 13) % 11) - 5;
-        p.fillStyle = `rgb(${baseR + n},${baseG + n},${baseB + n})`;
-        p.fillRect(bx + 1, by + 1, bw - 2, bh - 2);
-      }
-      p.fillStyle = `rgba(${Math.max(0, baseR - 30)},${Math.max(0, baseG - 30)},${Math.max(0, baseB - 20)},0.4)`;
-      p.fillRect(0, row * bh, 32, 1);
-    }
-    return ctx.createPattern(pc, 'repeat');
-  }
-
-  const stonePattern = makePattern(192, 160, 108, 10, 6);
-  const cobblePattern = makePattern(180, 168, 148, 8, 7);
-  const darkStonePattern = makePattern(160, 136, 96, 10, 6);
-
-  // === HELPER: draw a building ===
-  function drawBuilding(x, y, w, h, wallColor, roofColor, roofType, opts = {}) {
+  const dt = (id, fn) => {
     ctx.save();
-    // Shadow
-    ctx.shadowColor = 'rgba(0,0,0,0.25)';
-    ctx.shadowBlur = 6;
-    ctx.shadowOffsetX = 3;
-    ctx.shadowOffsetY = 3;
-    // Wall
-    ctx.fillStyle = wallColor;
-    ctx.fillRect(x, y + (roofType === 'pitched' ? Math.floor(h * 0.18) : Math.floor(h * 0.12)), w, h);
-    ctx.shadowColor = 'transparent';
-    // Stone texture on wall
-    ctx.globalAlpha = 0.08;
-    ctx.fillStyle = stonePattern;
-    ctx.fillRect(x, y + (roofType === 'pitched' ? Math.floor(h * 0.18) : Math.floor(h * 0.12)), w, h);
-    ctx.globalAlpha = 1;
-    // Roof
-    if (roofType === 'pitched') {
-      ctx.fillStyle = roofColor;
-      ctx.beginPath();
-      ctx.moveTo(x - 3, y + Math.floor(h * 0.2));
-      ctx.lineTo(x + w / 2, y);
-      ctx.lineTo(x + w + 3, y + Math.floor(h * 0.2));
-      ctx.closePath();
-      ctx.fill();
-      // Ridge highlight
-      ctx.strokeStyle = lightenHex(roofColor, 25);
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(x - 3, y + Math.floor(h * 0.2));
-      ctx.lineTo(x + w / 2, y);
-      ctx.stroke();
-      // Eave
-      ctx.fillStyle = darkenHex(roofColor, 30);
-      ctx.fillRect(x - 3, y + Math.floor(h * 0.18), w + 6, 3);
-    } else {
-      ctx.fillStyle = roofColor;
-      ctx.fillRect(x - 2, y + Math.floor(h * 0.08), w + 4, Math.floor(h * 0.08));
-      // Parapet
-      ctx.fillStyle = wallColor;
-      for (let cx = x; cx < x + w; cx += 10) {
-        ctx.fillRect(cx + 5, y + Math.floor(h * 0.06), 4, Math.floor(h * 0.04));
-      }
-      ctx.fillStyle = darkenHex(roofColor, 20);
-      ctx.fillRect(x - 2, y + Math.floor(h * 0.14), w + 4, 2);
-    }
-    // Windows
-    const wallTop = y + (roofType === 'pitched' ? Math.floor(h * 0.28) : Math.floor(h * 0.22));
-    const winW = Math.max(8, Math.floor(w * 0.12));
-    const winH = Math.max(10, Math.floor(h * 0.16));
-    const winY = wallTop + Math.floor(h * 0.08);
-    const numWin = Math.max(2, Math.floor(w / 40));
-    const winSpacing = Math.floor((w - numWin * winW) / (numWin + 1));
-    for (let i = 0; i < numWin; i++) {
-      const wx = x + winSpacing + i * (winW + winSpacing);
-      // Glass
-      ctx.fillStyle = '#4878a8';
-      ctx.fillRect(wx, winY, winW, winH);
-      // Reflection
-      ctx.fillStyle = 'rgba(120, 180, 220, 0.35)';
-      ctx.fillRect(wx + 1, winY + 1, Math.floor(winW * 0.5), Math.floor(winH * 0.35));
-      // Frame
-      ctx.strokeStyle = '#806040';
-      ctx.lineWidth = 1;
-      ctx.strokeRect(wx - 0.5, winY - 0.5, winW + 1, winH + 1);
-      // Cross bars
-      ctx.fillStyle = '#806040';
-      ctx.fillRect(wx + Math.floor(winW / 2), winY, 1, winH);
-      ctx.fillRect(wx, winY + Math.floor(winH / 2), winW, 1);
-      // Shutters
-      if (opts.shutters !== false && w > 50) {
-        ctx.fillStyle = darkenHex(wallColor, 25);
-        ctx.fillRect(wx - 3, winY, 2, winH);
-        ctx.fillRect(wx + winW + 1, winY, 2, winH);
-      }
-    }
-    // Door
-    const doorW = Math.max(10, Math.floor(w * 0.15));
-    const doorH = Math.max(14, Math.floor(h * 0.22));
-    const doorX = x + Math.floor(w / 2 - doorW / 2);
-    const doorY = y + h + (roofType === 'pitched' ? Math.floor(h * 0.18) : Math.floor(h * 0.12)) - doorH;
-    ctx.fillStyle = '#5c3820';
-    ctx.fillRect(doorX, doorY, doorW, doorH);
-    // Arched top
-    ctx.beginPath();
-    ctx.arc(doorX + doorW / 2, doorY, doorW / 2, Math.PI, 0);
-    ctx.fill();
-    // Door detail
-    ctx.fillStyle = '#4a2c14';
-    ctx.fillRect(doorX + 1, doorY + 1, doorW - 2, doorH - 2);
-    ctx.fillStyle = '#c0a040';
-    ctx.fillRect(doorX + doorW - 4, doorY + Math.floor(doorH / 2), 2, 2); // knob
-    // Foundation
-    const baseY = y + h + (roofType === 'pitched' ? Math.floor(h * 0.18) : Math.floor(h * 0.12));
-    ctx.fillStyle = darkenHex(wallColor, 18);
-    ctx.fillRect(x - 1, baseY, w + 2, 3);
-    // Left edge shadow, right edge highlight
-    ctx.fillStyle = 'rgba(0,0,0,0.06)';
-    ctx.fillRect(x + w - 2, y + Math.floor(h * 0.15), 2, h);
+    ctx.translate((id % COLS) * T, Math.floor(id / COLS) * T);
+    fn(ctx);
     ctx.restore();
-  }
+  };
 
-  // Color utility helpers
-  function lightenHex(hex, amt) {
-    const c = hexToRGB(parseInt(hex.replace('#', ''), 16));
-    return `rgb(${Math.min(255, c[0] + amt)},${Math.min(255, c[1] + amt)},${Math.min(255, c[2] + amt)})`;
-  }
-  function darkenHex(hex, amt) {
-    const c = hexToRGB(parseInt(hex.replace('#', ''), 16));
-    return `rgb(${Math.max(0, c[0] - amt)},${Math.max(0, c[1] - amt)},${Math.max(0, c[2] - amt)})`;
-  }
+  // 1: Grass
+  dt(1, c => {
+    c.fillStyle='#78a838'; c.fillRect(0,0,16,16);
+    c.fillStyle='#6c9c30';
+    [[2,3],[10,1],[6,9],[14,7],[1,13],[9,11],[4,6],[12,14]].forEach(([x,y])=>c.fillRect(x,y,2,2));
+    c.fillStyle='#84b840';
+    [[5,1],[13,5],[3,10],[11,14],[7,4],[0,7],[15,12]].forEach(([x,y])=>c.fillRect(x,y,1,1));
+  });
 
-  // === HELPER: draw banner ===
-  function drawBanner(x, y, h, color1, color2) {
-    // Pole
-    ctx.fillStyle = '#8c6830';
-    ctx.fillRect(x, y, 2, h + 10);
-    ctx.fillStyle = '#c8a040';
-    ctx.fillRect(x - 1, y, 4, 3); // cap
-    // Flag fabric
-    for (let fy = 0; fy < h; fy++) {
-      const wave = Math.sin(fy * 0.3 + x * 0.01) * 2;
-      const stripe = Math.floor(fy / (h / 3)) % 2 === 0;
-      ctx.fillStyle = stripe ? color1 : color2;
-      ctx.fillRect(x + 3 + wave, y + 4 + fy, 12, 1);
-    }
-    // Flag taper
-    ctx.fillStyle = color1;
-    ctx.beginPath();
-    ctx.moveTo(x + 3, y + 4 + h);
-    ctx.lineTo(x + 9, y + 4 + h + 6);
-    ctx.lineTo(x + 15, y + 4 + h);
-    ctx.fill();
-  }
+  // 2: Grass with flowers
+  dt(2, c => {
+    c.fillStyle='#78a838'; c.fillRect(0,0,16,16);
+    c.fillStyle='#6c9c30';
+    [[3,2],[11,8],[7,12]].forEach(([x,y])=>c.fillRect(x,y,2,2));
+    c.fillStyle='#e04848'; [[4,5],[12,3]].forEach(([x,y])=>c.fillRect(x,y,2,2));
+    c.fillStyle='#e8d840'; [[8,10],[2,14]].forEach(([x,y])=>c.fillRect(x,y,2,2));
+    c.fillStyle='#f0f0a0'; [[5,6],[13,4]].forEach(([x,y])=>c.fillRect(x,y,1,1));
+  });
 
-  // === HELPER: draw tree ===
-  function drawTree(tx, ty, scale) {
-    ctx.save();
-    // Trunk
-    ctx.fillStyle = '#705028';
-    ctx.fillRect(tx - 2 * scale, ty, 4 * scale, 10 * scale);
-    // Shadow canopy
-    ctx.fillStyle = '#306818';
-    ctx.beginPath();
-    ctx.arc(tx + 1 * scale, ty - 2 * scale, 10 * scale, 0, Math.PI * 2);
-    ctx.fill();
-    // Main canopy
-    ctx.fillStyle = '#48a028';
-    ctx.beginPath();
-    ctx.arc(tx, ty - 4 * scale, 9 * scale, 0, Math.PI * 2);
-    ctx.fill();
+  // 3: Cobblestone
+  dt(3, c => {
+    c.fillStyle='#c8b088'; c.fillRect(0,0,16,16);
+    c.fillStyle='#a89868';
+    [0,4,8,12].forEach(y=>c.fillRect(0,y,16,1));
+    [[5,0,1,4],[12,0,1,4],[2,4,1,4],[9,4,1,4],[6,8,1,4],[13,8,1,4],[3,12,1,4],[10,12,1,4]]
+      .forEach(([x,y,w,h])=>c.fillRect(x,y,w,h));
+    c.fillStyle='#d4c098';
+    [[1,1,3,2],[7,1,4,2],[4,5,4,2],[11,5,4,2],[1,9,4,2],[8,9,4,2],[5,13,4,2],[12,13,3,2]]
+      .forEach(([x,y,w,h])=>c.fillRect(x,y,w,h));
+  });
+
+  // 4: Cobblestone variant
+  dt(4, c => {
+    c.fillStyle='#c0a880'; c.fillRect(0,0,16,16);
+    c.fillStyle='#a09060';
+    [2,6,10,14].forEach(y=>c.fillRect(0,y,16,1));
+    [[4,0,1,2],[11,0,1,2],[1,2,1,4],[8,2,1,4],[5,6,1,4],[14,6,1,4],[2,10,1,4],[9,10,1,4],[6,14,1,2],[13,14,1,2]]
+      .forEach(([x,y,w,h])=>c.fillRect(x,y,w,h));
+    c.fillStyle='#d0b890';
+    [[1,3,3,2],[6,7,3,2],[11,11,3,2]].forEach(([x,y,w,h])=>c.fillRect(x,y,w,h));
+  });
+
+  // 5: Dirt path
+  dt(5, c => {
+    c.fillStyle='#c8a060'; c.fillRect(0,0,16,16);
+    c.fillStyle='#b89050';
+    [[2,1],[8,3],[14,7],[4,11],[10,13],[1,6],[12,9]].forEach(([x,y])=>c.fillRect(x,y,2,2));
+    c.fillStyle='#d8b070';
+    [[5,2],[11,5],[3,8],[9,12],[7,14]].forEach(([x,y])=>c.fillRect(x,y,2,1));
+  });
+
+  // 6: City wall face (stone blocks)
+  dt(6, c => {
+    c.fillStyle='#a89078'; c.fillRect(0,0,16,16);
+    c.fillStyle='#887058';
+    [0,4,8,12].forEach(y=>c.fillRect(0,y,16,1));
+    [[7,0,1,4],[3,4,1,4],[11,4,1,4],[6,8,1,4],[14,8,1,4],[2,12,1,4],[10,12,1,4]]
+      .forEach(([x,y,w,h])=>c.fillRect(x,y,w,h));
+    c.fillStyle='#b8a088';
+    [[1,1,5,2],[9,1,4,2],[1,5,1,2],[5,5,5,2],[1,9,4,2],[8,9,5,2],[4,13,5,2],[12,13,3,2]]
+      .forEach(([x,y,w,h])=>c.fillRect(x,y,w,h));
+    // Dark edge at bottom
+    c.fillStyle='#786850'; c.fillRect(0,15,16,1);
+  });
+
+  // 7: Wall top / crenellation
+  dt(7, c => {
+    c.fillStyle='#a89078'; c.fillRect(0,6,16,10);
+    c.fillStyle='#b8a088'; c.fillRect(0,7,16,2);
+    c.fillStyle='#887058'; c.fillRect(0,6,16,1);
+    // Merlons (crenellations)
+    c.fillStyle='#a89078';
+    [[0,0,3,6],[5,0,3,6],[10,0,3,6]].forEach(([x,y,w,h])=>c.fillRect(x,y,w,h));
+    c.fillStyle='#b8a088';
+    [[0,1,3,2],[5,1,3,2],[10,1,3,2]].forEach(([x,y,w,h])=>c.fillRect(x,y,w,h));
+    c.fillStyle='#887058';
+    [[0,0,3,1],[5,0,3,1],[10,0,3,1]].forEach(([x,y,w,h])=>c.fillRect(x,y,w,h));
+    c.fillStyle='#786850'; c.fillRect(0,15,16,1);
+  });
+
+  // 8: Tower (wider stone)
+  dt(8, c => {
+    c.fillStyle='#988870'; c.fillRect(0,0,16,16);
+    c.fillStyle='#807060';
+    [0,5,10].forEach(y=>c.fillRect(0,y,16,1));
+    [[7,0,1,5],[3,5,1,5],[11,5,1,5],[6,10,1,6]]
+      .forEach(([x,y,w,h])=>c.fillRect(x,y,w,h));
+    c.fillStyle='#a89880';
+    [[1,1,5,3],[9,1,5,3],[1,6,1,3],[5,6,5,3],[1,11,4,4],[8,11,4,4]]
+      .forEach(([x,y,w,h])=>c.fillRect(x,y,w,h));
+    // Arrow slit
+    c.fillStyle='#383838'; c.fillRect(7,2,2,3);
+    c.fillStyle='#504838'; c.fillRect(7,1,2,1);
+  });
+
+  // 9: Gate arch
+  dt(9, c => {
+    c.fillStyle='#a89078'; c.fillRect(0,0,16,5);
+    c.fillStyle='#887058'; c.fillRect(0,4,16,1);
+    // Arch
+    c.fillStyle='#504030';
+    c.fillRect(2,5,12,11);
+    c.fillStyle='#383028';
+    c.beginPath(); c.arc(8,5,6,Math.PI,0); c.fill();
+    // Keystone
+    c.fillStyle='#c8a860'; c.fillRect(7,0,2,5);
+    // Ground under arch
+    c.fillStyle='#b09868'; c.fillRect(2,12,12,4);
+    c.fillStyle='#a08858'; c.fillRect(5,13,1,1); c.fillRect(9,14,1,1);
+  });
+
+  // 10: Sandstone wall
+  dt(10, c => {
+    c.fillStyle='#d8c898'; c.fillRect(0,0,16,16);
+    c.fillStyle='#c0b080';
+    [0,5,10].forEach(y=>c.fillRect(0,y,16,1));
+    [[6,0,1,5],[3,5,1,5],[11,5,1,5],[7,10,1,6]]
+      .forEach(([x,y,w,h])=>c.fillRect(x,y,w,h));
+    c.fillStyle='#e0d0a0';
+    [[1,1,4,3],[8,1,4,3],[1,6,1,3],[5,6,5,3],[1,11,5,4],[9,11,5,4]]
+      .forEach(([x,y,w,h])=>c.fillRect(x,y,w,h));
+  });
+
+  // 11: Dark wall
+  dt(11, c => {
+    c.fillStyle='#807060'; c.fillRect(0,0,16,16);
+    c.fillStyle='#685848';
+    [0,5,10].forEach(y=>c.fillRect(0,y,16,1));
+    [[7,0,1,5],[4,5,1,5],[12,5,1,5],[6,10,1,6]]
+      .forEach(([x,y,w,h])=>c.fillRect(x,y,w,h));
+    c.fillStyle='#908070';
+    [[1,1,5,3],[9,1,5,3],[1,6,2,3],[6,6,5,3],[1,11,4,4],[8,11,4,4]]
+      .forEach(([x,y,w,h])=>c.fillRect(x,y,w,h));
+  });
+
+  // 12: Window (on sandstone)
+  dt(12, c => {
+    c.fillStyle='#d8c898'; c.fillRect(0,0,16,16);
+    c.fillStyle='#c0b080';
+    [0,5,10].forEach(y=>c.fillRect(0,y,16,1));
+    // Window frame
+    c.fillStyle='#806040'; c.fillRect(4,2,8,11);
+    c.fillStyle='#504030'; c.fillRect(5,3,6,9);
+    // Glass panes (dark blue)
+    c.fillStyle='#304060'; c.fillRect(5,3,3,4); c.fillRect(8,3,3,4);
+    c.fillStyle='#385070'; c.fillRect(5,8,3,4); c.fillRect(8,8,3,4);
+    // Mullion
+    c.fillStyle='#806040'; c.fillRect(7,3,2,9); c.fillRect(5,6,6,2);
+    // Sill
+    c.fillStyle='#a09070'; c.fillRect(3,13,10,2);
     // Highlight
-    ctx.fillStyle = '#68c040';
-    ctx.beginPath();
-    ctx.arc(tx - 2 * scale, ty - 6 * scale, 5 * scale, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
-  }
+    c.fillStyle='#5068a0'; c.fillRect(6,4,1,2); c.fillRect(9,9,1,2);
+  });
 
-  // =============================================
-  // LAYER 1: SKY
-  // =============================================
-  const skyGrad = ctx.createLinearGradient(0, 0, 0, WT + 20);
-  skyGrad.addColorStop(0, '#5ca8e8');
-  skyGrad.addColorStop(0.5, '#88c8f8');
-  skyGrad.addColorStop(1, '#c8e0b8');
-  ctx.fillStyle = skyGrad;
-  ctx.fillRect(0, 0, sceneW, WT + 20);
+  // 13: Door
+  dt(13, c => {
+    c.fillStyle='#d8c898'; c.fillRect(0,0,16,16);
+    c.fillStyle='#c0b080'; c.fillRect(0,0,16,1);
+    // Door frame
+    c.fillStyle='#806040'; c.fillRect(3,2,10,14);
+    // Door panels
+    c.fillStyle='#906830'; c.fillRect(4,3,4,12);
+    c.fillStyle='#a07838'; c.fillRect(8,3,4,12);
+    // Arch top
+    c.fillStyle='#806040';
+    c.fillRect(5,2,6,1); c.fillRect(4,3,1,1); c.fillRect(11,3,1,1);
+    // Handle
+    c.fillStyle='#c8a840'; c.fillRect(7,9,1,2);
+    // Step
+    c.fillStyle='#b8a878'; c.fillRect(2,15,12,1);
+    // Panel lines
+    c.fillStyle='#785828'; c.fillRect(5,5,2,1); c.fillRect(9,5,2,1);
+    c.fillRect(5,10,2,1); c.fillRect(9,10,2,1);
+  });
 
-  // Sun
-  const sunGrad = ctx.createRadialGradient(sceneW - 100, 25, 3, sceneW - 100, 25, 30);
-  sunGrad.addColorStop(0, 'rgba(255,255,220,1)');
-  sunGrad.addColorStop(0.3, 'rgba(255,240,160,0.6)');
-  sunGrad.addColorStop(1, 'rgba(255,220,100,0)');
-  ctx.fillStyle = sunGrad;
-  ctx.beginPath(); ctx.arc(sceneW - 100, 25, 30, 0, Math.PI * 2); ctx.fill();
+  // 14: Roof red
+  dt(14, c => {
+    c.fillStyle='#b84838'; c.fillRect(0,0,16,16);
+    c.fillStyle='#a03828';
+    for(let y=0;y<16;y+=3) c.fillRect(0,y,16,1);
+    c.fillStyle='#c85848';
+    for(let y=1;y<16;y+=3) c.fillRect(0,y,16,1);
+    // Tile edges
+    c.fillStyle='#982820';
+    [[0,0,16,1]].forEach(([x,y,w,h])=>c.fillRect(x,y,w,h));
+    c.fillStyle='#d06858';
+    [[2,2,3,1],[8,2,3,1],[5,5,3,1],[11,5,3,1],[1,8,3,1],[7,8,3,1],[4,11,3,1],[10,11,3,1],[2,14,3,1],[8,14,3,1]]
+      .forEach(([x,y,w,h])=>c.fillRect(x,y,w,h));
+  });
 
-  // Distant hills
-  ctx.fillStyle = '#68a848';
-  for (const [hx, hw] of [[0, 300], [200, 350], [450, 300], [650, 280], [820, 300]]) {
-    ctx.beginPath();
-    ctx.ellipse(hx + hw / 2, WT + 10, hw / 2, 20, 0, 0, Math.PI * 2);
-    ctx.fill();
-  }
+  // 15: Roof flat (tan)
+  dt(15, c => {
+    c.fillStyle='#c8a870'; c.fillRect(0,0,16,16);
+    c.fillStyle='#b09060';
+    c.fillRect(0,0,16,1); c.fillRect(0,15,16,1);
+    c.fillStyle='#d8b880';
+    [[2,2,4,4],[8,6,4,4],[3,10,4,4]].forEach(([x,y,w,h])=>c.fillRect(x,y,w,h));
+    c.fillStyle='#a88858';
+    [[1,7,2,1],[10,3,2,1],[5,13,2,1]].forEach(([x,y,w,h])=>c.fillRect(x,y,w,h));
+  });
 
-  // =============================================
-  // LAYER 2: GREEN GRASS (outside walls)
-  // =============================================
-  ctx.fillStyle = '#58a830';
-  ctx.fillRect(0, WT - 15, sceneW, sceneH - WT + 15);
-  // Grass detail stripes
-  ctx.fillStyle = 'rgba(72,144,32,0.3)';
-  for (let gy = WT; gy < sceneH; gy += 6) {
-    for (let gx = 0; gx < sceneW; gx += 8) {
-      if ((gx + gy) % 16 < 8) ctx.fillRect(gx, gy, 4, 2);
+  // 16: Golden dome
+  dt(16, c => {
+    c.fillStyle='#d8c898'; c.fillRect(0,8,16,8);
+    c.fillStyle='#c0b080'; c.fillRect(0,8,16,1);
+    // Dome shape
+    c.fillStyle='#e8c040';
+    c.beginPath(); c.arc(8,10,7,Math.PI,0); c.fill();
+    c.fillStyle='#f0d050';
+    c.beginPath(); c.arc(7,10,5,Math.PI,0); c.fill();
+    c.fillStyle='#d0a020';
+    c.beginPath(); c.arc(9,10,4,Math.PI, Math.PI*0.3); c.fill();
+    // Finial
+    c.fillStyle='#f0d860'; c.fillRect(7,2,2,3);
+    c.fillStyle='#e8c840'; c.fillRect(7,1,2,1);
+    // Base decorative band
+    c.fillStyle='#c0a030'; c.fillRect(1,10,14,1);
+  });
+
+  // 17: Blue dome
+  dt(17, c => {
+    c.fillStyle='#d8c898'; c.fillRect(0,8,16,8);
+    c.fillStyle='#c0b080'; c.fillRect(0,8,16,1);
+    c.fillStyle='#4888b8';
+    c.beginPath(); c.arc(8,10,7,Math.PI,0); c.fill();
+    c.fillStyle='#58a0d0';
+    c.beginPath(); c.arc(7,10,5,Math.PI,0); c.fill();
+    c.fillStyle='#306898';
+    c.beginPath(); c.arc(9,10,4,Math.PI,Math.PI*0.3); c.fill();
+    c.fillStyle='#70b8e0'; c.fillRect(7,3,2,2);
+    c.fillStyle='#3878a0'; c.fillRect(1,10,14,1);
+  });
+
+  // 18: Tree top (canopy)
+  dt(18, c => {
+    c.fillStyle='#408830';
+    c.beginPath(); c.arc(8,10,7,0,Math.PI*2); c.fill();
+    c.fillStyle='#58a840';
+    c.beginPath(); c.arc(6,8,5,0,Math.PI*2); c.fill();
+    c.fillStyle='#68b848';
+    c.beginPath(); c.arc(7,7,3,0,Math.PI*2); c.fill();
+    c.fillStyle='#308020';
+    c.beginPath(); c.arc(10,11,4,0,Math.PI*2); c.fill();
+    // Leaf highlights
+    c.fillStyle='#78c858';
+    [[5,5],[8,6],[4,9],[10,8]].forEach(([x,y])=>c.fillRect(x,y,2,1));
+  });
+
+  // 19: Tree trunk/base
+  dt(19, c => {
+    // Bottom of canopy
+    c.fillStyle='#408830';
+    c.beginPath(); c.arc(8,0,7,0,Math.PI); c.fill();
+    c.fillStyle='#58a840';
+    c.beginPath(); c.arc(7,0,5,0,Math.PI*0.8); c.fill();
+    // Trunk
+    c.fillStyle='#705830'; c.fillRect(6,5,4,11);
+    c.fillStyle='#806838'; c.fillRect(7,5,2,11);
+    c.fillStyle='#604820'; c.fillRect(6,5,1,11);
+    // Roots
+    c.fillStyle='#705830'; c.fillRect(5,14,1,2); c.fillRect(10,14,1,2);
+    // Shadow
+    c.fillStyle='#308020';
+    c.beginPath(); c.arc(9,1,3,0,Math.PI*0.6); c.fill();
+  });
+
+  // 20: Bush
+  dt(20, c => {
+    c.fillStyle='#509838';
+    c.beginPath(); c.arc(8,10,6,0,Math.PI*2); c.fill();
+    c.fillStyle='#60a848';
+    c.beginPath(); c.arc(7,9,4,0,Math.PI*2); c.fill();
+    c.fillStyle='#70b858';
+    c.beginPath(); c.arc(6,8,2,0,Math.PI*2); c.fill();
+    c.fillStyle='#408028';
+    c.beginPath(); c.arc(10,12,3,0,Math.PI*2); c.fill();
+  });
+
+  // 21: Crate
+  dt(21, c => {
+    c.fillStyle='#a08040'; c.fillRect(3,4,10,12);
+    c.fillStyle='#b89050'; c.fillRect(4,5,8,10);
+    c.fillStyle='#907030'; c.fillRect(3,4,10,1); c.fillRect(3,4,1,12); c.fillRect(12,4,1,12);
+    c.fillStyle='#806028'; c.fillRect(3,15,10,1);
+    // Cross boards
+    c.fillStyle='#907030'; c.fillRect(3,9,10,1); c.fillRect(8,4,1,12);
+    // Highlight
+    c.fillStyle='#c8a060'; c.fillRect(5,6,2,2);
+  });
+
+  // 22: Barrel
+  dt(22, c => {
+    c.fillStyle='#906830'; c.fillRect(4,2,8,13);
+    c.fillStyle='#a07838';
+    c.beginPath(); c.ellipse(8,8,5,7,0,0,Math.PI*2); c.fill();
+    c.fillStyle='#805828';
+    c.beginPath(); c.ellipse(8,8,5,7,0,0,Math.PI*2); c.stroke();
+    // Metal bands
+    c.fillStyle='#888888'; c.fillRect(3,4,10,1); c.fillRect(3,11,10,1);
+    c.fillStyle='#a0a0a0'; c.fillRect(4,3,8,1); c.fillRect(4,10,8,1);
+    // Top
+    c.fillStyle='#b08838'; c.fillRect(5,1,6,2);
+    c.fillStyle='#986828'; c.fillRect(5,1,6,1);
+    // Highlight
+    c.fillStyle='#b89048'; c.fillRect(5,5,2,4);
+  });
+
+  // 23: Pot
+  dt(23, c => {
+    c.fillStyle='#b07848';
+    c.beginPath(); c.arc(8,10,5,0,Math.PI); c.fill();
+    c.fillRect(3,6,10,5);
+    c.fillStyle='#c08858'; c.fillRect(4,6,8,4);
+    c.fillStyle='#a06838'; c.fillRect(3,5,10,1);
+    // Rim
+    c.fillStyle='#c89868'; c.fillRect(3,5,10,2);
+    c.fillStyle='#a06838'; c.fillRect(2,5,12,1);
+    // Pattern
+    c.fillStyle='#905830'; c.fillRect(4,8,8,1);
+    // Highlight
+    c.fillStyle='#d0a068'; c.fillRect(5,6,2,3);
+  });
+
+  // 24: Fountain
+  dt(24, c => {
+    // Basin
+    c.fillStyle='#a09080'; c.fillRect(1,8,14,8);
+    c.fillStyle='#908070'; c.fillRect(0,8,16,1); c.fillRect(0,15,16,1);
+    // Water
+    c.fillStyle='#5898c8'; c.fillRect(2,9,12,6);
+    c.fillStyle='#68a8d8'; c.fillRect(3,10,10,4);
+    // Center spout
+    c.fillStyle='#b0a090'; c.fillRect(7,3,2,6);
+    c.fillStyle='#c0b0a0'; c.fillRect(6,2,4,2);
+    // Water spray
+    c.fillStyle='#88c8f0'; c.fillRect(7,0,2,2);
+    c.fillStyle='#78b8e0'; c.fillRect(5,1,1,2); c.fillRect(10,1,1,2);
+    c.fillStyle='#68a8d0'; c.fillRect(4,3,1,2); c.fillRect(11,3,1,2);
+    // Sparkle
+    c.fillStyle='#c0e8ff'; c.fillRect(8,0,1,1); c.fillRect(5,2,1,1); c.fillRect(11,2,1,1);
+  });
+
+  // 25: Banner red
+  dt(25, c => {
+    c.fillStyle='#806040'; c.fillRect(7,0,2,16);
+    c.fillStyle='#c03828'; c.fillRect(2,2,5,10);
+    c.fillStyle='#a02818'; c.fillRect(2,2,5,1); c.fillRect(2,11,5,1);
+    c.fillStyle='#e04838'; c.fillRect(3,4,3,3);
+    // Banner tip
+    c.fillStyle='#c03828'; c.fillRect(3,12,3,2);
+    c.fillStyle='#a02818'; c.fillRect(4,14,1,1);
+    // Gold trim
+    c.fillStyle='#e0c040'; c.fillRect(2,3,5,1); c.fillRect(2,10,5,1);
+  });
+
+  // 26: Awning red
+  dt(26, c => {
+    // Striped awning
+    for(let x=0;x<16;x+=4) {
+      c.fillStyle='#c84838'; c.fillRect(x,0,2,10);
+      c.fillStyle='#f0e8d0'; c.fillRect(x+2,0,2,10);
     }
-  }
-  ctx.fillStyle = 'rgba(80,168,48,0.4)';
-  for (let gy = WT; gy < sceneH; gy += 10) {
-    for (let gx = 2; gx < sceneW; gx += 12) {
-      ctx.fillRect(gx, gy, 2, 3);
+    c.fillStyle='#b03828'; c.fillRect(0,0,16,1);
+    c.fillStyle='#a02818'; c.fillRect(0,9,16,1);
+    // Fringe
+    c.fillStyle='#c84838';
+    for(let x=0;x<16;x+=2) c.fillRect(x,10,1,2);
+    // Support posts
+    c.fillStyle='#806040'; c.fillRect(0,0,1,16); c.fillRect(15,0,1,16);
+    // Counter below
+    c.fillStyle='#b09060'; c.fillRect(0,12,16,4);
+    c.fillStyle='#a08050'; c.fillRect(0,12,16,1);
+  });
+
+  // 27: Awning blue
+  dt(27, c => {
+    for(let x=0;x<16;x+=4) {
+      c.fillStyle='#3868a8'; c.fillRect(x,0,2,10);
+      c.fillStyle='#f0e8d0'; c.fillRect(x+2,0,2,10);
     }
-  }
-  // Flowers
-  const flowerColors = ['#e84848', '#e8d040', '#d860d0', '#f8f8f8'];
-  for (let i = 0; i < 60; i++) {
-    const fx = (i * 137 + 23) % sceneW;
-    const fy = WT + 10 + (i * 89 + 41) % (sceneH - WT - 20);
-    // Only draw outside walls
-    if (fx < WL - 10 || fx > WR + 10 || fy < WT - 10 || fy > WB + 10) {
-      ctx.fillStyle = flowerColors[i % flowerColors.length];
-      ctx.fillRect(fx, fy, 2, 2);
-      ctx.fillStyle = '#48a028';
-      ctx.fillRect(fx, fy + 2, 1, 2);
-    }
-  }
+    c.fillStyle='#2858a0'; c.fillRect(0,0,16,1);
+    c.fillStyle='#204890'; c.fillRect(0,9,16,1);
+    c.fillStyle='#3868a8';
+    for(let x=0;x<16;x+=2) c.fillRect(x,10,1,2);
+    c.fillStyle='#806040'; c.fillRect(0,0,1,16); c.fillRect(15,0,1,16);
+    c.fillStyle='#b09060'; c.fillRect(0,12,16,4);
+    c.fillStyle='#a08050'; c.fillRect(0,12,16,1);
+  });
 
-  // Trees outside walls
-  const outerTrees = [
-    [30, 55], [130, 48], [250, 52], [380, 45], [520, 55], [650, 48], [780, 52], [900, 45],
-    [40, sceneH - 35], [200, sceneH - 28], [400, sceneH - 35], [600, sceneH - 30], [800, sceneH - 33],
-    [20, 180], [15, 320], [25, 460], [18, 580],
-    [sceneW - 25, 190], [sceneW - 20, 340], [sceneW - 28, 470], [sceneW - 22, 590],
-  ];
-  outerTrees.forEach(([ox, oy]) => drawTree(ox, oy, 1.5 + (ox % 3) * 0.3));
-
-  // =============================================
-  // LAYER 3: COBBLESTONE GROUND (inside walls)
-  // =============================================
-  ctx.fillStyle = cobblePattern;
-  ctx.fillRect(WL, WT, WR - WL, WB - WT);
-
-  // Dirt paths (cross through city)
-  ctx.fillStyle = '#c0a878';
-  ctx.fillRect(WL, 380, WR - WL, 36);     // horizontal
-  ctx.fillRect(gateX - 18, WT, 36, WB - WT); // vertical
-  ctx.fillStyle = 'rgba(168,136,88,0.3)';
-  ctx.fillRect(WL, 380, WR - WL, 2);
-  ctx.fillRect(WL, 414, WR - WL, 2);
-
-  // =============================================
-  // LAYER 4: CITY WALLS
-  // =============================================
-  ctx.fillStyle = stonePattern;
-  // Top wall
-  ctx.fillRect(WL - wallT, WT - wallT, WR - WL + wallT * 2, wallT);
-  // Bottom wall (with gate gap)
-  ctx.fillRect(WL - wallT, WB, gateX - gateW / 2 - WL + wallT, wallT);
-  ctx.fillRect(gateX + gateW / 2, WB, WR - gateX + gateW / 2 + wallT, wallT);
-  // Left wall
-  ctx.fillRect(WL - wallT, WT - wallT, wallT, WB - WT + wallT * 2);
-  // Right wall
-  ctx.fillRect(WR, WT - wallT, wallT, WB - WT + wallT * 2);
-
-  // Wall top highlights
-  ctx.fillStyle = 'rgba(216,184,120,0.5)';
-  ctx.fillRect(WL - wallT, WT - wallT, WR - WL + wallT * 2, 3);
-  ctx.fillStyle = 'rgba(0,0,0,0.15)';
-  ctx.fillRect(WL - wallT, WT - 2, WR - WL + wallT * 2, 2);
-
-  // Crenellations (top wall)
-  for (let cx = WL - wallT; cx < WR + wallT; cx += 14) {
-    ctx.fillStyle = '#c8a870';
-    ctx.fillRect(cx, WT - wallT - 7, 6, 9);
-    ctx.fillStyle = '#d8b880';
-    ctx.fillRect(cx, WT - wallT - 7, 6, 2);
-  }
-  // Crenellations (bottom wall)
-  for (let cx = WL - wallT; cx < gateX - gateW / 2; cx += 14) {
-    ctx.fillStyle = '#c8a870'; ctx.fillRect(cx, WB + wallT - 2, 6, 7);
-  }
-  for (let cx = gateX + gateW / 2; cx < WR + wallT; cx += 14) {
-    ctx.fillStyle = '#c8a870'; ctx.fillRect(cx, WB + wallT - 2, 6, 7);
-  }
-
-  // Corner towers
-  function drawTower(tx, ty) {
-    ctx.save();
-    ctx.shadowColor = 'rgba(0,0,0,0.3)';
-    ctx.shadowBlur = 8;
-    ctx.shadowOffsetX = 2;
-    ctx.shadowOffsetY = 2;
-    ctx.fillStyle = darkStonePattern;
-    ctx.fillRect(tx - 20, ty - 40, 40, 80);
-    ctx.shadowColor = 'transparent';
-    // Top platform
-    ctx.fillStyle = '#c0a068';
-    ctx.fillRect(tx - 24, ty - 48, 48, 12);
-    ctx.fillStyle = '#d0b078';
-    ctx.fillRect(tx - 24, ty - 48, 48, 3);
-    // Crenellations
-    for (let c = 0; c < 5; c++) {
-      ctx.clearRect(tx - 22 + c * 10 + 4, ty - 48, 5, 5);
-      ctx.fillStyle = '#58a830'; // grass behind
-      ctx.fillRect(tx - 22 + c * 10 + 4, ty - 48, 5, 5);
-    }
-    // Arrow slits
-    ctx.fillStyle = '#302820';
-    for (const ay of [-20, 0, 20]) {
-      ctx.fillRect(tx - 3, ty + ay - 4, 6, 3);
-      ctx.fillRect(tx - 1, ty + ay - 6, 2, 7);
-    }
-    // Torch
-    ctx.fillStyle = '#ff8020';
-    ctx.beginPath(); ctx.arc(tx - 12, ty - 22, 3, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = '#ffc040';
-    ctx.beginPath(); ctx.arc(tx - 12, ty - 24, 2, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = '#604020';
-    ctx.fillRect(tx - 13, ty - 20, 2, 8);
-    ctx.restore();
-  }
-  drawTower(WL - wallT / 2, WT);
-  drawTower(WR + wallT / 2, WT);
-  drawTower(WL - wallT / 2, WB);
-  drawTower(WR + wallT / 2, WB);
-  // Mid-wall towers (smaller)
-  function drawMiniTower(tx, ty) {
-    ctx.fillStyle = darkStonePattern;
-    ctx.fillRect(tx - 14, ty - 28, 28, 56);
-    ctx.fillStyle = '#c0a068';
-    ctx.fillRect(tx - 17, ty - 34, 34, 8);
-    ctx.fillStyle = '#d0b078';
-    ctx.fillRect(tx - 17, ty - 34, 34, 2);
-    for (let c = 0; c < 3; c++) {
-      ctx.fillStyle = '#58a830';
-      ctx.fillRect(tx - 15 + c * 12 + 5, ty - 34, 4, 4);
-    }
-    ctx.fillStyle = '#302820';
-    ctx.fillRect(tx - 2, ty - 8, 4, 2);
-    ctx.fillRect(tx - 1, ty - 10, 2, 5);
-  }
-  drawMiniTower(gateX, WT);
-  drawMiniTower(WL, (WT + WB) / 2);
-  drawMiniTower(WR, (WT + WB) / 2);
-
-  // Gate archway
-  ctx.fillStyle = '#a08848';
-  ctx.fillRect(gateX - gateW / 2 - 4, WB - 4, 8, wallT + 8);
-  ctx.fillRect(gateX + gateW / 2 - 4, WB - 4, 8, wallT + 8);
-  ctx.fillStyle = '#b09858';
-  ctx.beginPath();
-  ctx.arc(gateX, WB, gateW / 2, Math.PI, 0);
-  ctx.fill();
-  ctx.fillStyle = '#403020';
-  ctx.beginPath();
-  ctx.arc(gateX, WB + 2, gateW / 2 - 4, Math.PI, 0);
-  ctx.fill();
-  // Gate text
-  ctx.fillStyle = '#f0d060';
-  ctx.font = 'bold 8px monospace';
-  ctx.textAlign = 'center';
-  ctx.fillText('CITY GATE', gateX, WB + wallT + 12);
-
-  // =============================================
-  // LAYER 5: TEMPLE OF SOLOMON (centerpiece)
-  // =============================================
-  const tX = gateX - 100, tY = 95, tW = 200, tH = 130;
-  ctx.save();
-  ctx.shadowColor = 'rgba(0,0,0,0.3)';
-  ctx.shadowBlur = 10;
-  ctx.shadowOffsetX = 4;
-  ctx.shadowOffsetY = 4;
-  // Temple base
-  ctx.fillStyle = '#f0e8d8';
-  ctx.fillRect(tX, tY + 30, tW, tH);
-  ctx.shadowColor = 'transparent';
-  // Stone texture
-  ctx.globalAlpha = 0.06;
-  ctx.fillStyle = stonePattern;
-  ctx.fillRect(tX, tY + 30, tW, tH);
-  ctx.globalAlpha = 1;
-  // Columns
-  for (let cx = tX + 15; cx < tX + tW - 10; cx += 16) {
-    ctx.fillStyle = '#e8e0d0';
-    ctx.fillRect(cx, tY + 35, 5, tH - 10);
-    ctx.fillStyle = '#d0c8b8';
-    ctx.fillRect(cx + 4, tY + 35, 1, tH - 10);
-    ctx.fillStyle = '#f0e8d8';
-    ctx.fillRect(cx, tY + 35, 1, tH - 10);
+  // 28: Column
+  dt(28, c => {
+    c.fillStyle='#d8d0c0'; c.fillRect(5,0,6,16);
+    c.fillStyle='#e8e0d0'; c.fillRect(6,0,4,16);
+    c.fillStyle='#c0b8a8'; c.fillRect(5,0,1,16); c.fillRect(10,0,1,16);
     // Capital
-    ctx.fillStyle = '#e8e0d0';
-    ctx.fillRect(cx - 2, tY + 33, 9, 3);
-  }
-  // Entablature
-  ctx.fillStyle = '#d8c8a8';
-  ctx.fillRect(tX - 4, tY + 28, tW + 8, 6);
-  ctx.fillStyle = '#e8d8b8';
-  ctx.fillRect(tX - 4, tY + 28, tW + 8, 2);
-  // Frieze detail
-  ctx.fillStyle = 'rgba(160,136,88,0.4)';
-  for (let fx = tX; fx < tX + tW; fx += 8) ctx.fillRect(fx, tY + 30, 4, 3);
-  // Golden dome
-  ctx.save();
-  ctx.beginPath();
-  ctx.arc(tX + tW / 2, tY + 30, 42, Math.PI, 0);
-  ctx.closePath();
-  ctx.clip();
-  const domeGrad = ctx.createRadialGradient(tX + tW / 2 - 12, tY + 8, 4, tX + tW / 2, tY + 25, 42);
-  domeGrad.addColorStop(0, '#ffe870');
-  domeGrad.addColorStop(0.3, '#e8c028');
-  domeGrad.addColorStop(0.7, '#c89020');
-  domeGrad.addColorStop(1, '#a07018');
-  ctx.fillStyle = domeGrad;
-  ctx.fill();
-  // Specular highlight
-  ctx.fillStyle = 'rgba(255,245,160,0.45)';
-  ctx.beginPath();
-  ctx.ellipse(tX + tW / 2 - 14, tY + 6, 14, 10, -0.2, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.restore();
-  // Finial
-  ctx.fillStyle = '#ffd700';
-  ctx.fillRect(tX + tW / 2 - 1, tY - 14, 3, 8);
-  ctx.fillStyle = '#ffe860';
-  ctx.beginPath(); ctx.arc(tX + tW / 2, tY - 15, 3, 0, Math.PI * 2); ctx.fill();
-  // Temple door
-  ctx.fillStyle = '#604020';
-  const tdX = tX + tW / 2 - 12, tdY = tY + tH + 30 - 30;
-  ctx.fillRect(tdX, tdY, 24, 30);
-  ctx.beginPath(); ctx.arc(tdX + 12, tdY, 12, Math.PI, 0); ctx.fill();
-  ctx.fillStyle = '#503018';
-  ctx.fillRect(tdX + 2, tdY + 2, 20, 28);
-  // Gold door frame
-  ctx.strokeStyle = '#c0a030';
-  ctx.lineWidth = 2;
-  ctx.strokeRect(tdX - 1, tdY - 12, 26, 42);
-  // Steps
-  for (let step = 0; step < 4; step++) {
-    const shade = 200 - step * 14;
-    ctx.fillStyle = `rgb(${shade},${shade - 8},${shade - 24})`;
-    ctx.fillRect(tX + 30 - step * 8, tY + tH + 30 + step * 3, tW - 60 + step * 16, 3);
-  }
-  // Temple label
-  ctx.fillStyle = '#ffffff';
-  ctx.font = 'bold 9px monospace';
-  ctx.textAlign = 'center';
-  ctx.strokeStyle = '#000000';
-  ctx.lineWidth = 3;
-  ctx.strokeText('TEMPLE OF SOLOMON', tX + tW / 2, tY - 20);
-  ctx.fillStyle = '#ffd700';
-  ctx.fillText('TEMPLE OF SOLOMON', tX + tW / 2, tY - 20);
-  // Trees flanking temple
-  drawTree(tX + 10, tY + tH + 15, 1.3);
-  drawTree(tX + tW - 10, tY + tH + 15, 1.3);
-  ctx.restore();
+    c.fillStyle='#e0d8c8'; c.fillRect(4,0,8,3);
+    c.fillStyle='#c8c0b0'; c.fillRect(4,0,8,1);
+    // Base
+    c.fillStyle='#e0d8c8'; c.fillRect(4,13,8,3);
+    c.fillStyle='#c8c0b0'; c.fillRect(4,15,8,1);
+    // Fluting
+    c.fillStyle='#c8c0b0'; c.fillRect(7,3,1,10);
+  });
 
-  // =============================================
-  // LAYER 6: BLUE DOME BUILDING
-  // =============================================
-  const bdX = tX + tW + 20, bdY = 110, bdW = 90, bdH = 100;
-  ctx.save();
-  ctx.shadowColor = 'rgba(0,0,0,0.2)';
-  ctx.shadowBlur = 5;
-  ctx.shadowOffsetX = 2;
-  ctx.shadowOffsetY = 2;
-  ctx.fillStyle = '#e8e0d0';
-  ctx.fillRect(bdX, bdY + 24, bdW, bdH - 24);
-  ctx.shadowColor = 'transparent';
-  // Blue dome
-  ctx.save();
-  ctx.beginPath();
-  ctx.arc(bdX + bdW / 2, bdY + 26, 28, Math.PI, 0);
-  ctx.closePath(); ctx.clip();
-  const blueDome = ctx.createRadialGradient(bdX + bdW / 2 - 8, bdY + 10, 3, bdX + bdW / 2, bdY + 22, 28);
-  blueDome.addColorStop(0, '#80b8e8');
-  blueDome.addColorStop(0.4, '#4888c8');
-  blueDome.addColorStop(1, '#305888');
-  ctx.fillStyle = blueDome;
-  ctx.fill();
-  ctx.fillStyle = 'rgba(140,190,240,0.3)';
-  ctx.beginPath(); ctx.ellipse(bdX + bdW / 2 - 10, bdY + 8, 10, 6, -0.2, 0, Math.PI * 2); ctx.fill();
-  ctx.restore();
-  // Finial
-  ctx.fillStyle = '#c0c8d8';
-  ctx.fillRect(bdX + bdW / 2 - 1, bdY - 4, 2, 6);
-  // Windows
-  for (const wx of [bdX + 12, bdX + bdW - 22]) {
-    ctx.fillStyle = '#4878a8';
-    ctx.fillRect(wx, bdY + 40, 10, 16);
-    ctx.beginPath(); ctx.arc(wx + 5, bdY + 40, 5, Math.PI, 0);
-    ctx.fillStyle = '#4878a8'; ctx.fill();
-  }
-  // Door
-  ctx.fillStyle = '#5c3820';
-  ctx.fillRect(bdX + bdW / 2 - 6, bdY + bdH - 20, 12, 20);
-  ctx.restore();
+  // 29: Steps
+  dt(29, c => {
+    c.fillStyle='#c8c0b0'; c.fillRect(0,12,16,4);
+    c.fillStyle='#d0c8b8'; c.fillRect(0,8,16,4);
+    c.fillStyle='#d8d0c0'; c.fillRect(0,4,16,4);
+    c.fillStyle='#e0d8c8'; c.fillRect(0,0,16,4);
+    // Step edges
+    c.fillStyle='#b0a898';
+    [0,4,8,12].forEach(y=>c.fillRect(0,y,16,1));
+    // Texture
+    c.fillStyle='#c0b8a8';
+    [[3,2,2,1],[10,6,2,1],[5,10,2,1],[12,14,2,1]]
+      .forEach(([x,y,w,h])=>c.fillRect(x,y,w,h));
+  });
 
-  // =============================================
-  // LAYER 7: BUILDINGS (dense blocks)
-  // =============================================
-  // Upper-left block
-  drawBuilding(95, 105, 100, 80, '#e8d8c0', '#b08848', 'pitched');
-  drawBuilding(205, 100, 85, 85, '#e0d0b8', '#8070a0', 'flat');
-  drawBuilding(95, 200, 95, 70, '#d8ccc0', '#985838', 'pitched');
-  drawBuilding(205, 205, 80, 68, '#e8dcc8', '#607080', 'flat');
-
-  // Upper-right block
-  drawBuilding(700, 105, 85, 80, '#e8d8c0', '#a85030', 'pitched');
-  drawBuilding(795, 100, 80, 85, '#e0d0b8', '#b08848', 'flat');
-  drawBuilding(700, 200, 80, 68, '#e8dcc8', '#985838', 'flat');
-  drawBuilding(795, 205, 75, 70, '#d8ccc0', '#607080', 'pitched');
-
-  // Middle-left block
-  drawBuilding(90, 300, 85, 70, '#e0d0b8', '#a85030', 'pitched');
-  drawBuilding(185, 295, 85, 75, '#e8d8c0', '#b08848', 'flat');
-  drawBuilding(90, 385, 90, 70, '#d8ccc0', '#607080', 'flat');
-
-  // Lehi's Home (warm, distinct)
-  drawBuilding(195, 390, 100, 80, '#f0e8d0', '#8b7050', 'pitched');
-  ctx.fillStyle = '#f8d830'; ctx.font = 'bold 8px monospace'; ctx.textAlign = 'center';
-  ctx.strokeStyle = '#000'; ctx.lineWidth = 2;
-  ctx.strokeText("Lehi's Home", 245, 385);
-  ctx.fillText("Lehi's Home", 245, 385);
-  // Flower boxes
-  ctx.fillStyle = '#48a028';
-  ctx.fillRect(200, 425, 8, 3); ctx.fillRect(270, 425, 8, 3);
-  ctx.fillStyle = '#e84848';
-  ctx.fillRect(202, 423, 3, 2); ctx.fillRect(272, 423, 3, 2);
-
-  // Middle-right block
-  drawBuilding(720, 295, 80, 75, '#d8ccc0', '#985838', 'flat');
-  drawBuilding(810, 300, 70, 70, '#e8d8c0', '#607080', 'pitched');
-  drawBuilding(810, 385, 70, 70, '#e0d0b8', '#b08848', 'flat');
-
-  // Laban's House (dark, ominous)
-  drawBuilding(700, 390, 100, 80, '#d0c8b8', '#802020', 'pitched');
-  ctx.fillStyle = '#ff8888'; ctx.font = 'bold 8px monospace'; ctx.textAlign = 'center';
-  ctx.strokeStyle = '#000'; ctx.lineWidth = 2;
-  ctx.strokeText("Laban's House", 750, 385);
-  ctx.fillText("Laban's House", 750, 385);
-  // Torches
-  for (const ltx of [705, 790]) {
-    ctx.fillStyle = '#604020'; ctx.fillRect(ltx, 420, 2, 8);
-    ctx.fillStyle = '#ff8020'; ctx.beginPath(); ctx.arc(ltx + 1, 418, 3, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = '#ffc040'; ctx.beginPath(); ctx.arc(ltx + 1, 416, 2, 0, Math.PI * 2); ctx.fill();
-  }
-
-  // Lower-side buildings
-  drawBuilding(90, 500, 85, 65, '#e0d0b8', '#b08848', 'flat');
-  drawBuilding(90, 580, 80, 60, '#e8dcc8', '#985838', 'pitched');
-  drawBuilding(800, 500, 75, 65, '#d8ccc0', '#a85030', 'flat');
-  drawBuilding(800, 580, 70, 60, '#e8d8c0', '#607080', 'pitched');
-
-  // =============================================
-  // LAYER 8: MARKET DISTRICT (shops with awnings)
-  // =============================================
-  function drawShop(sx, sy, sw, sh, awningColor1, awningColor2, label) {
-    // Building
-    ctx.save();
-    ctx.shadowColor = 'rgba(0,0,0,0.2)';
-    ctx.shadowBlur = 5; ctx.shadowOffsetX = 2; ctx.shadowOffsetY = 2;
-    ctx.fillStyle = '#e8dcc8';
-    ctx.fillRect(sx, sy + 14, sw, sh);
-    ctx.shadowColor = 'transparent';
-    // Awning (striped, angled)
-    for (let ay = 0; ay < 14; ay++) {
-      for (let ax = 0; ax < sw + 8; ax++) {
-        const stripe = Math.floor(ax / 8) % 2 === 0;
-        ctx.fillStyle = stripe ? awningColor1 : awningColor2;
-        ctx.fillRect(sx - 4 + ax, sy + ay, 1, 1);
-      }
-    }
-    ctx.fillStyle = 'rgba(0,0,0,0.15)';
-    ctx.fillRect(sx - 4, sy + 12, sw + 8, 3);
-    // Display window
-    ctx.fillStyle = '#4878a8';
-    ctx.fillRect(sx + 6, sy + 22, sw - 12, Math.floor(sh * 0.35));
-    ctx.fillStyle = 'rgba(120,180,220,0.3)';
-    ctx.fillRect(sx + 7, sy + 23, Math.floor((sw - 12) * 0.4), Math.floor(sh * 0.15));
-    ctx.strokeStyle = '#806040'; ctx.lineWidth = 1;
-    ctx.strokeRect(sx + 5.5, sy + 21.5, sw - 11, Math.floor(sh * 0.35) + 1);
-    // Goods in window
-    const goodsY = sy + 22 + Math.floor(sh * 0.25);
-    for (let gi = 0; gi < 4; gi++) {
-      const gc = ['#e8c040', '#c84040', '#40a0c0', '#a08040'][gi];
-      ctx.fillStyle = gc;
-      ctx.fillRect(sx + 10 + gi * Math.floor((sw - 24) / 4), goodsY, 6, 5);
-    }
-    // Door
-    ctx.fillStyle = '#5c3820';
-    const sdx = sx + sw / 2 - 6;
-    ctx.fillRect(sdx, sy + sh - 4, 12, 18);
-    ctx.fillStyle = '#4a2c14';
-    ctx.fillRect(sdx + 1, sy + sh - 3, 10, 17);
+  // 30: Sign
+  dt(30, c => {
+    // Post
+    c.fillStyle='#705830'; c.fillRect(7,4,2,12);
+    c.fillStyle='#806838'; c.fillRect(8,4,1,12);
     // Sign board
-    ctx.fillStyle = '#c8a868';
-    ctx.fillRect(sx + sw / 2 - 30, sy - 10, 60, 14);
-    ctx.fillStyle = '#a88848';
-    ctx.strokeRect(sx + sw / 2 - 30, sy - 10, 60, 14);
-    ctx.fillStyle = '#402810';
-    ctx.font = 'bold 8px monospace';
-    ctx.textAlign = 'center';
-    ctx.fillText(label, sx + sw / 2, sy + 1);
-    ctx.restore();
-  }
-  drawShop(210, 485, 120, 80, '#cc4040', '#ff8080', 'WEAPONS SHOP');
-  drawShop(370, 485, 120, 80, '#40a040', '#80e080', 'ITEM SHOP');
-  drawShop(530, 485, 120, 80, '#4060c0', '#80a0f0', 'TAILOR');
+    c.fillStyle='#c09848'; c.fillRect(1,1,14,7);
+    c.fillStyle='#b08838'; c.fillRect(1,1,14,1); c.fillRect(1,7,14,1);
+    c.fillStyle='#a07828'; c.fillRect(1,1,1,7); c.fillRect(14,1,1,7);
+    // Arrow
+    c.fillStyle='#504020';
+    c.fillRect(3,3,8,1); c.fillRect(9,2,1,1); c.fillRect(9,4,1,1);
+    // Cap
+    c.fillStyle='#c09848'; c.fillRect(6,0,4,1);
+  });
 
-  // Market stalls in front of shops
-  function drawStall(mx, my, color) {
-    ctx.fillStyle = '#8c6830';
-    ctx.fillRect(mx, my + 6, 2, 12); ctx.fillRect(mx + 34, my + 6, 2, 12);
-    for (let sy = 0; sy < 6; sy++) {
-      for (let sx = 0; sx < 36; sx++) {
-        ctx.fillStyle = Math.floor(sx / 6) % 2 === 0 ? color : lightenHex(color, 40);
-        ctx.fillRect(mx + sx, my + sy, 1, 1);
-      }
-    }
-    ctx.fillStyle = '#a08040';
-    ctx.fillRect(mx, my + 10, 36, 5);
-    // Goods on counter
-    for (let gi = 0; gi < 3; gi++) {
-      ctx.fillStyle = ['#e8b840', '#e86040', '#80c060'][gi];
-      ctx.fillRect(mx + 4 + gi * 11, my + 8, 6, 3);
-    }
-  }
-  drawStall(250, 578, '#cc4444');
-  drawStall(415, 578, '#44aa44');
-  drawStall(575, 578, '#4466cc');
+  // 31: Market goods (displayed wares)
+  dt(31, c => {
+    c.fillStyle='#b09060'; c.fillRect(0,8,16,8);
+    c.fillStyle='#a08050'; c.fillRect(0,8,16,1); c.fillRect(0,15,16,1);
+    // Goods on table
+    c.fillStyle='#d04030'; c.fillRect(1,5,3,3); // apple pile
+    c.fillStyle='#e8d040'; c.fillRect(5,5,3,3); // grain
+    c.fillStyle='#6848a0'; c.fillRect(9,4,3,4); // cloth
+    c.fillStyle='#40a060'; c.fillRect(13,5,2,3); // herbs
+    // Cloth drape
+    c.fillStyle='#c8a060'; c.fillRect(0,3,16,2);
+    c.fillStyle='#b89050'; c.fillRect(0,3,16,1);
+  });
 
-  // =============================================
-  // LAYER 9: FOUNTAIN
-  // =============================================
-  const fX = 420, fY = 370;
-  // Stone base (ellipse)
-  ctx.fillStyle = '#b0a080';
-  ctx.beginPath(); ctx.ellipse(fX, fY + 8, 24, 12, 0, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = '#c8b898';
-  ctx.beginPath(); ctx.ellipse(fX, fY + 6, 22, 10, 0, 0, Math.PI * 2); ctx.fill();
-  // Water
-  ctx.fillStyle = '#4890c8';
-  ctx.beginPath(); ctx.ellipse(fX, fY + 6, 18, 8, 0, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = 'rgba(100,180,240,0.4)';
-  ctx.beginPath(); ctx.ellipse(fX - 4, fY + 4, 8, 4, 0, 0, Math.PI * 2); ctx.fill();
-  // Center column
-  ctx.fillStyle = '#b0a080';
-  ctx.fillRect(fX - 3, fY - 14, 6, 22);
-  ctx.fillStyle = '#c8b898';
-  ctx.fillRect(fX - 3, fY - 14, 6, 2);
-  // Water spouts
-  ctx.fillStyle = 'rgba(80,160,220,0.5)';
-  ctx.fillRect(fX - 6, fY - 8, 2, 10);
-  ctx.fillRect(fX + 5, fY - 8, 2, 10);
-
-  // =============================================
-  // LAYER 10: BANNERS
-  // =============================================
-  const bannerPositions = [
-    [130, 140, '#cc4040', '#ff8080'], [250, 135, '#4060c0', '#80a0f0'],
-    [350, 160, '#c8a040', '#f0d080'], [570, 160, '#4060c0', '#80a0f0'],
-    [690, 140, '#c8a040', '#f0d080'], [835, 135, '#cc4040', '#ff8080'],
-    [120, 330, '#40a040', '#80e080'], [260, 325, '#c8a040', '#f0d080'],
-    [600, 330, '#cc4040', '#ff8080'], [840, 325, '#4060c0', '#80a0f0'],
-    [160, 510, '#c8a040', '#f0d080'], [380, 480, '#40a040', '#80e080'],
-    [690, 480, '#cc4040', '#ff8080'], [840, 510, '#4060c0', '#80a0f0'],
-    [340, 620, '#cc4040', '#ff8080'], [560, 620, '#4060c0', '#80a0f0'],
-  ];
-  bannerPositions.forEach(([bx, by, c1, c2]) => drawBanner(bx, by, 24, c1, c2));
-
-  // =============================================
-  // LAYER 11: PROPS (crates, barrels, pots)
-  // =============================================
-  function drawCrate(cx, cy) {
-    ctx.fillStyle = '#a87830'; ctx.fillRect(cx, cy, 10, 10);
-    ctx.fillStyle = '#8c6020'; ctx.fillRect(cx, cy + 4, 10, 1); ctx.fillRect(cx + 4, cy, 1, 10);
-    ctx.fillStyle = '#c09040'; ctx.fillRect(cx, cy, 10, 1);
-  }
-  function drawBarrel(bx, by) {
-    ctx.fillStyle = '#906028'; ctx.fillRect(bx + 1, by, 8, 12);
-    ctx.fillStyle = '#a87838'; ctx.fillRect(bx + 1, by, 8, 1);
-    ctx.fillStyle = '#a0a0a8'; ctx.fillRect(bx, by + 3, 10, 1); ctx.fillRect(bx, by + 9, 10, 1);
-  }
-  function drawPot(px, py) {
-    ctx.fillStyle = '#b88850';
-    ctx.beginPath(); ctx.arc(px + 4, py + 4, 4, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = '#c89860'; ctx.fillRect(px + 2, py, 4, 2);
-  }
-  // Near market
-  drawCrate(195, 570); drawCrate(187, 575); drawBarrel(175, 568);
-  drawCrate(660, 570); drawBarrel(670, 575); drawPot(680, 572);
-  // Near buildings
-  drawBarrel(88, 290); drawPot(100, 292); drawCrate(798, 290);
-  drawBarrel(808, 295); drawPot(88, 470); drawCrate(800, 470);
-  // Near gate
-  drawBarrel(gateX - 55, 638); drawCrate(gateX + 45, 640);
-  drawPot(gateX - 45, 642); drawPot(gateX + 55, 638);
-
-  // Direction sign
-  ctx.fillStyle = '#705028'; ctx.fillRect(760, 620, 3, 30);
-  ctx.fillStyle = '#c09848'; ctx.fillRect(740, 615, 60, 12);
-  ctx.fillRect(735, 630, 55, 12);
-  ctx.fillStyle = '#402010'; ctx.font = '6px monospace'; ctx.textAlign = 'center';
-  ctx.fillText('TO JERICHO', 770, 624);
-  ctx.fillText('GETHSEMANE', 762, 639);
-  ctx.fillStyle = '#c09848'; ctx.fillRect(758, 610, 7, 7); // cap
-
-  // Inner trees (near buildings/fountain)
-  drawTree(340, 240, 1.1);
-  drawTree(560, 235, 1.1);
-  drawTree(400, 350, 0.9);
-  drawTree(500, 355, 0.9);
-  drawTree(180, 480, 1.0);
-  drawTree(790, 480, 1.0);
-
-  return canvas;
+  return cv;
 }
+
+
+function buildJerusalemTilemap(scene) {
+  // Generate tileset texture if not yet created
+  if (!scene.textures.exists('jeru_tiles')) {
+    const tilesetCanvas = generateJerusalemTileset();
+    scene.textures.addCanvas('jeru_tiles', tilesetCanvas);
+  }
+
+  const MW = 60, MH = 46, TS = 16;
+  const map = scene.make.tilemap({ tileWidth: TS, tileHeight: TS, width: MW, height: MH });
+  const tileset = map.addTilesetImage('jerusalem', 'jeru_tiles', TS, TS, 0, 0, 0);
+
+  const ground = map.createBlankLayer('Ground', tileset);
+  const buildings = map.createBlankLayer('Buildings', tileset);
+  const details = map.createBlankLayer('Details', tileset);
+  const decor = map.createBlankLayer('Decorations', tileset);
+  const overlap = map.createBlankLayer('Overlap', tileset);
+  const collisionLayer = map.createBlankLayer('Collision', tileset);
+
+  ground.setDepth(0);
+  buildings.setDepth(1);
+  details.setDepth(2);
+  decor.setDepth(3);
+  overlap.setDepth(20); // above player
+  collisionLayer.setDepth(-1).setVisible(false);
+
+  // --- HELPERS ---
+  const fill = (layer, x1, y1, w, h, id) => { layer.fill(id, x1, y1, w, h); };
+  const put = (layer, x, y, id) => { layer.putTileAt(id, x, y); };
+
+  const placeBuilding = (bx, by, bw, bh, wallTile, roofTile, opts) => {
+    opts = opts || {};
+    // Roof (overlap layer so it renders above player when walking near)
+    fill(overlap, bx, by, bw, 1, roofTile);
+    // Walls
+    fill(buildings, bx, by + 1, bw, bh - 1, wallTile);
+    // Door (center bottom)
+    if (!opts.noDoor) put(details, bx + Math.floor(bw / 2), by + bh - 1, JT.DOOR);
+    // Windows
+    if (bw >= 3 && bh >= 3) {
+      put(details, bx + 1, by + 1, JT.WINDOW);
+      if (bw >= 4) put(details, bx + bw - 2, by + 1, JT.WINDOW);
+    }
+    // Collision
+    fill(collisionLayer, bx, by, bw, bh, JT.COBBLE); // any non-empty tile = collision
+    // Label
+    if (opts.label) {
+      opts._labels = opts._labels || [];
+      opts._labels.push({ x: (bx + bw/2) * TS, y: (by - 0.5) * TS, text: opts.label });
+    }
+  };
+
+  const labels = [];
+  const placeLabeledBuilding = (bx, by, bw, bh, wallTile, roofTile, label) => {
+    placeBuilding(bx, by, bw, bh, wallTile, roofTile, { noDoor: false });
+    if (label) labels.push({ x: (bx + bw/2) * TS, y: (by - 0.3) * TS, text: label });
+  };
+
+  // --- GROUND LAYER ---
+  // All grass
+  fill(ground, 0, 0, MW, MH, JT.GRASS);
+  // Flower grass scattered outside walls
+  const flowerSpots = [
+    [1,1],[3,2],[56,1],[58,3],[2,43],[57,44],[1,20],[58,20],
+    [0,10],[59,30],[2,35],[57,8],[3,44],[56,43],[1,30],[58,15]
+  ];
+  flowerSpots.forEach(([x,y]) => put(ground, x, y, JT.GRASS_F));
+
+  // Inside walls: cobblestone
+  fill(ground, 5, 5, 50, 37, JT.COBBLE);
+  // Variant cobblestone (scattered)
+  for (let i = 0; i < 60; i++) {
+    const x = 5 + (i * 37 + i * i * 13) % 50;
+    const y = 5 + (i * 23 + i * i * 7) % 37;
+    put(ground, x, y, JT.COBBLE_V);
+  }
+
+  // Main paths (dirt)
+  // North-South road
+  fill(ground, 29, 5, 2, 37, JT.DIRT);
+  // East-West road
+  fill(ground, 5, 22, 50, 2, JT.DIRT);
+  // Road to gate
+  fill(ground, 29, 38, 2, 8, JT.DIRT);
+
+  // --- CITY WALLS ---
+  // Top wall
+  fill(buildings, 4, 4, 52, 1, JT.WALL_TOP);
+  fill(buildings, 4, 5, 52, 1, JT.WALL);
+  // Bottom wall (with gate gap)
+  fill(buildings, 4, 41, 25, 1, JT.WALL);
+  fill(buildings, 31, 41, 25, 1, JT.WALL);
+  fill(buildings, 4, 42, 25, 1, JT.WALL_TOP);
+  fill(buildings, 31, 42, 25, 1, JT.WALL_TOP);
+  // Gate
+  put(buildings, 28, 41, JT.GATE);
+  put(buildings, 29, 41, JT.GATE);
+  put(buildings, 30, 41, JT.GATE);
+  // Left wall
+  for (let y = 4; y <= 42; y++) { put(buildings, 4, y, JT.WALL); put(buildings, 5, y, JT.WALL); }
+  // Right wall
+  for (let y = 4; y <= 42; y++) { put(buildings, 54, y, JT.WALL); put(buildings, 55, y, JT.WALL); }
+
+  // Corner towers (2×3 each)
+  const towerPositions = [[3,3],[54,3],[3,41],[54,41]];
+  towerPositions.forEach(([tx,ty]) => {
+    fill(buildings, tx, ty, 3, 1, JT.WALL_TOP);
+    fill(buildings, tx, ty+1, 3, 2, JT.TOWER);
+  });
+  // Mid-wall towers
+  [[3,20],[54,20],[28,3]].forEach(([tx,ty]) => {
+    fill(buildings, tx, ty, 3, 1, JT.WALL_TOP);
+    fill(buildings, tx, ty+1, 3, 2, JT.TOWER);
+  });
+
+  // Wall collision
+  fill(collisionLayer, 3, 3, 54, 3, JT.COBBLE); // top wall+towers
+  fill(collisionLayer, 3, 41, 25, 3, JT.COBBLE); // bottom left
+  fill(collisionLayer, 31, 41, 25, 3, JT.COBBLE); // bottom right
+  for (let y = 3; y <= 43; y++) {
+    fill(collisionLayer, 3, y, 3, 1, JT.COBBLE); // left
+    fill(collisionLayer, 54, y, 3, 1, JT.COBBLE); // right
+  }
+  // Clear gate
+  fill(collisionLayer, 28, 41, 3, 3, -1);
+
+  // --- TEMPLE OF SOLOMON (center-top) ---
+  // Large building: cols 22-37, rows 7-14
+  fill(overlap, 22, 7, 16, 2, JT.ROOF_F); // flat roof top
+  fill(buildings, 22, 9, 16, 5, JT.SAND_W); // walls
+  put(details, 29, 13, JT.DOOR); put(details, 30, 13, JT.DOOR);
+  // Windows
+  [23,25,27,32,34,36].forEach(x => put(details, x, 10, JT.WINDOW));
+  // Columns at entrance
+  [27,28,31,32].forEach(x => put(details, x, 13, JT.COLUMN));
+  // Steps
+  fill(details, 26, 14, 8, 1, JT.STEPS);
+  // Golden dome (centered)
+  put(overlap, 29, 7, JT.DOME_G);
+  put(overlap, 30, 7, JT.DOME_G);
+  // Temple collision
+  fill(collisionLayer, 22, 7, 16, 7, JT.COBBLE);
+  labels.push({ x: 30 * TS, y: 6.5 * TS, text: 'TEMPLE', color: '#ffd700' });
+
+  // --- BLUE DOME BUILDING ---
+  fill(overlap, 40, 8, 6, 1, JT.ROOF_F);
+  fill(buildings, 40, 9, 6, 4, JT.SAND_W);
+  put(details, 42, 12, JT.DOOR);
+  put(details, 41, 10, JT.WINDOW);
+  put(details, 44, 10, JT.WINDOW);
+  put(overlap, 42, 8, JT.DOME_B);
+  put(overlap, 43, 8, JT.DOME_B);
+  fill(collisionLayer, 40, 8, 6, 5, JT.COBBLE);
+
+  // --- RESIDENTIAL BUILDINGS ---
+  // NW block (cols 7-19, rows 7-20)
+  placeLabeledBuilding(7, 7, 5, 4, JT.SAND_W, JT.ROOF_R, null);
+  placeLabeledBuilding(13, 7, 5, 4, JT.DARK_W, JT.ROOF_F, null);
+  placeLabeledBuilding(7, 12, 4, 4, JT.SAND_W, JT.ROOF_R, null);
+  placeLabeledBuilding(12, 12, 5, 4, JT.DARK_W, JT.ROOF_R, null);
+  placeLabeledBuilding(7, 17, 5, 4, JT.SAND_W, JT.ROOF_F, null);
+  placeLabeledBuilding(13, 17, 4, 4, JT.DARK_W, JT.ROOF_R, null);
+
+  // NE block (cols 40-53, rows 13-20) - around blue dome
+  placeLabeledBuilding(46, 7, 5, 4, JT.SAND_W, JT.ROOF_R, null);
+  placeLabeledBuilding(46, 12, 5, 4, JT.DARK_W, JT.ROOF_F, null);
+  placeLabeledBuilding(40, 17, 5, 4, JT.SAND_W, JT.ROOF_R, null);
+  placeLabeledBuilding(46, 17, 5, 4, JT.DARK_W, JT.ROOF_R, null);
+
+  // SW block - Lehi's home area
+  placeLabeledBuilding(7, 25, 6, 5, JT.SAND_W, JT.ROOF_R, "LEHI'S HOME");
+  placeLabeledBuilding(7, 31, 4, 4, JT.DARK_W, JT.ROOF_F, null);
+  placeLabeledBuilding(12, 31, 5, 4, JT.SAND_W, JT.ROOF_R, null);
+  placeLabeledBuilding(7, 36, 5, 4, JT.DARK_W, JT.ROOF_R, null);
+
+  // SE block - Laban's house area
+  placeLabeledBuilding(45, 25, 6, 5, JT.DARK_W, JT.ROOF_R, "LABAN'S HOUSE");
+  placeLabeledBuilding(45, 31, 5, 4, JT.SAND_W, JT.ROOF_F, null);
+  placeLabeledBuilding(45, 36, 5, 4, JT.DARK_W, JT.ROOF_R, null);
+
+  // Mid-south buildings
+  placeLabeledBuilding(18, 25, 5, 4, JT.SAND_W, JT.ROOF_R, null);
+  placeLabeledBuilding(35, 25, 5, 4, JT.DARK_W, JT.ROOF_F, null);
+
+  // --- MARKET AREA (south-center) ---
+  // Market shops with awnings
+  fill(buildings, 18, 33, 5, 3, JT.SAND_W);
+  fill(overlap, 18, 32, 5, 1, JT.AWNING_R);
+  put(details, 20, 35, JT.DOOR);
+  put(details, 19, 34, JT.WINDOW);
+  fill(collisionLayer, 18, 32, 5, 4, JT.COBBLE);
+  labels.push({ x: 20.5 * TS, y: 31.5 * TS, text: 'WEAPONS', color: '#ff8888' });
+
+  fill(buildings, 24, 33, 5, 3, JT.SAND_W);
+  fill(overlap, 24, 32, 5, 1, JT.AWNING_B);
+  put(details, 26, 35, JT.DOOR);
+  put(details, 25, 34, JT.WINDOW);
+  fill(collisionLayer, 24, 32, 5, 4, JT.COBBLE);
+  labels.push({ x: 26.5 * TS, y: 31.5 * TS, text: 'ITEMS', color: '#88bbff' });
+
+  fill(buildings, 33, 33, 5, 3, JT.SAND_W);
+  fill(overlap, 33, 32, 5, 1, JT.AWNING_R);
+  put(details, 35, 35, JT.DOOR);
+  put(details, 34, 34, JT.WINDOW);
+  fill(collisionLayer, 33, 32, 5, 4, JT.COBBLE);
+  labels.push({ x: 35.5 * TS, y: 31.5 * TS, text: 'TAILOR', color: '#ff8888' });
+
+  // Market stalls (decorative)
+  put(decor, 20, 37, JT.MARKET);
+  put(decor, 26, 37, JT.MARKET);
+  put(decor, 35, 37, JT.MARKET);
+
+  // --- DECORATIONS ---
+  // Trees (2-tile tall: canopy on top, trunk on bottom)
+  const treePositions = [
+    [1,7],[2,15],[1,25],[1,35],[57,7],[57,15],[57,25],[57,35], // outside walls
+    [19,8],[19,14],[20,20],[40,14],[40,20], // inside near roads
+    [22,22],[37,22], // road intersections
+  ];
+  treePositions.forEach(([tx,ty]) => {
+    put(decor, tx, ty, JT.TREE_T);
+    put(decor, tx, ty+1, JT.TREE_B);
+    fill(collisionLayer, tx, ty, 1, 2, JT.COBBLE);
+  });
+
+  // Bushes
+  [[8,21],[14,21],[41,21],[48,21],[20,30],[39,30],[8,40],[50,40]].forEach(([bx,by]) => {
+    put(decor, bx, by, JT.BUSH);
+    put(collisionLayer, bx, by, JT.COBBLE);
+  });
+
+  // Crates, barrels, pots scattered near buildings and market
+  [[13,11],[17,16],[44,11],[50,16]].forEach(([x,y]) => {
+    put(decor, x, y, JT.CRATE);
+    put(collisionLayer, x, y, JT.COBBLE);
+  });
+  [[7,16],[18,20],[44,20],[51,11]].forEach(([x,y]) => {
+    put(decor, x, y, JT.BARREL);
+    put(collisionLayer, x, y, JT.COBBLE);
+  });
+  [[11,11],[15,20],[46,16],[49,20]].forEach(([x,y]) => {
+    put(decor, x, y, JT.POT);
+    put(collisionLayer, x, y, JT.COBBLE);
+  });
+
+  // Fountain (center of east-west road)
+  put(decor, 25, 23, JT.FOUNTAIN);
+  put(decor, 26, 23, JT.FOUNTAIN);
+  put(collisionLayer, 25, 23, JT.COBBLE);
+  put(collisionLayer, 26, 23, JT.COBBLE);
+
+  // Banners along main roads
+  [[29,8],[29,15],[29,28],[29,35],[10,22],[20,22],[38,22],[48,22]].forEach(([x,y]) => {
+    put(decor, x, y, JT.BANNER_R);
+  });
+
+  // Signs
+  put(decor, 48, 38, JT.SIGN);
+  put(collisionLayer, 48, 38, JT.COBBLE);
+
+  // --- COLLISION SETUP ---
+  collisionLayer.setCollisionByExclusion([-1]);
+
+  // Return everything the scene needs
+  return {
+    map, ground, buildings, details, decor, overlap, collisionLayer,
+    labels,
+    worldW: MW * TS,
+    worldH: MH * TS,
+    gateX: 29.5 * TS, // center of gate opening
+    gateY: 42 * TS,
+    lehiHomeCenter: { x: 10 * TS, y: 27.5 * TS },
+    labanHouseCenter: { x: 48 * TS, y: 27.5 * TS },
+    templeCenter: { x: 30 * TS, y: 11 * TS },
+  };
+}
+
 
 
 // ============================================================
@@ -6019,26 +6029,28 @@ class JerusalemCityScene extends Phaser.Scene {
     this.cameras.main.fadeIn(800);
     GameState.chapter = { book: '1 Nephi', chapter: 1, label: '1 Nephi · Ch. 1' };
 
-    // === PRE-RENDERED BACKGROUND (Canvas 2D — rich, detailed art) ===
-    const worldW = 960, worldH = 740;
-    const WL = 72, WT = 80, WR = 888, WB = 668;
-    const gateX = 480;
+    // === TILEMAP-BASED RENDERING ===
+    const tm = buildJerusalemTilemap(this);
+    const worldW = tm.worldW, worldH = tm.worldH;
+    const gateX = tm.gateX;
     this.physics.world.setBounds(0, 0, worldW, worldH);
     this.cameras.main.setBounds(0, 0, worldW, worldH);
 
     this._pause = attachPauseMenu(this);
     this._lighting = FX.createLightingRig(this, { mode: 'day' });
 
-    // Generate and load the full Jerusalem background as a single image
-    if (!this.textures.exists('jerusalem_bg')) {
-      const bgCanvas = generateJerusalemBackground(worldW, worldH);
-      this.textures.addCanvas('jerusalem_bg', bgCanvas);
-    }
-    this.add.image(worldW / 2, worldH / 2, 'jerusalem_bg').setDepth(0);
+    // Add building labels from tilemap
+    tm.labels.forEach(lb => {
+      this.add.text(lb.x, lb.y, lb.text, {
+        fontSize: '7px', fontFamily: 'monospace', color: lb.color || '#f0d080',
+        stroke: '#000000', strokeThickness: 2
+      }).setOrigin(0.5).setDepth(25);
+    });
 
-    // Animated fountain sparkles (on top of static background)
-    const fSparkle1 = this.add.circle(412, 364, 2, 0x88ccff, 0.7).setDepth(2);
-    const fSparkle2 = this.add.circle(428, 368, 2, 0x88ccff, 0.5).setDepth(2);
+    // Animated fountain sparkles
+    const fX = 25.5 * 16, fY = 23 * 16; // fountain tile position
+    const fSparkle1 = this.add.circle(fX, fY + 4, 2, 0x88ccff, 0.7).setDepth(5);
+    const fSparkle2 = this.add.circle(fX + 16, fY + 4, 2, 0x88ccff, 0.5).setDepth(5);
     this.tweens.add({ targets: fSparkle1, alpha: 0.1, duration: 900, yoyo: true, repeat: -1 });
     this.tweens.add({ targets: fSparkle2, alpha: 0.15, duration: 700, yoyo: true, repeat: -1, delay: 400 });
 
@@ -6066,22 +6078,23 @@ class JerusalemCityScene extends Phaser.Scene {
       return { zone, sprite, label };
     };
 
-    // Named interaction NPCs (on walkable paths/plazas between buildings)
-    const c1 = createNPC('citizen_male', 420, 400, 'Citizen', 1.8, 44, 44);
-    const c2 = createNPC('citizen_female', 550, 400, 'Woman', 1.8, 44, 44);
-    const c3 = createNPC('citizen_male', 680, 400, 'Elder', 1.8, 44, 44);
-    const c4 = createNPC('citizen_male', 450, 600, 'Merchant', 1.8, 44, 44);
+    // Named interaction NPCs (on walkable paths between buildings)
+    // Tile coords × 16 for pixel positions. NPCs placed on roads/plazas.
+    const c1 = createNPC('citizen_male', 25*16, 20*16, 'Citizen', 1.8, 44, 44);
+    const c2 = createNPC('citizen_female', 35*16, 20*16, 'Woman', 1.8, 44, 44);
+    const c3 = createNPC('citizen_male', 43*16, 24*16, 'Elder', 1.8, 44, 44);
+    const c4 = createNPC('citizen_male', 22*16, 38*16, 'Merchant', 1.8, 44, 44);
     this.citizen1Zone = c1.zone;
     this.citizen2Zone = c2.zone;
     this.citizen3Zone = c3.zone;
     this.merchantZone = c4.zone;
 
-    // Family NPCs (near Lehi's home area — mid-left)
-    const nLaman = createNPC('laman', 480, 350, 'Laman', 2, 50, 44);
-    const nLemuel = createNPC('lemuel', 530, 370, 'Lemuel', 1.8, 44, 44);
-    const nSam = createNPC('sam', 320, 460, 'Sam', 2, 44, 44);
-    const nSariah = createNPC('sariah', 220, 480, 'Sariah', 2, 44, 44);
-    const nLehi = createNPC('lehi', 300, 500, 'Lehi', 2.2, 54, 54);
+    // Family NPCs (near Lehi's home — SW block)
+    const nLaman = createNPC('laman', 15*16, 27*16, 'Laman', 2, 50, 44);
+    const nLemuel = createNPC('lemuel', 17*16, 29*16, 'Lemuel', 1.8, 44, 44);
+    const nSam = createNPC('sam', 14*16, 30*16, 'Sam', 2, 44, 44);
+    const nSariah = createNPC('sariah', 8*16, 32*16, 'Sariah', 2, 44, 44);
+    const nLehi = createNPC('lehi', 10*16, 31*16, 'Lehi', 2.2, 54, 54);
     this.lamanZone = nLaman.zone;
     this.lemuelZone = nLemuel.zone;
     this.samZone = nSam.zone;
@@ -6090,24 +6103,25 @@ class JerusalemCityScene extends Phaser.Scene {
 
     // Extra city NPCs for density (non-interactive, just visual life)
     const crowdPositions = [
-      ['citizen_female', 350, 580, 'Shopkeeper'], ['citizen_male', 640, 580, 'Tailor'],
-      ['citizen_male', 500, 280, 'Guard'], ['citizen_female', 380, 240, 'Priestess'],
-      ['citizen_male', 200, 360, 'Farmer'], ['citizen_female', 800, 360, 'Woman'],
-      ['citizen_male', 620, 480, 'Trader'], ['citizen_female', 150, 580, 'Girl'],
-      ['citizen_male', 750, 580, 'Boy'], ['citizen_female', 480, 440, 'Nun'],
-      ['citizen_male', 600, 640, 'Beggar'], ['citizen_female', 330, 420, 'Healer'],
-      ['citizen_male', 700, 320, 'Scribe'], ['citizen_female', 830, 470, 'Weaver'],
-      ['citizen_male', 180, 200, 'Builder'], ['citizen_female', 840, 200, 'Cook'],
+      ['citizen_female', 20*16, 37*16, 'Shopkeeper'], ['citizen_male', 36*16, 37*16, 'Tailor'],
+      ['citizen_male', 30*16, 16*16, 'Guard'], ['citizen_female', 24*16, 15*16, 'Priestess'],
+      ['citizen_male', 10*16, 22*16, 'Farmer'], ['citizen_female', 50*16, 22*16, 'Woman'],
+      ['citizen_male', 38*16, 30*16, 'Trader'], ['citizen_female', 8*16, 38*16, 'Girl'],
+      ['citizen_male', 48*16, 38*16, 'Boy'], ['citizen_female', 32*16, 28*16, 'Nun'],
+      ['citizen_male', 35*16, 40*16, 'Beggar'], ['citizen_female', 18*16, 24*16, 'Healer'],
+      ['citizen_male', 44*16, 16*16, 'Scribe'], ['citizen_female', 52*16, 30*16, 'Weaver'],
+      ['citizen_male', 10*16, 15*16, 'Builder'], ['citizen_female', 52*16, 15*16, 'Cook'],
     ];
     crowdPositions.forEach(([key, cx, cy, name]) => {
       createNPC(key, cx, cy, name, 1.6, 36, 36);
     });
 
     // === PLAYER (spawn at gate) ===
+    const spawnY = tm.gateY - 24;
     if (this.textures.exists('nephi')) {
-      this.player = this.add.image(gateX, WB - 40, 'nephi').setScale(2).setDepth(15);
+      this.player = this.add.image(gateX, spawnY, 'nephi').setScale(2).setDepth(15);
     } else {
-      this.player = this.add.rectangle(gateX, WB - 40, 20, 28, COLORS.faithBlue).setOrigin(0.5, 1);
+      this.player = this.add.rectangle(gateX, spawnY, 20, 28, COLORS.faithBlue).setOrigin(0.5, 1);
     }
     this.physics.add.existing(this.player);
     this.player.body.setCollideWorldBounds(true);
@@ -6115,63 +6129,16 @@ class JerusalemCityScene extends Phaser.Scene {
     this.player.body.setOffset(this.player.width / 2 - 10, this.player.height / 2 - 10);
     this.cameras.main.startFollow(this.player, true, 0.08, 0.08);
 
-    // === COLLISION BARRIERS (invisible, matching background art) ===
-    const addBarrier = (x, y, bw, bh) => {
-      const b = this.add.rectangle(x, y, bw, bh, 0x000000, 0).setOrigin(0.5);
-      this.physics.add.existing(b, true);
-      this.physics.add.collider(this.player, b);
-      return b;
-    };
-
-    // Walls (matching background wall positions)
-    const wallThick = 26;
-    addBarrier((WL + WR) / 2, WT - wallThick / 2, WR - WL + wallThick * 2, wallThick + 10);
-    addBarrier(gateX - 180, WB + wallThick / 2, 280, wallThick + 10);
-    addBarrier(gateX + 180, WB + wallThick / 2, 280, wallThick + 10);
-    addBarrier(WL - wallThick / 2, (WT + WB) / 2, wallThick + 10, WB - WT + wallThick * 2);
-    addBarrier(WR + wallThick / 2, (WT + WB) / 2, wallThick + 10, WB - WT + wallThick * 2);
-
-    // Building colliders (matching generateJerusalemBackground positions)
-    this.buildingColliders = [];
-    const addBC = (x, y, bw, bh) => { this.buildingColliders.push(addBarrier(x, y, bw, bh)); };
-
-    // Temple (tX=380, tY=95, tW=200, tH=130 in bg)
-    addBC(480, 180, 220, 180);
-    // Blue dome (bdX=600, bdY=110)
-    addBC(645, 160, 100, 110);
-    // Upper-left block
-    addBC(140, 140, 105, 85); addBC(245, 135, 90, 90);
-    addBC(140, 232, 100, 75); addBC(242, 238, 85, 72);
-    // Upper-right block
-    addBC(742, 140, 90, 85); addBC(835, 135, 85, 90);
-    addBC(740, 232, 85, 72); addBC(832, 238, 80, 74);
-    // Mid-left block
-    addBC(130, 332, 90, 75); addBC(225, 330, 90, 80);
-    addBC(130, 418, 95, 74);
-    // Lehi's home
-    addBC(245, 425, 105, 85);
-    // Mid-right block
-    addBC(758, 330, 85, 80); addBC(845, 332, 75, 75);
-    addBC(845, 418, 75, 74);
-    // Laban's house
-    addBC(750, 425, 105, 85);
-    // Lower-side buildings
-    addBC(130, 530, 90, 70); addBC(130, 608, 85, 64);
-    addBC(835, 530, 80, 70); addBC(835, 608, 75, 64);
-    // Shops (sx=210/370/530, sy=485, sw=120, sh=80)
-    addBC(270, 520, 125, 85); addBC(430, 520, 125, 85); addBC(590, 520, 125, 85);
-    // Stalls
-    addBC(268, 590, 40, 20); addBC(433, 590, 40, 20); addBC(593, 590, 40, 20);
-    // Fountain
-    addBC(420, 373, 50, 30);
+    // === COLLISION (from tilemap collision layer) ===
+    this.physics.add.collider(this.player, tm.collisionLayer);
 
     // NPC colliders
     this.npcSprites.forEach(s => this.physics.add.collider(this.player, s));
 
     // Quest marker on Lehi
     if (!GameState.questFlags.lehiVision) {
-      this.questMarker = this.add.text(300, 480, '\u2757', { fontSize: '24px' }).setOrigin(0.5).setDepth(20);
-      this.tweens.add({ targets: this.questMarker, y: 470, duration: 600, yoyo: true, repeat: -1 });
+      this.questMarker = this.add.text(10*16, 30*16, '\u2757', { fontSize: '24px' }).setOrigin(0.5).setDepth(20);
+      this.tweens.add({ targets: this.questMarker, y: 30*16 - 10, duration: 600, yoyo: true, repeat: -1 });
     }
 
     // Overlap flags
@@ -6193,7 +6160,7 @@ class JerusalemCityScene extends Phaser.Scene {
     this._stepCooldown = 0;
 
     this.hud = createHUD(this);
-    this.hud.setObjective(300, 500);
+    this.hud.setObjective(10*16, 31*16);
 
     // Interact prompt
     this.interactPrompt = this.add.text(0, 0, '[ SPACE ] Talk', {
@@ -6229,14 +6196,14 @@ class JerusalemCityScene extends Phaser.Scene {
     // === AMBIENT CITY LIFE ===
     this.ambientBubbles = [];
     const ambientLines = [
-      { x: 420, y: 400, text: 'Babylon grows stronger...', delay: 2000 },
-      { x: 550, y: 400, text: 'Have you heard the prophets?', delay: 5500 },
-      { x: 680, y: 400, text: 'Dark times ahead...', delay: 9000 },
-      { x: 450, y: 600, text: 'Trade has dried up!', delay: 12500 },
-      { x: 480, y: 350, text: 'Father is a fool.', delay: 7000 },
-      { x: 530, y: 370, text: '...', delay: 8000 },
-      { x: 320, y: 460, text: 'I trust Father.', delay: 4000 },
-      { x: 220, y: 480, text: 'Oh, our home...', delay: 11000 },
+      { x: 25*16, y: 20*16, text: 'Babylon grows stronger...', delay: 2000 },
+      { x: 35*16, y: 20*16, text: 'Have you heard the prophets?', delay: 5500 },
+      { x: 43*16, y: 24*16, text: 'Dark times ahead...', delay: 9000 },
+      { x: 22*16, y: 38*16, text: 'Trade has dried up!', delay: 12500 },
+      { x: 15*16, y: 27*16, text: 'Father is a fool.', delay: 7000 },
+      { x: 17*16, y: 29*16, text: '...', delay: 8000 },
+      { x: 14*16, y: 30*16, text: 'I trust Father.', delay: 4000 },
+      { x: 8*16, y: 32*16, text: 'Oh, our home...', delay: 11000 },
     ];
     ambientLines.forEach(al => {
       const bubble = this.add.text(al.x, al.y - 20, al.text, {
@@ -6412,10 +6379,10 @@ class JerusalemCityScene extends Phaser.Scene {
         this.departureMode = true;
         this.guards = [];
 
-        const gateCenter = 480; // matches gateX
+        const gateCenter = 29.5 * 16; // tile-based gate center
         const gPositions = [
-          { x: gateCenter - 80, y: 600, patrol: 'h', range: 80 },
-          { x: gateCenter + 80, y: 580, patrol: 'v', range: 60 },
+          { x: gateCenter - 80, y: 39*16, patrol: 'h', range: 80 },
+          { x: gateCenter + 80, y: 38*16, patrol: 'v', range: 60 },
         ];
         gPositions.forEach(gp => {
           let guard;
@@ -6435,9 +6402,9 @@ class JerusalemCityScene extends Phaser.Scene {
         });
 
         // Gate zone at bottom center
-        this.gateZone = this.add.zone(gateCenter, 660, 80, 50);
+        this.gateZone = this.add.zone(gateCenter, 43*16, 80, 50);
         this.physics.add.existing(this.gateZone, true);
-        this.add.text(gateCenter, 640, '\u2193 City Gate', {
+        this.add.text(gateCenter, 42*16, '\u2193 City Gate', {
           fontSize: '10px', fontFamily: 'monospace', color: '#6b8e23'
         }).setOrigin(0.5).setDepth(20);
 
@@ -6449,7 +6416,7 @@ class JerusalemCityScene extends Phaser.Scene {
           stroke: '#000000', strokeThickness: 3
         }).setOrigin(0.5).setScrollFactor(0).setDepth(100);
 
-        this.hud.setObjective(gateCenter, 660);
+        this.hud.setObjective(gateCenter, 43*16);
       }
     );
   }
@@ -6560,15 +6527,15 @@ class JerusalemCityScene extends Phaser.Scene {
     // Normal interaction mode
     this.interactPrompt.setVisible(false);
     const nf = this.nearFlags;
-    if (nf.lehi) this.interactPrompt.setPosition(300, 470).setVisible(true);
-    else if (nf.sam) this.interactPrompt.setPosition(320, 430).setVisible(true);
-    else if (nf.sariah) this.interactPrompt.setPosition(220, 450).setVisible(true);
-    else if (nf.laman) this.interactPrompt.setPosition(480, 320).setVisible(true);
-    else if (nf.lemuel) this.interactPrompt.setPosition(530, 340).setVisible(true);
-    else if (nf.citizen1) this.interactPrompt.setPosition(420, 370).setVisible(true);
-    else if (nf.citizen2) this.interactPrompt.setPosition(550, 370).setVisible(true);
-    else if (nf.citizen3) this.interactPrompt.setPosition(680, 370).setVisible(true);
-    else if (nf.merchant) this.interactPrompt.setPosition(450, 570).setVisible(true);
+    if (nf.lehi) this.interactPrompt.setPosition(10*16, 30*16).setVisible(true);
+    else if (nf.sam) this.interactPrompt.setPosition(14*16, 29*16).setVisible(true);
+    else if (nf.sariah) this.interactPrompt.setPosition(8*16, 31*16).setVisible(true);
+    else if (nf.laman) this.interactPrompt.setPosition(15*16, 26*16).setVisible(true);
+    else if (nf.lemuel) this.interactPrompt.setPosition(17*16, 28*16).setVisible(true);
+    else if (nf.citizen1) this.interactPrompt.setPosition(25*16, 19*16).setVisible(true);
+    else if (nf.citizen2) this.interactPrompt.setPosition(35*16, 19*16).setVisible(true);
+    else if (nf.citizen3) this.interactPrompt.setPosition(43*16, 23*16).setVisible(true);
+    else if (nf.merchant) this.interactPrompt.setPosition(22*16, 37*16).setVisible(true);
 
     if (this.interactCooldown > 0) this.interactCooldown -= delta;
     if (Phaser.Input.Keyboard.JustDown(this.spaceKey) && this.interactCooldown <= 0) {
