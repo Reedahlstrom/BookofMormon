@@ -1632,6 +1632,40 @@ function generateTileTextures(scene) {
     ctx.putImageData(img, 0, 0);
   });
 
+  // --- COBBLESTONE TILE (for Jerusalem city ground) ---
+  ensureCanvasTexture(scene, 'tile_cobble', S * 2, S * 2, (ctx, w, h) => {
+    const img = ctx.createImageData(w, h);
+    for (let ty = 0; ty < 2; ty++) {
+      for (let tx = 0; tx < 2; tx++) {
+        const ox = tx * S, oy = ty * S;
+        const base = (tx + ty) % 2 === 0 ? [192, 176, 152] : [200, 184, 160];
+        for (let y = 0; y < S; y++) {
+          for (let x = 0; x < S; x++) {
+            const n = ((x * 7 + y * 11 + tx * 19 + ty * 23) % 7) - 3;
+            setPixel(img, ox + x, oy + y, w,
+              Math.max(120, base[0] + n * 2), Math.max(100, base[1] + n * 2), Math.max(80, base[2] + n * 2));
+          }
+        }
+        // Stone borders (grid pattern for cobbles)
+        for (let x = 0; x < S; x++) {
+          setPixel(img, ox + x, oy, w, 160, 144, 120, 100);
+          setPixel(img, ox + x, oy + 7, w, 160, 144, 120, 80);
+        }
+        for (let y = 0; y < S; y++) {
+          const off = (ty % 2) * 4;
+          setPixel(img, ox + ((3 + off) % S), oy + y, w, 160, 144, 120, 80);
+          setPixel(img, ox + ((10 + off) % S), oy + y, w, 160, 144, 120, 80);
+        }
+        // Subtle highlight on top-left of each cobble
+        setPixel(img, ox + 1, oy + 1, w, 216, 200, 176, 80);
+        setPixel(img, ox + 5, oy + 1, w, 216, 200, 176, 60);
+        setPixel(img, ox + 1, oy + 9, w, 216, 200, 176, 60);
+        setPixel(img, ox + 8, oy + 9, w, 216, 200, 176, 60);
+      }
+    }
+    ctx.putImageData(img, 0, 0);
+  });
+
   // --- TREE SPRITE (Pokemon-style round bushy tree, 32x40) ---
   ensureCanvasTexture(scene, 'sprite_tree', 32, 40, (ctx, w, h) => {
     const img = ctx.createImageData(w, h);
@@ -1732,6 +1766,729 @@ function generateTileTextures(scene) {
     for (let x = 10; x < 30; x++) {
       setPixel(img, x, 11, w, 48, 96, 24, 180);
     }
+    ctx.putImageData(img, 0, 0);
+  });
+}
+
+// ============================================================
+// HAND-CRAFTED PIXEL ART SPRITES (Option A — every pixel placed by hand)
+// ============================================================
+function generatePixelArtSprites(scene) {
+  // Helper: fill a rect region in ImageData
+  const fillRect = (img, w, x1, y1, x2, y2, r, g, b, a) => {
+    for (let y = y1; y <= y2; y++)
+      for (let x = x1; x <= x2; x++)
+        setPixel(img, x, y, w, r, g, b, a ?? 255);
+  };
+
+  // --- SANDSTONE HOUSE 1 (32x40, tan roof) ---
+  ensureCanvasTexture(scene, 'pxa_house_tan', 32, 40, (ctx, w, h) => {
+    const img = ctx.createImageData(w, h);
+    // Roof — tan/brown angled
+    for (let y = 0; y < 12; y++) {
+      const span = Math.floor(y * 1.4) + 2;
+      for (let x = 16 - span; x < 16 + span; x++) {
+        if (x >= 0 && x < 32) {
+          const shade = (y < 4) ? [184, 144, 80] : (x < 16) ? [200, 160, 96] : [168, 128, 72];
+          setPixel(img, x, y, w, shade[0], shade[1], shade[2]);
+        }
+      }
+    }
+    // Roof ridge highlight
+    for (let y = 0; y < 10; y++) setPixel(img, 16, y, w, 216, 176, 112);
+    // Eave
+    fillRect(img, w, 1, 12, 30, 13, 152, 112, 56);
+    fillRect(img, w, 2, 12, 29, 12, 176, 136, 72);
+    // Walls — cream sandstone
+    for (let y = 14; y < 37; y++) {
+      for (let x = 3; x < 29; x++) {
+        const noise = ((x * 7 + y * 11) % 5) - 2;
+        setPixel(img, x, y, w, 232 + noise, 216 + noise, 192 + noise);
+      }
+    }
+    // Brick mortar lines
+    for (let y = 17; y < 37; y += 4) {
+      for (let x = 3; x < 29; x++) setPixel(img, x, y, w, 200, 184, 160, 120);
+    }
+    for (let row = 0; row < 5; row++) {
+      const offset = (row % 2) * 6;
+      for (let x = 3 + offset; x < 29; x += 12) {
+        for (let dy = 0; dy < 3; dy++) {
+          if (14 + row * 4 + dy < 37) setPixel(img, x, 14 + row * 4 + dy, w, 200, 184, 160, 80);
+        }
+      }
+    }
+    // Wall edges (shadow)
+    for (let y = 14; y < 37; y++) {
+      setPixel(img, 3, y, w, 192, 176, 148);
+      setPixel(img, 28, y, w, 208, 192, 168);
+    }
+    // Left window
+    fillRect(img, w, 7, 18, 12, 24, 96, 144, 192); // glass
+    fillRect(img, w, 8, 19, 11, 20, 128, 176, 224, 180); // reflection
+    fillRect(img, w, 7, 18, 12, 18, 136, 104, 64); // frame top
+    fillRect(img, w, 7, 24, 12, 24, 136, 104, 64); // frame bot
+    fillRect(img, w, 7, 18, 7, 24, 136, 104, 64); // frame left
+    fillRect(img, w, 12, 18, 12, 24, 136, 104, 64); // frame right
+    setPixel(img, 9, 21, w, 120, 88, 48); // cross bar h
+    setPixel(img, 10, 21, w, 120, 88, 48);
+    // Right window
+    fillRect(img, w, 19, 18, 24, 24, 96, 144, 192);
+    fillRect(img, w, 20, 19, 23, 20, 128, 176, 224, 180);
+    fillRect(img, w, 19, 18, 24, 18, 136, 104, 64);
+    fillRect(img, w, 19, 24, 24, 24, 136, 104, 64);
+    fillRect(img, w, 19, 18, 19, 24, 136, 104, 64);
+    fillRect(img, w, 24, 18, 24, 24, 136, 104, 64);
+    setPixel(img, 21, 21, w, 120, 88, 48);
+    setPixel(img, 22, 21, w, 120, 88, 48);
+    // Door
+    fillRect(img, w, 13, 28, 18, 36, 104, 72, 40);
+    fillRect(img, w, 14, 29, 17, 35, 88, 60, 32);
+    fillRect(img, w, 13, 28, 18, 28, 80, 56, 28); // door top
+    setPixel(img, 17, 32, w, 192, 160, 48); // knob
+    // Foundation
+    fillRect(img, w, 2, 37, 29, 39, 168, 148, 120);
+    fillRect(img, w, 2, 37, 29, 37, 184, 164, 136);
+    ctx.putImageData(img, 0, 0);
+  });
+
+  // --- SANDSTONE HOUSE 2 (32x40, blue-ish roof) ---
+  ensureCanvasTexture(scene, 'pxa_house_blue', 32, 40, (ctx, w, h) => {
+    const img = ctx.createImageData(w, h);
+    // Flat-top roof with slight angle
+    fillRect(img, w, 1, 4, 30, 11, 80, 112, 160);
+    fillRect(img, w, 2, 5, 29, 6, 96, 128, 176);
+    // Roof edge
+    fillRect(img, w, 0, 11, 31, 12, 64, 88, 128);
+    fillRect(img, w, 1, 11, 30, 11, 88, 120, 168);
+    // Walls
+    for (let y = 13; y < 37; y++) {
+      for (let x = 2; x < 30; x++) {
+        const n = ((x * 3 + y * 7) % 5) - 2;
+        setPixel(img, x, y, w, 240 + n, 224 + n, 200 + n);
+      }
+    }
+    // Brick lines
+    for (let y = 16; y < 37; y += 5) {
+      for (let x = 2; x < 30; x++) setPixel(img, x, y, w, 208, 192, 168, 100);
+    }
+    // Wall shadow edges
+    for (let y = 13; y < 37; y++) {
+      setPixel(img, 2, y, w, 200, 184, 160);
+      setPixel(img, 29, y, w, 216, 200, 176);
+    }
+    // Arched window (left)
+    fillRect(img, w, 6, 18, 12, 25, 88, 136, 184);
+    setPixel(img, 7, 17, w, 88, 136, 184);
+    setPixel(img, 8, 17, w, 88, 136, 184);
+    setPixel(img, 9, 17, w, 88, 136, 184);
+    setPixel(img, 10, 17, w, 88, 136, 184);
+    setPixel(img, 11, 17, w, 88, 136, 184);
+    fillRect(img, w, 7, 19, 10, 20, 120, 168, 216, 150);
+    // Arched window (right)
+    fillRect(img, w, 19, 18, 25, 25, 88, 136, 184);
+    setPixel(img, 20, 17, w, 88, 136, 184);
+    setPixel(img, 21, 17, w, 88, 136, 184);
+    setPixel(img, 22, 17, w, 88, 136, 184);
+    setPixel(img, 23, 17, w, 88, 136, 184);
+    setPixel(img, 24, 17, w, 88, 136, 184);
+    fillRect(img, w, 20, 19, 23, 20, 120, 168, 216, 150);
+    // Door
+    fillRect(img, w, 13, 27, 18, 36, 96, 64, 32);
+    fillRect(img, w, 14, 28, 17, 35, 80, 52, 24);
+    setPixel(img, 17, 31, w, 200, 168, 48);
+    // Step
+    fillRect(img, w, 12, 36, 19, 37, 176, 160, 136);
+    // Foundation
+    fillRect(img, w, 1, 37, 30, 39, 160, 140, 112);
+    ctx.putImageData(img, 0, 0);
+  });
+
+  // --- GOLDEN DOME TEMPLE (64x56) ---
+  ensureCanvasTexture(scene, 'pxa_temple', 64, 56, (ctx, w, h) => {
+    const img = ctx.createImageData(w, h);
+    // Base building
+    for (let y = 24; y < 52; y++) {
+      for (let x = 6; x < 58; x++) {
+        const n = ((x * 3 + y * 5) % 4) - 1;
+        setPixel(img, x, y, w, 240 + n, 232 + n, 216 + n);
+      }
+    }
+    // Columns
+    for (let cx = 10; cx < 56; cx += 8) {
+      for (let y = 25; y < 50; y++) {
+        setPixel(img, cx, y, w, 224, 216, 200);
+        setPixel(img, cx + 1, y, w, 240, 232, 216);
+        setPixel(img, cx + 2, y, w, 216, 208, 192);
+        // Column capital
+        if (y === 25) {
+          setPixel(img, cx - 1, y, w, 224, 216, 200);
+          setPixel(img, cx + 3, y, w, 224, 216, 200);
+        }
+      }
+    }
+    // Entablature (horizontal beam above columns)
+    fillRect(img, w, 4, 22, 59, 24, 208, 192, 168);
+    fillRect(img, w, 5, 22, 58, 22, 224, 208, 184);
+    // Golden dome
+    for (let y = 2; y < 22; y++) {
+      const radius = Math.sqrt(Math.max(0, 20 * 20 - (y - 12) * (y - 12)));
+      const span = Math.floor(radius * 1.2);
+      for (let x = 32 - span; x <= 32 + span; x++) {
+        if (x >= 0 && x < 64) {
+          const dist = Math.abs(x - 32) / (span + 1);
+          const highlight = (x < 30 && y < 10) ? 30 : 0;
+          const shadow = (x > 34) ? 20 : 0;
+          const r = Math.min(255, 218 + highlight - shadow);
+          const g = Math.min(255, 165 + highlight - shadow);
+          const b = Math.min(255, 32 + highlight * 0.5);
+          setPixel(img, x, y, w, r, g, b);
+        }
+      }
+    }
+    // Dome specular highlight
+    for (let y = 4; y < 10; y++) {
+      for (let x = 26; x < 32; x++) {
+        const dist = Math.sqrt((x - 28) * (x - 28) + (y - 6) * (y - 6));
+        if (dist < 5) setPixel(img, x, y, w, 255, 215, 80, Math.floor(200 - dist * 40));
+      }
+    }
+    // Gold tip/finial
+    fillRect(img, w, 31, 0, 32, 3, 255, 215, 0);
+    setPixel(img, 31, 0, w, 255, 237, 80);
+    setPixel(img, 32, 0, w, 255, 237, 80);
+    // Door (large, ornate)
+    fillRect(img, w, 27, 40, 36, 51, 120, 80, 40);
+    fillRect(img, w, 28, 41, 35, 50, 96, 64, 32);
+    // Door arch
+    for (let x = 28; x <= 35; x++) {
+      const ay = 40 - Math.floor(Math.sqrt(Math.max(0, 16 - (x - 31.5) * (x - 31.5))));
+      for (let y = ay; y <= 40; y++) setPixel(img, x, y, w, 120, 80, 40);
+    }
+    // Gold door frame
+    fillRect(img, w, 26, 38, 26, 51, 192, 160, 48);
+    fillRect(img, w, 37, 38, 37, 51, 192, 160, 48);
+    fillRect(img, w, 27, 38, 36, 38, 192, 160, 48);
+    // Steps
+    for (let step = 0; step < 3; step++) {
+      fillRect(img, w, 20 - step * 3, 52 + step, 43 + step * 3, 52 + step,
+        200 - step * 12, 192 - step * 12, 176 - step * 12);
+    }
+    // Wall shadow/edge
+    for (let y = 24; y < 52; y++) {
+      setPixel(img, 6, y, w, 200, 192, 176);
+      setPixel(img, 57, y, w, 216, 208, 192);
+    }
+    ctx.putImageData(img, 0, 0);
+  });
+
+  // --- LEHI'S HOME (36x44, warm colors) ---
+  ensureCanvasTexture(scene, 'pxa_lehi_home', 36, 44, (ctx, w, h) => {
+    const img = ctx.createImageData(w, h);
+    // Warm brown roof
+    for (let y = 0; y < 14; y++) {
+      const span = Math.floor(y * 1.1) + 4;
+      for (let x = 18 - span; x < 18 + span; x++) {
+        if (x >= 0 && x < 36) {
+          const shade = (x < 18) ? [152, 120, 72] : [128, 96, 56];
+          if (y < 3) { shade[0] += 16; shade[1] += 12; shade[2] += 8; }
+          setPixel(img, x, y, w, shade[0], shade[1], shade[2]);
+        }
+      }
+    }
+    fillRect(img, w, 18, 0, 18, 12, 168, 136, 88); // ridge
+    fillRect(img, w, 1, 13, 34, 14, 112, 80, 40);
+    // Walls (warm cream)
+    for (let y = 15; y < 40; y++) {
+      for (let x = 3; x < 33; x++) {
+        const n = ((x * 5 + y * 3) % 4) - 1;
+        setPixel(img, x, y, w, 232 + n, 216 + n, 192 + n);
+      }
+    }
+    // Window with flower box
+    fillRect(img, w, 7, 20, 13, 27, 88, 136, 176);
+    fillRect(img, w, 8, 21, 12, 23, 120, 168, 208, 160);
+    fillRect(img, w, 7, 27, 13, 28, 112, 80, 40);
+    setPixel(img, 8, 29, w, 96, 176, 48); // plant
+    setPixel(img, 10, 29, w, 240, 80, 80); // flower
+    setPixel(img, 12, 29, w, 96, 176, 48); // plant
+    // Right window
+    fillRect(img, w, 22, 20, 28, 27, 88, 136, 176);
+    fillRect(img, w, 23, 21, 27, 23, 120, 168, 208, 160);
+    fillRect(img, w, 22, 27, 28, 28, 112, 80, 40);
+    // Door (warm wood)
+    fillRect(img, w, 14, 30, 21, 39, 120, 80, 40);
+    fillRect(img, w, 15, 31, 20, 38, 104, 68, 32);
+    fillRect(img, w, 17, 31, 18, 38, 88, 56, 24); // door plank
+    setPixel(img, 20, 35, w, 200, 168, 48); // knob
+    // Welcome mat
+    fillRect(img, w, 14, 39, 21, 39, 168, 120, 72);
+    // Foundation
+    fillRect(img, w, 2, 40, 33, 43, 168, 148, 120);
+    // Smoke from chimney
+    setPixel(img, 28, 2, w, 200, 200, 200, 120);
+    setPixel(img, 27, 1, w, 180, 180, 180, 80);
+    setPixel(img, 29, 0, w, 160, 160, 160, 50);
+    ctx.putImageData(img, 0, 0);
+  });
+
+  // --- LABAN'S HOUSE (36x44, dark/ominous) ---
+  ensureCanvasTexture(scene, 'pxa_laban_house', 36, 44, (ctx, w, h) => {
+    const img = ctx.createImageData(w, h);
+    // Dark red roof
+    for (let y = 0; y < 14; y++) {
+      const span = Math.floor(y * 1.1) + 4;
+      for (let x = 18 - span; x < 18 + span; x++) {
+        if (x >= 0 && x < 36) {
+          const shade = (x < 18) ? [144, 40, 32] : [112, 24, 20];
+          setPixel(img, x, y, w, shade[0], shade[1], shade[2]);
+        }
+      }
+    }
+    fillRect(img, w, 18, 0, 18, 12, 160, 48, 40);
+    fillRect(img, w, 1, 13, 34, 14, 96, 24, 16);
+    // Walls (dark stone)
+    for (let y = 15; y < 40; y++) {
+      for (let x = 3; x < 33; x++) {
+        const n = ((x * 7 + y * 3) % 5) - 2;
+        setPixel(img, x, y, w, 200 + n, 192 + n, 176 + n);
+      }
+    }
+    // Barred windows (ominous)
+    fillRect(img, w, 7, 20, 13, 26, 40, 40, 48);
+    for (let bx = 8; bx <= 12; bx += 2) {
+      for (let by = 20; by <= 26; by++) setPixel(img, bx, by, w, 96, 96, 104);
+    }
+    fillRect(img, w, 22, 20, 28, 26, 40, 40, 48);
+    for (let bx = 23; bx <= 27; bx += 2) {
+      for (let by = 20; by <= 26; by++) setPixel(img, bx, by, w, 96, 96, 104);
+    }
+    // Heavy door
+    fillRect(img, w, 13, 28, 22, 39, 72, 48, 24);
+    fillRect(img, w, 14, 29, 21, 38, 56, 36, 16);
+    // Iron studs
+    setPixel(img, 15, 31, w, 112, 112, 128);
+    setPixel(img, 20, 31, w, 112, 112, 128);
+    setPixel(img, 15, 36, w, 112, 112, 128);
+    setPixel(img, 20, 36, w, 112, 112, 128);
+    // Guard torches
+    fillRect(img, w, 4, 25, 5, 30, 112, 80, 40);
+    setPixel(img, 4, 24, w, 255, 200, 48);
+    setPixel(img, 5, 23, w, 255, 160, 32, 180);
+    fillRect(img, w, 30, 25, 31, 30, 112, 80, 40);
+    setPixel(img, 31, 24, w, 255, 200, 48);
+    setPixel(img, 30, 23, w, 255, 160, 32, 180);
+    // Foundation
+    fillRect(img, w, 2, 40, 33, 43, 144, 128, 104);
+    ctx.putImageData(img, 0, 0);
+  });
+
+  // --- MARKET STALL (28x24) ---
+  const makeStall = (key, canopyR, canopyG, canopyB) => {
+    ensureCanvasTexture(scene, key, 28, 24, (ctx, w, h) => {
+      const img = ctx.createImageData(w, h);
+      // Poles
+      for (let y = 0; y < 20; y++) {
+        setPixel(img, 2, y, w, 136, 96, 48);
+        setPixel(img, 3, y, w, 112, 80, 40);
+        setPixel(img, 24, y, w, 136, 96, 48);
+        setPixel(img, 25, y, w, 112, 80, 40);
+      }
+      // Striped canopy
+      for (let y = 0; y < 6; y++) {
+        for (let x = 1; x < 27; x++) {
+          const stripe = Math.floor(x / 4) % 2 === 0;
+          const r = stripe ? canopyR : Math.min(255, canopyR + 48);
+          const g = stripe ? canopyG : Math.min(255, canopyG + 48);
+          const b = stripe ? canopyB : Math.min(255, canopyB + 48);
+          setPixel(img, x, y, w, r, g, b);
+        }
+      }
+      // Canopy shadow
+      fillRect(img, w, 1, 5, 26, 5, canopyR - 32, canopyG - 32, canopyB - 16);
+      // Counter
+      fillRect(img, w, 1, 12, 26, 16, 152, 112, 64);
+      fillRect(img, w, 2, 13, 25, 15, 136, 96, 48);
+      fillRect(img, w, 1, 12, 26, 12, 168, 128, 80);
+      // Goods on counter
+      setPixel(img, 6, 11, w, 240, 200, 48); // gold item
+      setPixel(img, 7, 11, w, 248, 216, 64);
+      setPixel(img, 10, 11, w, 224, 80, 64); // red item
+      setPixel(img, 11, 11, w, 208, 64, 48);
+      setPixel(img, 14, 11, w, 192, 128, 48); // brown item
+      setPixel(img, 15, 11, w, 176, 112, 32);
+      setPixel(img, 19, 11, w, 200, 200, 200); // clay pot
+      setPixel(img, 20, 11, w, 184, 184, 184);
+      setPixel(img, 19, 10, w, 168, 168, 168);
+      ctx.putImageData(img, 0, 0);
+    });
+  };
+  makeStall('pxa_stall_red', 192, 56, 56);
+  makeStall('pxa_stall_blue', 56, 112, 168);
+  makeStall('pxa_stall_brown', 184, 128, 56);
+
+  // --- POKEMON-STYLE ROUND TREE (enhanced, 24x32) ---
+  ensureCanvasTexture(scene, 'pxa_tree', 24, 32, (ctx, w, h) => {
+    const img = ctx.createImageData(w, h);
+    // Trunk
+    for (let y = 18; y < 30; y++) {
+      for (let x = 10; x < 14; x++) {
+        const isLeft = x < 12;
+        setPixel(img, x, y, w, isLeft ? 112 : 88, isLeft ? 80 : 56, isLeft ? 40 : 24);
+      }
+    }
+    // Trunk base
+    fillRect(img, w, 9, 29, 14, 31, 80, 56, 24);
+    // Round canopy layers (bottom shadow → main → highlight)
+    const drawCircleFill = (cx, cy, r, cr, cg, cb) => {
+      for (let y = cy - r; y <= cy + r; y++) {
+        for (let x = cx - r; x <= cx + r; x++) {
+          const dist = (x - cx) * (x - cx) + (y - cy) * (y - cy);
+          if (dist <= r * r && x >= 0 && x < w && y >= 0 && y < h) {
+            setPixel(img, x, y, w, cr, cg, cb);
+          }
+        }
+      }
+    };
+    // Shadow
+    drawCircleFill(13, 14, 10, 40, 96, 16);
+    // Main canopy
+    drawCircleFill(12, 12, 9, 72, 152, 40);
+    // Mid highlight
+    drawCircleFill(11, 11, 6, 96, 176, 56);
+    // Top highlight
+    drawCircleFill(10, 9, 3, 120, 200, 72);
+    // Dark bottom crescent
+    drawCircleFill(13, 17, 5, 48, 112, 24);
+    // Individual leaf details (hand-placed pixels for texture)
+    [[8, 7], [14, 6], [6, 11], [16, 10], [9, 15], [15, 14],
+     [7, 9], [13, 8], [11, 5], [5, 13]].forEach(([lx, ly]) => {
+      setPixel(img, lx, ly, w, 56, 120, 24);
+    });
+    [[10, 6], [12, 9], [8, 12], [14, 11], [10, 14]].forEach(([lx, ly]) => {
+      setPixel(img, lx, ly, w, 112, 192, 64, 200);
+    });
+    ctx.putImageData(img, 0, 0);
+  });
+
+  // --- PALM TREE (20x36) ---
+  ensureCanvasTexture(scene, 'pxa_palm', 20, 36, (ctx, w, h) => {
+    const img = ctx.createImageData(w, h);
+    // Curved trunk
+    for (let y = 10; y < 34; y++) {
+      const sway = Math.sin((y - 10) * 0.12) * 1.5;
+      const cx = Math.round(10 + sway);
+      setPixel(img, cx - 1, y, w, 136, 96, 48);
+      setPixel(img, cx, y, w, 152, 112, 56);
+      setPixel(img, cx + 1, y, w, 120, 80, 40);
+      // Ring detail
+      if (y % 4 === 0) {
+        setPixel(img, cx - 1, y, w, 104, 72, 32);
+        setPixel(img, cx, y, w, 120, 88, 40);
+        setPixel(img, cx + 1, y, w, 96, 64, 28);
+      }
+    }
+    // Fronds radiating out
+    const drawFrond = (angle, len, r, g, b) => {
+      for (let i = 0; i < len; i++) {
+        const fx = Math.round(10 + Math.cos(angle) * i);
+        const fy = Math.round(9 + Math.sin(angle) * i);
+        if (fx >= 0 && fx < w && fy >= 0 && fy < h) {
+          setPixel(img, fx, fy, w, r, g, b);
+          if (fx + 1 < w) setPixel(img, fx + 1, fy, w, r - 16, g - 16, b - 8);
+          if (fy + 1 < h) setPixel(img, fx, fy + 1, w, r - 24, g - 24, b - 12);
+        }
+      }
+    };
+    drawFrond(-2.5, 8, 72, 160, 40);
+    drawFrond(-2.0, 9, 88, 176, 48);
+    drawFrond(-1.2, 8, 64, 144, 32);
+    drawFrond(-0.6, 9, 80, 168, 44);
+    drawFrond(0.3, 8, 72, 160, 40);
+    drawFrond(0.8, 7, 56, 136, 28);
+    drawFrond(3.5, 7, 64, 144, 32);
+    drawFrond(3.0, 8, 80, 168, 44);
+    // Coconuts
+    setPixel(img, 10, 10, w, 168, 120, 56);
+    setPixel(img, 9, 11, w, 152, 104, 40);
+    setPixel(img, 11, 11, w, 160, 112, 48);
+    ctx.putImageData(img, 0, 0);
+  });
+
+  // --- GUARD TOWER (32x48) ---
+  ensureCanvasTexture(scene, 'pxa_tower', 32, 48, (ctx, w, h) => {
+    const img = ctx.createImageData(w, h);
+    // Tower body (stone)
+    for (let y = 8; y < 46; y++) {
+      for (let x = 4; x < 28; x++) {
+        const n = ((x * 5 + y * 7) % 5) - 2;
+        setPixel(img, x, y, w, 192 + n, 160 + n, 104 + n);
+      }
+    }
+    // Brick lines
+    for (let y = 12; y < 46; y += 4) {
+      for (let x = 4; x < 28; x++) setPixel(img, x, y, w, 168, 136, 88, 100);
+    }
+    // Top battlement (wider)
+    for (let y = 0; y < 8; y++) {
+      for (let x = 0; x < 32; x++) {
+        setPixel(img, x, y, w, 200, 168, 108);
+      }
+    }
+    // Crenellations
+    for (let cx = 0; cx < 32; cx += 8) {
+      fillRect(img, w, cx + 4, 0, cx + 7, 3, 0, 0, 0, 0); // gap
+      // Clear gap pixels
+      for (let gy = 0; gy <= 3; gy++) {
+        for (let gx = cx + 4; gx <= Math.min(cx + 7, 31); gx++) {
+          setPixel(img, gx, gy, w, 0, 0, 0, 0);
+        }
+      }
+    }
+    fillRect(img, w, 0, 7, 31, 7, 216, 184, 120); // ledge
+    // Arrow slit
+    fillRect(img, w, 14, 16, 17, 28, 48, 40, 32);
+    fillRect(img, w, 15, 14, 16, 30, 48, 40, 32);
+    // Torch on side
+    fillRect(img, w, 5, 20, 6, 26, 112, 80, 40);
+    setPixel(img, 5, 19, w, 255, 200, 48);
+    setPixel(img, 6, 18, w, 255, 160, 32, 180);
+    // Shadow edges
+    for (let y = 8; y < 46; y++) {
+      setPixel(img, 4, y, w, 168, 136, 88);
+      setPixel(img, 27, y, w, 176, 144, 96);
+    }
+    // Foundation
+    fillRect(img, w, 3, 44, 28, 47, 160, 128, 80);
+    ctx.putImageData(img, 0, 0);
+  });
+
+  // --- BLUE DOME BUILDING (40x44) ---
+  ensureCanvasTexture(scene, 'pxa_blue_dome', 40, 44, (ctx, w, h) => {
+    const img = ctx.createImageData(w, h);
+    // Building body
+    for (let y = 18; y < 40; y++) {
+      for (let x = 4; x < 36; x++) {
+        const n = ((x * 3 + y * 5) % 4) - 1;
+        setPixel(img, x, y, w, 232 + n, 224 + n, 208 + n);
+      }
+    }
+    // Brick lines
+    for (let y = 21; y < 40; y += 4) {
+      for (let x = 4; x < 36; x++) setPixel(img, x, y, w, 200, 192, 176, 80);
+    }
+    // Blue dome
+    for (let y = 0; y < 18; y++) {
+      const radius = Math.sqrt(Math.max(0, 15 * 15 - (y - 9) * (y - 9)));
+      const span = Math.floor(radius * 1.1);
+      for (let x = 20 - span; x <= 20 + span; x++) {
+        if (x >= 0 && x < 40) {
+          const highlight = (x < 18 && y < 7) ? 24 : 0;
+          const shadow = (x > 22) ? 16 : 0;
+          setPixel(img, x, y, w,
+            Math.min(255, 64 + highlight - shadow),
+            Math.min(255, 112 + highlight - shadow),
+            Math.min(255, 192 + highlight - shadow));
+        }
+      }
+    }
+    // Dome highlight
+    for (let y = 2; y < 7; y++) {
+      for (let x = 16; x < 21; x++) {
+        const dist = Math.sqrt((x - 18) * (x - 18) + (y - 4) * (y - 4));
+        if (dist < 4) setPixel(img, x, y, w, 96, 144, 224, Math.floor(180 - dist * 40));
+      }
+    }
+    // Finial
+    fillRect(img, w, 19, 0, 20, 2, 192, 192, 216);
+    // Arched windows
+    for (const wx of [10, 26]) {
+      fillRect(img, w, wx - 2, 24, wx + 2, 32, 64, 96, 160);
+      setPixel(img, wx - 1, 23, w, 64, 96, 160);
+      setPixel(img, wx, 23, w, 64, 96, 160);
+      setPixel(img, wx + 1, 23, w, 64, 96, 160);
+      // Window reflection
+      setPixel(img, wx - 1, 25, w, 96, 128, 192, 150);
+      setPixel(img, wx, 25, w, 96, 128, 192, 150);
+    }
+    // Door
+    fillRect(img, w, 17, 32, 22, 39, 88, 60, 32);
+    fillRect(img, w, 18, 33, 21, 38, 72, 48, 24);
+    setPixel(img, 21, 36, w, 176, 144, 48);
+    // Foundation
+    fillRect(img, w, 3, 40, 36, 43, 176, 160, 136);
+    ctx.putImageData(img, 0, 0);
+  });
+
+  // --- SHOP WITH SIGN (32x40, parameterized) ---
+  const makeShop = (key, signText, canopyR, canopyG, canopyB) => {
+    ensureCanvasTexture(scene, key, 32, 40, (ctx, w, h) => {
+      const img = ctx.createImageData(w, h);
+      // Roof/canopy
+      for (let y = 0; y < 8; y++) {
+        for (let x = 1; x < 31; x++) {
+          const stripe = Math.floor(x / 5) % 2 === 0;
+          setPixel(img, x, y, w,
+            stripe ? canopyR : Math.min(255, canopyR + 40),
+            stripe ? canopyG : Math.min(255, canopyG + 40),
+            stripe ? canopyB : Math.min(255, canopyB + 40));
+        }
+      }
+      fillRect(img, w, 0, 7, 31, 8, Math.max(0, canopyR - 32), Math.max(0, canopyG - 32), Math.max(0, canopyB - 16));
+      // Walls
+      for (let y = 9; y < 36; y++) {
+        for (let x = 2; x < 30; x++) {
+          const n = ((x * 3 + y * 7) % 4) - 1;
+          setPixel(img, x, y, w, 228 + n, 216 + n, 192 + n);
+        }
+      }
+      // Display window (large)
+      fillRect(img, w, 5, 14, 26, 24, 80, 128, 176);
+      fillRect(img, w, 6, 15, 25, 20, 104, 152, 200, 160); // glass reflection
+      fillRect(img, w, 5, 14, 26, 14, 120, 88, 48); // frame
+      fillRect(img, w, 5, 24, 26, 24, 120, 88, 48);
+      fillRect(img, w, 5, 14, 5, 24, 120, 88, 48);
+      fillRect(img, w, 26, 14, 26, 24, 120, 88, 48);
+      // Items in window (generic goods)
+      setPixel(img, 9, 21, w, 240, 200, 48);
+      setPixel(img, 10, 21, w, 248, 216, 64);
+      setPixel(img, 14, 22, w, 200, 80, 64);
+      setPixel(img, 15, 22, w, 216, 96, 80);
+      setPixel(img, 19, 21, w, 160, 160, 176);
+      setPixel(img, 20, 21, w, 176, 176, 192);
+      setPixel(img, 23, 22, w, 192, 128, 48);
+      // Door
+      fillRect(img, w, 13, 28, 18, 36, 96, 64, 32);
+      fillRect(img, w, 14, 29, 17, 35, 80, 52, 24);
+      setPixel(img, 17, 32, w, 192, 160, 48);
+      // Step
+      fillRect(img, w, 12, 36, 19, 37, 168, 152, 128);
+      // Foundation
+      fillRect(img, w, 1, 37, 30, 39, 168, 148, 120);
+      // Shadow edges
+      for (let y = 9; y < 36; y++) {
+        setPixel(img, 2, y, w, 200, 188, 164);
+        setPixel(img, 29, y, w, 212, 200, 176);
+      }
+      ctx.putImageData(img, 0, 0);
+    });
+  };
+  makeShop('pxa_shop_weapons', 'Weapons', 168, 56, 56);
+  makeShop('pxa_shop_items', 'Items', 56, 136, 56);
+  makeShop('pxa_shop_tailor', 'Tailor', 120, 80, 168);
+
+  // --- FOUNTAIN / WELL (24x20) ---
+  ensureCanvasTexture(scene, 'pxa_fountain', 24, 20, (ctx, w, h) => {
+    const img = ctx.createImageData(w, h);
+    // Base pool (circular, stone rim)
+    for (let y = 8; y < 20; y++) {
+      for (let x = 2; x < 22; x++) {
+        const dx = x - 12, dy = y - 14;
+        if (dx * dx / 100 + dy * dy / 36 <= 1) {
+          // Water inside
+          if (dx * dx / 81 + dy * dy / 25 <= 1) {
+            const n = ((x * 3 + y * 7) % 3) - 1;
+            setPixel(img, x, y, w, 64 + n * 8, 128 + n * 8, 200 + n * 4);
+          } else {
+            // Stone rim
+            setPixel(img, x, y, w, 184, 168, 136);
+          }
+        }
+      }
+    }
+    // Rim highlight
+    for (let x = 4; x < 20; x++) {
+      const dx = x - 12;
+      if (dx * dx <= 64) setPixel(img, x, 9, w, 208, 192, 160);
+    }
+    // Center column
+    fillRect(img, w, 11, 2, 12, 12, 176, 160, 128);
+    fillRect(img, w, 11, 2, 12, 2, 200, 184, 152);
+    // Water spout (top)
+    setPixel(img, 10, 3, w, 96, 168, 232);
+    setPixel(img, 13, 3, w, 96, 168, 232);
+    setPixel(img, 9, 5, w, 80, 152, 216, 160);
+    setPixel(img, 14, 5, w, 80, 152, 216, 160);
+    // Sparkle on water
+    setPixel(img, 8, 13, w, 160, 200, 248, 200);
+    setPixel(img, 15, 15, w, 160, 200, 248, 180);
+    ctx.putImageData(img, 0, 0);
+  });
+
+  // --- BANNER / FLAG (8x20) ---
+  const makeBanner = (key, r, g, b) => {
+    ensureCanvasTexture(scene, key, 8, 20, (ctx, w, h) => {
+      const img = ctx.createImageData(w, h);
+      // Pole
+      for (let y = 0; y < 20; y++) {
+        setPixel(img, 0, y, w, 136, 96, 48);
+        setPixel(img, 1, y, w, 112, 80, 40);
+      }
+      // Flag fabric
+      for (let y = 1; y < 14; y++) {
+        const wave = Math.sin(y * 0.5) * 0.5;
+        for (let x = 2; x < 7; x++) {
+          const stripe = y < 5 ? 0 : (y < 9 ? 1 : 2);
+          const dr = stripe === 1 ? 40 : 0;
+          const dg = stripe === 1 ? 40 : 0;
+          const db = stripe === 1 ? 20 : 0;
+          setPixel(img, x, y, w,
+            Math.min(255, r + dr), Math.min(255, g + dg), Math.min(255, b + db));
+        }
+      }
+      // Flag point (triangle bottom)
+      for (let y = 14; y < 17; y++) {
+        const width = 7 - (y - 14) * 2;
+        const startX = 2 + (y - 14);
+        for (let x = startX; x < startX + width && x < 8; x++) {
+          setPixel(img, x, y, w, r, g, b);
+        }
+      }
+      // Pole cap
+      setPixel(img, 0, 0, w, 200, 168, 48);
+      setPixel(img, 1, 0, w, 200, 168, 48);
+      ctx.putImageData(img, 0, 0);
+    });
+  };
+  makeBanner('pxa_banner_red', 192, 48, 48);
+  makeBanner('pxa_banner_blue', 48, 80, 168);
+  makeBanner('pxa_banner_gold', 200, 168, 48);
+
+  // --- CITY WALL SECTION (repeating, 32x24) ---
+  ensureCanvasTexture(scene, 'pxa_wall', 32, 24, (ctx, w, h) => {
+    const img = ctx.createImageData(w, h);
+    // Main wall body
+    for (let y = 6; y < 24; y++) {
+      for (let x = 0; x < 32; x++) {
+        const n = ((x * 7 + y * 3) % 4) - 1;
+        setPixel(img, x, y, w, 200 + n, 168 + n, 104 + n);
+      }
+    }
+    // Brick pattern
+    for (let y = 8; y < 24; y += 4) {
+      for (let x = 0; x < 32; x++) setPixel(img, x, y, w, 176, 144, 88, 120);
+    }
+    for (let row = 0; row < 4; row++) {
+      const off = (row % 2) * 8;
+      for (let x = off; x < 32; x += 16) {
+        for (let dy = 1; dy < 3; dy++) {
+          if (8 + row * 4 + dy < 24)
+            setPixel(img, x, 8 + row * 4 + dy, w, 176, 144, 88, 80);
+        }
+      }
+    }
+    // Crenellation (top)
+    for (let cx = 0; cx < 32; cx += 8) {
+      fillRect(img, w, cx, 0, cx + 3, 6, 200, 168, 104);
+      fillRect(img, w, cx, 0, cx + 3, 0, 216, 184, 120); // highlight top
+      setPixel(img, cx + 3, 1, w, 176, 144, 88); // shadow right edge
+      setPixel(img, cx + 3, 2, w, 176, 144, 88);
+      setPixel(img, cx + 3, 3, w, 176, 144, 88);
+    }
+    // Top edge highlight
+    for (let x = 0; x < 32; x++) setPixel(img, x, 6, w, 216, 184, 120);
+    // Bottom edge shadow
+    for (let x = 0; x < 32; x++) setPixel(img, x, 23, w, 168, 136, 80);
     ctx.putImageData(img, 0, 0);
   });
 }
@@ -2817,6 +3574,7 @@ class BootScene extends Phaser.Scene {
     // Generate all pixel art character textures
     generateAllSprites(this);
     generateTileTextures(this);
+    generatePixelArtSprites(this);
     initPremiumTextures(this);
 
     this.cameras.main.fadeIn(500, 0, 0, 0);
@@ -4159,115 +4917,191 @@ class JerusalemCityScene extends Phaser.Scene {
     this.cameras.main.fadeIn(800);
     GameState.chapter = { book: '1 Nephi', chapter: 1, label: '1 Nephi · Ch. 1' };
 
-    const worldW = 1800, worldH = 900;
+    // === WALLED CITY LAYOUT ===
+    // City dimensions: walled area with walkable interior
+    const worldW = 1200, worldH = 900;
+    const WALL = 48; // wall thickness
+    const cityL = WALL, cityR = worldW - WALL, cityT = WALL + 60, cityB = worldH - WALL;
     this.physics.world.setBounds(0, 0, worldW, worldH);
     this.cameras.main.setBounds(0, 0, worldW, worldH);
 
     this._pause = attachPauseMenu(this);
     this._lighting = FX.createLightingRig(this, { mode: 'day' });
 
-    // === GREEN CANAAN LANDSCAPE (canvas tile textures) ===
-    // Sky gradient
+    // === SKY (above walls) ===
     const skyG = this.add.graphics();
     skyG.fillStyle(0x68b8f8);
-    skyG.fillRect(0, 0, worldW, 250);
+    skyG.fillRect(0, 0, worldW, cityT);
     skyG.fillStyle(0x88d0ff, 0.5);
-    skyG.fillRect(0, 0, worldW, 120);
-    this.add.circle(300, 70, 24, 0xfff870);
-    this.add.circle(300, 70, 18, 0xffff98, 0.6);
+    skyG.fillRect(0, 0, worldW, 40);
 
-    // Green rolling hills (background)
-    const hillsG = this.add.graphics();
-    hillsG.fillStyle(0x58a830);
-    hillsG.fillEllipse(200, 260, 500, 80);
-    hillsG.fillEllipse(600, 250, 600, 90);
-    hillsG.fillEllipse(1000, 255, 550, 85);
-    hillsG.fillEllipse(1400, 260, 500, 80);
-    hillsG.fillEllipse(1700, 255, 400, 75);
-    hillsG.fillStyle(COLORS.pokGrass);
-    hillsG.fillEllipse(300, 290, 400, 60);
-    hillsG.fillEllipse(700, 285, 500, 70);
-    hillsG.fillEllipse(1100, 290, 450, 65);
-    hillsG.fillEllipse(1500, 285, 400, 60);
+    // === COBBLESTONE GROUND (inside city) ===
+    this.add.tileSprite(worldW / 2, (cityT + cityB) / 2, cityR - cityL, cityB - cityT, 'tile_cobble').setOrigin(0.5);
 
-    // Ground — TILE SPRITE (pixel art grass texture)
-    this.add.tileSprite(worldW / 2, 300 + (worldH - 300) / 2, worldW, worldH - 300, 'tile_grass').setOrigin(0.5);
-
-    // City walls — TILE SPRITE (stone wall texture)
-    this.add.tileSprite(worldW / 2, 370, worldW, 60, 'tile_wall').setOrigin(0.5);
-    // Wall crenellations on top
-    const wallG = this.add.graphics();
-    for (let wx = 0; wx < worldW; wx += 12) {
-      wallG.fillStyle(0xc8a868);
-      wallG.fillRect(wx, 335, 6, 7);
-      wallG.fillStyle(lighten(0xc8a868, 15));
-      wallG.fillRect(wx, 335, 6, 1);
-      wallG.fillStyle(darken(0xc8a868, 20));
-      wallG.fillRect(wx + 5, 335, 1, 7);
+    // === CITY WALLS (pxa_wall tiled) ===
+    // Top wall
+    for (let x = 0; x < worldW; x += 64) {
+      this.add.image(x + 32, cityT - 24, 'pxa_wall').setScale(2).setDepth(2);
     }
+    // Bottom wall
+    for (let x = 0; x < worldW; x += 64) {
+      this.add.image(x + 32, cityB + 12, 'pxa_wall').setScale(2).setDepth(2);
+    }
+    // Left wall (vertical — rotated wall segments)
+    const wallLG = this.add.graphics();
+    wallLG.fillStyle(0xc8a868);
+    wallLG.fillRect(0, cityT - 24, WALL, cityB - cityT + 48);
+    for (let y = cityT; y < cityB; y += 8) {
+      wallLG.fillStyle(0xb09858, 0.3);
+      wallLG.fillRect(0, y, WALL, 1);
+    }
+    wallLG.setDepth(2);
+    // Right wall
+    const wallRG = this.add.graphics();
+    wallRG.fillStyle(0xc8a868);
+    wallRG.fillRect(worldW - WALL, cityT - 24, WALL, cityB - cityT + 48);
+    for (let y = cityT; y < cityB; y += 8) {
+      wallRG.fillStyle(0xb09858, 0.3);
+      wallRG.fillRect(worldW - WALL, y, WALL, 1);
+    }
+    wallRG.setDepth(2);
 
-    // Buildings (sandstone/cream with colored roofs)
-    const bldgG = this.add.graphics();
-    const buildings = [
-      { x: 100, y: 405, w: 80, h: 80, roof: 0xc8a060, wall: COLORS.pokWallCream },
-      { x: 230, y: 400, w: 70, h: 85, roof: 0xb89050, wall: COLORS.pokSand },
-      { x: 400, y: 395, w: 90, h: 90, roof: 0xd0a868, wall: COLORS.pokWallCream },
-      { x: 600, y: 400, w: 75, h: 85, roof: 0xb89050, wall: COLORS.pokSand },
-      { x: 900, y: 405, w: 70, h: 80, roof: 0xb89050, wall: COLORS.pokWallCream },
-      { x: 1050, y: 400, w: 85, h: 85, roof: 0xd0a868, wall: COLORS.pokSand },
-      { x: 1250, y: 395, w: 75, h: 90, roof: 0xc89848, wall: COLORS.pokWallCream },
-      { x: 1500, y: 400, w: 80, h: 85, roof: 0xb89050, wall: COLORS.pokSand },
+    // === CORNER GUARD TOWERS ===
+    const towerScale = 2.5;
+    this.add.image(WALL / 2, cityT - 10, 'pxa_tower').setScale(towerScale).setDepth(3);
+    this.add.image(worldW - WALL / 2, cityT - 10, 'pxa_tower').setScale(towerScale).setDepth(3);
+    this.add.image(WALL / 2, cityB + 10, 'pxa_tower').setScale(towerScale).setDepth(3);
+    this.add.image(worldW - WALL / 2, cityB + 10, 'pxa_tower').setScale(towerScale).setDepth(3);
+
+    // === CITY GATE (bottom center, gap in wall) ===
+    const gateX = worldW / 2;
+    const gateLabelG = this.add.graphics();
+    gateLabelG.fillStyle(0xa08848);
+    gateLabelG.fillRect(gateX - 40, cityB - 4, 80, 20);
+    gateLabelG.fillStyle(0xc8a060);
+    gateLabelG.fillRect(gateX - 38, cityB - 2, 76, 16);
+    gateLabelG.setDepth(3);
+    this.add.text(gateX, cityB + 6, 'CITY GATE', {
+      fontSize: '8px', fontFamily: 'monospace', color: '#f8d830', fontStyle: 'bold',
+      stroke: '#000000', strokeThickness: 2
+    }).setOrigin(0.5).setDepth(4);
+
+    // === BUILDINGS — pixel art sprites ===
+    const bldgDepth = 5;
+    const bScale = 3; // building sprite scale
+    const sScale = 3.5; // shop scale
+
+    // --- TEMPLE OF SOLOMON (golden dome, center-north) ---
+    const templeX = worldW / 2, templeY = 200;
+    this.add.image(templeX, templeY, 'pxa_temple').setScale(4).setDepth(bldgDepth);
+    this.add.text(templeX, templeY - 60, 'Temple of Solomon', {
+      fontSize: '10px', fontFamily: 'monospace', color: '#ffd700', fontStyle: 'bold',
+      stroke: '#000000', strokeThickness: 3
+    }).setOrigin(0.5).setDepth(bldgDepth + 1);
+
+    // --- BLUE DOME BUILDING (west of temple) ---
+    const blueX = 240, blueY = 220;
+    this.add.image(blueX, blueY, 'pxa_blue_dome').setScale(bScale).setDepth(bldgDepth);
+    this.add.text(blueX, blueY - 40, 'Synagogue', {
+      fontSize: '8px', fontFamily: 'monospace', color: '#88bbff',
+      stroke: '#000000', strokeThickness: 2
+    }).setOrigin(0.5).setDepth(bldgDepth + 1);
+
+    // --- RESIDENTIAL BUILDINGS (scattered) ---
+    const housePositions = [
+      { x: 160, y: 400, tex: 'pxa_house_tan' },
+      { x: 300, y: 380, tex: 'pxa_house_blue' },
+      { x: 900, y: 220, tex: 'pxa_house_tan' },
+      { x: 1040, y: 240, tex: 'pxa_house_blue' },
+      { x: 160, y: 600, tex: 'pxa_house_blue' },
+      { x: 1040, y: 600, tex: 'pxa_house_tan' },
+      { x: 900, y: 420, tex: 'pxa_house_tan' },
+      { x: 1040, y: 420, tex: 'pxa_house_blue' },
     ];
-    buildings.forEach(b => drawPokemonBuilding(bldgG, b.x, b.y, b.w, b.h, b.roof, b.wall));
-
-    // Temple of Solomon (golden dome)
-    const templeG = this.add.graphics();
-    drawGoldenTemple(templeG, 730, 330, 160, 160);
-    this.add.text(810, 315, 'Temple of Solomon', {
-      fontSize: '10px', fontFamily: 'monospace', color: '#ffd700',
-      stroke: '#000000', strokeThickness: 2
-    }).setOrigin(0.5);
-
-    // Lehi's home
-    const homeG = this.add.graphics();
-    drawPokemonBuilding(homeG, 1350, 420, 100, 90, 0x8b7355, COLORS.pokWallCream);
-    this.add.text(1400, 412, "Lehi's Home", {
-      fontSize: '10px', fontFamily: 'monospace', color: '#f8d830',
-      stroke: '#000000', strokeThickness: 2
-    }).setOrigin(0.5);
-
-    // Laban's house
-    const labanG = this.add.graphics();
-    drawPokemonBuilding(labanG, 1600, 410, 90, 95, 0x8b2020, COLORS.pokWallCream);
-    this.add.text(1645, 405, "Laban's House", {
-      fontSize: '9px', fontFamily: 'monospace', color: '#ff8888',
-      stroke: '#000000', strokeThickness: 2
-    }).setOrigin(0.5);
-
-    // Market stalls
-    const stallG = this.add.graphics();
-    drawPokemonStall(stallG, 200, 540, 0xcc4444);
-    drawPokemonStall(stallG, 550, 540, 0x4488aa);
-    drawPokemonStall(stallG, 1000, 540, 0xcc8844);
-
-    // Trees — SPRITE TEXTURES (pixel art trees)
-    [80, 350, 750, 1100, 1450].forEach(tx => {
-      this.add.image(tx, 500, 'sprite_tree').setScale(1.8).setDepth(5);
-    });
-    [200, 500, 900, 1200, 1600].forEach(tx => {
-      this.add.image(tx, 490, 'sprite_palm').setScale(1.5).setDepth(5);
+    housePositions.forEach(h => {
+      this.add.image(h.x, h.y, h.tex).setScale(bScale).setDepth(bldgDepth);
     });
 
-    // Main walkway — TILE SPRITE (dirt path texture)
-    this.add.tileSprite(worldW / 2, 620, worldW, 160, 'tile_dirt').setOrigin(0.5);
-    // Path edges (grass-to-dirt transition)
-    const pathEdge = this.add.graphics();
-    pathEdge.fillStyle(0x408020, 0.4);
-    pathEdge.fillRect(0, 540, worldW, 3);
-    pathEdge.fillRect(0, 697, worldW, 3);
+    // --- LEHI'S HOME (east side) ---
+    const lehiHomeX = 1000, lehiHomeY = 620;
+    this.add.image(lehiHomeX, lehiHomeY, 'pxa_lehi_home').setScale(bScale).setDepth(bldgDepth);
+    this.add.text(lehiHomeX, lehiHomeY - 40, "Lehi's Home", {
+      fontSize: '9px', fontFamily: 'monospace', color: '#f8d830', fontStyle: 'bold',
+      stroke: '#000000', strokeThickness: 2
+    }).setOrigin(0.5).setDepth(bldgDepth + 1);
 
-    // Grass below path — TILE SPRITE
-    this.add.tileSprite(worldW / 2, 700 + (worldH - 700) / 2, worldW, worldH - 700, 'tile_grass').setOrigin(0.5);
+    // --- LABAN'S HOUSE (northeast, ominous) ---
+    const labanHomeX = 950, labanHomeY = 380;
+    this.add.image(labanHomeX, labanHomeY, 'pxa_laban_house').setScale(bScale).setDepth(bldgDepth);
+    this.add.text(labanHomeX, labanHomeY - 40, "Laban's House", {
+      fontSize: '8px', fontFamily: 'monospace', color: '#ff8888',
+      stroke: '#000000', strokeThickness: 2
+    }).setOrigin(0.5).setDepth(bldgDepth + 1);
+
+    // === MARKET DISTRICT (south area) ===
+    // Shops with signs
+    const shopY = 720;
+    const weapShopX = 250;
+    this.add.image(weapShopX, shopY, 'pxa_shop_weapons').setScale(sScale).setDepth(bldgDepth);
+    this.add.text(weapShopX, shopY - 45, 'Weapons Shop', {
+      fontSize: '8px', fontFamily: 'monospace', color: '#ff9999', fontStyle: 'bold',
+      stroke: '#000000', strokeThickness: 2
+    }).setOrigin(0.5).setDepth(bldgDepth + 1);
+
+    const itemShopX = 500;
+    this.add.image(itemShopX, shopY, 'pxa_shop_items').setScale(sScale).setDepth(bldgDepth);
+    this.add.text(itemShopX, shopY - 45, 'Item Shop', {
+      fontSize: '8px', fontFamily: 'monospace', color: '#99ff99', fontStyle: 'bold',
+      stroke: '#000000', strokeThickness: 2
+    }).setOrigin(0.5).setDepth(bldgDepth + 1);
+
+    const tailorX = 750;
+    this.add.image(tailorX, shopY, 'pxa_shop_tailor').setScale(sScale).setDepth(bldgDepth);
+    this.add.text(tailorX, shopY - 45, 'Tailor', {
+      fontSize: '8px', fontFamily: 'monospace', color: '#cc99ff', fontStyle: 'bold',
+      stroke: '#000000', strokeThickness: 2
+    }).setOrigin(0.5).setDepth(bldgDepth + 1);
+
+    // Market stalls (open-air)
+    const stallScale = 3;
+    this.add.image(380, shopY + 50, 'pxa_stall_red').setScale(stallScale).setDepth(bldgDepth);
+    this.add.image(620, shopY + 50, 'pxa_stall_blue').setScale(stallScale).setDepth(bldgDepth);
+    this.add.image(870, shopY + 50, 'pxa_stall_brown').setScale(stallScale).setDepth(bldgDepth);
+
+    // === FOUNTAIN (city center) ===
+    const fountainX = worldW / 2, fountainY = 480;
+    this.add.image(fountainX, fountainY, 'pxa_fountain').setScale(3.5).setDepth(bldgDepth);
+    // Water sparkle animation
+    const sparkle = this.add.circle(fountainX - 8, fountainY - 4, 2, 0x88ccff, 0.6).setDepth(bldgDepth + 1);
+    this.tweens.add({ targets: sparkle, alpha: 0.2, duration: 800, yoyo: true, repeat: -1 });
+
+    // === BANNERS & FLAGS (decorative, throughout city) ===
+    const bannerScale = 3;
+    [[120, 300, 'pxa_banner_red'], [350, 300, 'pxa_banner_blue'], [700, 300, 'pxa_banner_gold'],
+     [1080, 300, 'pxa_banner_red'], [200, 550, 'pxa_banner_blue'], [500, 550, 'pxa_banner_gold'],
+     [800, 550, 'pxa_banner_red'], [1000, 550, 'pxa_banner_blue'],
+     [300, 680, 'pxa_banner_gold'], [600, 680, 'pxa_banner_red'], [900, 680, 'pxa_banner_blue']
+    ].forEach(([bx, by, tex]) => {
+      const banner = this.add.image(bx, by, tex).setScale(bannerScale).setDepth(bldgDepth - 1);
+      this.tweens.add({
+        targets: banner, angle: 3, duration: 1500 + Math.random() * 500,
+        yoyo: true, repeat: -1, ease: 'Sine.easeInOut'
+      });
+    });
+
+    // === TREES (scattered for life) ===
+    [[100, 500, 'pxa_tree'], [350, 470, 'pxa_palm'], [700, 400, 'pxa_tree'],
+     [1100, 500, 'pxa_palm'], [450, 350, 'pxa_tree'], [850, 620, 'pxa_palm'],
+     [200, 700, 'pxa_tree'], [950, 700, 'pxa_tree']
+    ].forEach(([tx, ty, tex]) => {
+      this.add.image(tx, ty, tex).setScale(2.5).setDepth(bldgDepth + 2);
+    });
+
+    // === DIRT PATH (main roads through city) ===
+    // Horizontal main road
+    this.add.tileSprite(worldW / 2, 490, worldW - WALL * 2, 40, 'tile_dirt').setOrigin(0.5).setDepth(0);
+    // Vertical road from gate to temple
+    this.add.tileSprite(worldW / 2, (cityT + cityB) / 2, 40, cityB - cityT, 'tile_dirt').setOrigin(0.5).setDepth(0);
 
     // === NPCs ===
     this.npcSprites = [];
@@ -4275,12 +5109,11 @@ class JerusalemCityScene extends Phaser.Scene {
     const createNPC = (key, x, y, name, scale, zonew, zoneh) => {
       let sprite;
       if (this.textures.exists(key)) {
-        sprite = this.add.image(x, y, key).setScale(scale || 1.8).setDepth(10);
+        sprite = this.add.image(x, y, key).setScale(scale || 2).setDepth(10);
       } else {
         sprite = this.add.rectangle(x, y, 16, 24, COLORS.faithBlue).setDepth(10);
       }
       const label = this.add.text(x, y - 26, name, { fontSize: '9px', fontFamily: 'monospace', color: '#ccaa88' }).setOrigin(0.5).setDepth(11);
-      // Physics body for NPC (immovable, small hitbox so player can squeeze past)
       this.physics.add.existing(sprite, true);
       sprite.body.setSize(14, 14);
       sprite.body.setOffset(sprite.width / 2 - 7, sprite.height / 2 - 4);
@@ -4292,32 +5125,39 @@ class JerusalemCityScene extends Phaser.Scene {
       return { zone, sprite, label };
     };
 
-    // NPCs staggered vertically so player can navigate around them
-    const c1 = createNPC('citizen_male', 320, 590, 'Citizen', 1.6, 50, 50);
-    const c2 = createNPC('citizen_female', 550, 660, 'Woman', 1.6, 50, 50);
-    const c3 = createNPC('citizen_male', 950, 580, 'Elder', 1.6, 50, 50);
-    const c4 = createNPC('citizen_male', 1050, 650, 'Merchant', 1.6, 50, 50);
+    // Citizens spread across the city
+    const c1 = createNPC('citizen_male', 300, 500, 'Citizen', 1.8, 50, 50);
+    const c2 = createNPC('citizen_female', 500, 450, 'Woman', 1.8, 50, 50);
+    const c3 = createNPC('citizen_male', 800, 500, 'Elder', 1.8, 50, 50);
+    const c4 = createNPC('citizen_male', 400, 770, 'Merchant', 1.8, 50, 50);
     this.citizen1Zone = c1.zone;
     this.citizen2Zone = c2.zone;
     this.citizen3Zone = c3.zone;
     this.merchantZone = c4.zone;
 
-    const nLaman = createNPC('laman', 700, 640, 'Laman', 1.8, 60, 50);
-    const nLemuel = createNPC('lemuel', 760, 590, 'Lemuel', 1.6, 50, 50);
-    const nSam = createNPC('sam', 1300, 650, 'Sam', 1.8, 50, 50);
-    const nSariah = createNPC('sariah', 1450, 620, 'Sariah', 1.8, 50, 50);
-    const nLehi = createNPC('lehi', 1380, 580, 'Lehi', 2, 60, 60);
+    // Family NPCs
+    const nLaman = createNPC('laman', 650, 550, 'Laman', 2, 60, 50);
+    const nLemuel = createNPC('lemuel', 720, 520, 'Lemuel', 1.8, 50, 50);
+    const nSam = createNPC('sam', 950, 550, 'Sam', 2, 50, 50);
+    const nSariah = createNPC('sariah', 880, 650, 'Sariah', 2, 50, 50);
+    const nLehi = createNPC('lehi', 1000, 680, 'Lehi', 2.2, 60, 60);
     this.lamanZone = nLaman.zone;
     this.lemuelZone = nLemuel.zone;
     this.samZone = nSam.zone;
     this.sariahZone = nSariah.zone;
     this.lehiZone = nLehi.zone;
 
-    // === PLAYER === (spawn in open area, no NPCs nearby)
+    // Extra city NPCs for density
+    createNPC('citizen_female', 250, 760, 'Shopkeeper', 1.6, 40, 40);
+    createNPC('citizen_male', 750, 760, 'Tailor', 1.6, 40, 40);
+    createNPC('citizen_male', 600, 350, 'Guard', 1.8, 40, 40);
+    createNPC('citizen_female', 400, 280, 'Priestess', 1.6, 40, 40);
+
+    // === PLAYER === (spawn at gate area, bottom center)
     if (this.textures.exists('nephi')) {
-      this.player = this.add.image(120, 620, 'nephi').setScale(2).setDepth(15);
+      this.player = this.add.image(gateX, cityB - 60, 'nephi').setScale(2).setDepth(15);
     } else {
-      this.player = this.add.rectangle(120, 620, 20, 28, COLORS.faithBlue).setOrigin(0.5, 1);
+      this.player = this.add.rectangle(gateX, cityB - 60, 20, 28, COLORS.faithBlue).setOrigin(0.5, 1);
     }
     this.physics.add.existing(this.player);
     this.player.body.setCollideWorldBounds(true);
@@ -4325,52 +5165,57 @@ class JerusalemCityScene extends Phaser.Scene {
     this.player.body.setOffset(this.player.width / 2 - 10, this.player.height / 2 - 10);
     this.cameras.main.startFollow(this.player, true, 0.08, 0.08);
 
-    // === COLLISION BARRIERS (after player exists!) ===
-    // Top boundary — can't walk into buildings/sky
-    const wallBarrier = this.add.rectangle(worldW / 2, 540, worldW, 20, 0x000000, 0).setOrigin(0.5);
-    this.physics.add.existing(wallBarrier, true);
-    this.physics.add.collider(this.player, wallBarrier);
+    // === COLLISION BARRIERS ===
+    const addBarrier = (x, y, bw, bh) => {
+      const b = this.add.rectangle(x, y, bw, bh, 0x000000, 0).setOrigin(0.5);
+      this.physics.add.existing(b, true);
+      this.physics.add.collider(this.player, b);
+      return b;
+    };
 
-    // Bottom boundary
-    const bottomBarrier = this.add.rectangle(worldW / 2, 710, worldW, 20, 0x000000, 0).setOrigin(0.5);
-    this.physics.add.existing(bottomBarrier, true);
-    this.physics.add.collider(this.player, bottomBarrier);
-
-    // Left boundary
-    const leftBarrier = this.add.rectangle(0, worldH / 2, 20, worldH, 0x000000, 0).setOrigin(0.5);
-    this.physics.add.existing(leftBarrier, true);
-    this.physics.add.collider(this.player, leftBarrier);
-
-    // Right boundary
-    const rightBarrier = this.add.rectangle(worldW, worldH / 2, 20, worldH, 0x000000, 0).setOrigin(0.5);
-    this.physics.add.existing(rightBarrier, true);
-    this.physics.add.collider(this.player, rightBarrier);
+    // Walls (top, bottom with gate gap, left, right)
+    addBarrier(worldW / 2, cityT - 20, worldW, 40);
+    addBarrier(gateX - 200, cityB + 10, 320, 40); // left of gate
+    addBarrier(gateX + 200, cityB + 10, 320, 40); // right of gate
+    addBarrier(20, worldH / 2, 60, worldH);
+    addBarrier(worldW - 20, worldH / 2, 60, worldH);
 
     // Building colliders
     this.buildingColliders = [];
-    const addBuildingCollider = (x, y, w, h) => {
-      const block = this.add.rectangle(x + w/2, y + h/2, w, h, 0x000000, 0);
-      this.physics.add.existing(block, true);
-      this.physics.add.collider(this.player, block);
+    const addBC = (x, y, bw, bh) => {
+      const block = addBarrier(x, y, bw, bh);
       this.buildingColliders.push(block);
     };
-    buildings.forEach(b => addBuildingCollider(b.x, b.y, b.w, b.h));
-    addBuildingCollider(730, 340, 180, 200);   // Temple
-    addBuildingCollider(1350, 420, 110, 100);  // Lehi's home
-    addBuildingCollider(1600, 400, 100, 110);  // Laban's house
-    addBuildingCollider(186, 560, 50, 40);     // Market stalls
-    addBuildingCollider(536, 560, 50, 40);
-    addBuildingCollider(986, 560, 50, 40);
+    // Temple
+    addBC(templeX, templeY, 240, 200);
+    // Blue dome
+    addBC(blueX, blueY, 110, 120);
+    // Houses
+    housePositions.forEach(h => addBC(h.x, h.y, 80, 100));
+    // Lehi's home
+    addBC(lehiHomeX, lehiHomeY, 96, 110);
+    // Laban's house
+    addBC(labanHomeX, labanHomeY, 96, 110);
+    // Shops
+    addBC(weapShopX, shopY, 100, 120);
+    addBC(itemShopX, shopY, 100, 120);
+    addBC(tailorX, shopY, 100, 120);
+    // Stalls
+    addBC(380, shopY + 50, 70, 60);
+    addBC(620, shopY + 50, 70, 60);
+    addBC(870, shopY + 50, 70, 60);
+    // Fountain
+    addBC(fountainX, fountainY, 60, 50);
 
-    // NPC colliders — can't walk through people
+    // NPC colliders
     this.npcSprites.forEach(s => {
       this.physics.add.collider(this.player, s);
     });
 
     // Quest marker on Lehi
     if (!GameState.questFlags.lehiVision) {
-      this.questMarker = this.add.text(1380, 545, '\u2757', { fontSize: '24px' }).setOrigin(0.5).setDepth(20);
-      this.tweens.add({ targets: this.questMarker, y: 535, duration: 600, yoyo: true, repeat: -1 });
+      this.questMarker = this.add.text(1000, lehiHomeY - 60, '\u2757', { fontSize: '24px' }).setOrigin(0.5).setDepth(20);
+      this.tweens.add({ targets: this.questMarker, y: lehiHomeY - 70, duration: 600, yoyo: true, repeat: -1 });
     }
 
     // Overlap flags for interaction
@@ -4392,9 +5237,9 @@ class JerusalemCityScene extends Phaser.Scene {
     this._stepCooldown = 0;
 
     this.hud = createHUD(this);
-    this.hud.setObjective(1380, 580);
+    this.hud.setObjective(1000, 680);
 
-    // Interact prompt — larger and more visible
+    // Interact prompt
     this.interactPrompt = this.add.text(0, 0, '[ SPACE ] Talk', {
       fontSize: '12px', fontFamily: 'monospace', color: '#ffffff',
       backgroundColor: '#000000cc', padding: { x: 8, y: 4 },
@@ -4402,17 +5247,16 @@ class JerusalemCityScene extends Phaser.Scene {
     }).setOrigin(0.5).setDepth(80).setVisible(false);
 
     // === AMBIENT CITY LIFE ===
-    // Floating speech bubbles from citizens (auto-cycle)
     this.ambientBubbles = [];
     const ambientLines = [
-      { x: 320, y: 565, text: 'Babylon grows stronger...', delay: 2000 },
-      { x: 550, y: 635, text: 'Have you heard the prophets?', delay: 5500 },
-      { x: 950, y: 555, text: 'Dark times ahead...', delay: 9000 },
-      { x: 1050, y: 625, text: 'Trade has dried up!', delay: 12500 },
-      { x: 700, y: 615, text: 'Father is a fool.', delay: 7000 },
-      { x: 760, y: 565, text: '...', delay: 8000 },
-      { x: 1300, y: 625, text: 'I trust Father.', delay: 4000 },
-      { x: 1450, y: 595, text: 'Oh, our home...', delay: 11000 },
+      { x: 300, y: 475, text: 'Babylon grows stronger...', delay: 2000 },
+      { x: 500, y: 425, text: 'Have you heard the prophets?', delay: 5500 },
+      { x: 800, y: 475, text: 'Dark times ahead...', delay: 9000 },
+      { x: 400, y: 745, text: 'Trade has dried up!', delay: 12500 },
+      { x: 650, y: 525, text: 'Father is a fool.', delay: 7000 },
+      { x: 720, y: 495, text: '...', delay: 8000 },
+      { x: 950, y: 525, text: 'I trust Father.', delay: 4000 },
+      { x: 880, y: 625, text: 'Oh, our home...', delay: 11000 },
     ];
     ambientLines.forEach(al => {
       const bubble = this.add.text(al.x, al.y - 20, al.text, {
@@ -4420,7 +5264,6 @@ class JerusalemCityScene extends Phaser.Scene {
         backgroundColor: '#00000099', padding: { x: 4, y: 2 },
       }).setOrigin(0.5).setDepth(12).setAlpha(0);
 
-      // Cycle: fade in, hold, fade out, repeat
       const showBubble = () => {
         this.tweens.add({
           targets: bubble, alpha: 1, y: al.y - 28, duration: 600, ease: 'Sine.easeOut',
@@ -4441,11 +5284,11 @@ class JerusalemCityScene extends Phaser.Scene {
       this.ambientBubbles.push(bubble);
     });
 
-    // Gentle NPC idle sway (subtle life)
+    // NPC idle sway
     this.npcSprites.forEach((s, i) => {
       this.tweens.add({
         targets: s,
-        scaleX: (s.scaleX || 1.6) * 1.02,
+        scaleX: (s.scaleX || 1.8) * 1.02,
         duration: 1200 + i * 200,
         yoyo: true,
         repeat: -1,
@@ -4592,9 +5435,10 @@ class JerusalemCityScene extends Phaser.Scene {
         this.departureMode = true;
         this.guards = [];
 
+        const gateCenter = 600; // worldW / 2
         const gPositions = [
-          { x: 400, y: 610, patrol: 'h', range: 80 },
-          { x: 250, y: 610, patrol: 'v', range: 60 },
+          { x: gateCenter - 100, y: 780, patrol: 'h', range: 80 },
+          { x: gateCenter + 100, y: 750, patrol: 'v', range: 60 },
         ];
         gPositions.forEach(gp => {
           let guard;
@@ -4603,7 +5447,6 @@ class JerusalemCityScene extends Phaser.Scene {
           } else {
             guard = this.add.rectangle(gp.x, gp.y, 16, 24, COLORS.red).setDepth(14);
           }
-          // Sight cone
           const cone = this.add.triangle(gp.x, gp.y, 0, 0, 80, -28, 80, 28, 0xff6666, 0.08).setOrigin(0, 0.5).setDepth(13);
           this.tweens.add({
             targets: guard,
@@ -4614,10 +5457,10 @@ class JerusalemCityScene extends Phaser.Scene {
           this.guards.push({ sprite: guard, cone, lastX: gp.x, lastY: gp.y });
         });
 
-        // Gate zone at far left
-        this.gateZone = this.add.zone(30, 612, 60, 80);
+        // Gate zone at bottom center
+        this.gateZone = this.add.zone(gateCenter, 860, 80, 60);
         this.physics.add.existing(this.gateZone, true);
-        this.add.text(30, 580, '\u2192 City Gate', {
+        this.add.text(gateCenter, 830, '\u2193 City Gate', {
           fontSize: '10px', fontFamily: 'monospace', color: '#6b8e23'
         }).setOrigin(0.5).setDepth(20);
 
@@ -4629,7 +5472,7 @@ class JerusalemCityScene extends Phaser.Scene {
           stroke: '#000000', strokeThickness: 3
         }).setOrigin(0.5).setScrollFactor(0).setDepth(100);
 
-        this.hud.setObjective(30, 612);
+        this.hud.setObjective(gateCenter, 860);
       }
     );
   }
@@ -4733,15 +5576,15 @@ class JerusalemCityScene extends Phaser.Scene {
     // Normal interaction mode
     this.interactPrompt.setVisible(false);
     const nf = this.nearFlags;
-    if (nf.lehi) this.interactPrompt.setPosition(1380, 550).setVisible(true);
-    else if (nf.sam) this.interactPrompt.setPosition(1300, 620).setVisible(true);
-    else if (nf.sariah) this.interactPrompt.setPosition(1450, 590).setVisible(true);
-    else if (nf.laman) this.interactPrompt.setPosition(700, 610).setVisible(true);
-    else if (nf.lemuel) this.interactPrompt.setPosition(760, 560).setVisible(true);
-    else if (nf.citizen1) this.interactPrompt.setPosition(320, 560).setVisible(true);
-    else if (nf.citizen2) this.interactPrompt.setPosition(550, 630).setVisible(true);
-    else if (nf.citizen3) this.interactPrompt.setPosition(950, 550).setVisible(true);
-    else if (nf.merchant) this.interactPrompt.setPosition(1050, 620).setVisible(true);
+    if (nf.lehi) this.interactPrompt.setPosition(1000, 650).setVisible(true);
+    else if (nf.sam) this.interactPrompt.setPosition(950, 520).setVisible(true);
+    else if (nf.sariah) this.interactPrompt.setPosition(880, 620).setVisible(true);
+    else if (nf.laman) this.interactPrompt.setPosition(650, 520).setVisible(true);
+    else if (nf.lemuel) this.interactPrompt.setPosition(720, 490).setVisible(true);
+    else if (nf.citizen1) this.interactPrompt.setPosition(300, 470).setVisible(true);
+    else if (nf.citizen2) this.interactPrompt.setPosition(500, 420).setVisible(true);
+    else if (nf.citizen3) this.interactPrompt.setPosition(800, 470).setVisible(true);
+    else if (nf.merchant) this.interactPrompt.setPosition(400, 740).setVisible(true);
 
     if (this.interactCooldown > 0) this.interactCooldown -= delta;
     if (Phaser.Input.Keyboard.JustDown(this.spaceKey) && this.interactCooldown <= 0) {
