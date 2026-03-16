@@ -2491,6 +2491,359 @@ function generatePixelArtSprites(scene) {
     for (let x = 0; x < 32; x++) setPixel(img, x, 23, w, 168, 136, 80);
     ctx.putImageData(img, 0, 0);
   });
+
+  // --- WOODEN CRATE (10x10) ---
+  ensureCanvasTexture(scene, 'pxa_crate', 10, 10, (ctx, w, h) => {
+    const img = ctx.createImageData(w, h);
+    fillRect(img, w, 0, 0, 9, 9, 168, 120, 56);
+    fillRect(img, w, 1, 1, 8, 8, 152, 104, 40);
+    fillRect(img, w, 0, 4, 9, 5, 136, 88, 32); // band h
+    fillRect(img, w, 4, 0, 5, 9, 136, 88, 32); // band v
+    fillRect(img, w, 0, 0, 9, 0, 184, 136, 72); // top highlight
+    fillRect(img, w, 0, 0, 0, 9, 176, 128, 64); // left highlight
+    fillRect(img, w, 9, 0, 9, 9, 120, 80, 32); // right shadow
+    fillRect(img, w, 0, 9, 9, 9, 112, 72, 28); // bottom shadow
+    ctx.putImageData(img, 0, 0);
+  });
+
+  // --- BARREL (10x14) ---
+  ensureCanvasTexture(scene, 'pxa_barrel', 10, 14, (ctx, w, h) => {
+    const img = ctx.createImageData(w, h);
+    // Body (bulging center)
+    for (let y = 1; y < 13; y++) {
+      const bulge = y > 3 && y < 10 ? 1 : 0;
+      for (let x = 2 - bulge; x < 8 + bulge; x++) {
+        const n = ((x * 3 + y * 5) % 3) - 1;
+        setPixel(img, x, y, w, 136 + n * 8, 88 + n * 4, 40 + n * 4);
+      }
+    }
+    // Metal bands
+    for (let x = 1; x < 9; x++) {
+      setPixel(img, x, 3, w, 160, 160, 168);
+      setPixel(img, x, 10, w, 160, 160, 168);
+    }
+    // Top ellipse
+    for (let x = 2; x < 8; x++) setPixel(img, x, 0, w, 168, 120, 56);
+    for (let x = 3; x < 7; x++) setPixel(img, x, 0, w, 184, 136, 72);
+    // Highlight
+    for (let y = 2; y < 11; y++) setPixel(img, 2, y, w, 168, 120, 56);
+    ctx.putImageData(img, 0, 0);
+  });
+
+  // --- CLAY POT (8x10) ---
+  ensureCanvasTexture(scene, 'pxa_pot', 8, 10, (ctx, w, h) => {
+    const img = ctx.createImageData(w, h);
+    // Neck
+    fillRect(img, w, 3, 0, 4, 2, 192, 144, 88);
+    // Rim
+    fillRect(img, w, 2, 0, 5, 0, 200, 152, 96);
+    // Body (round)
+    for (let y = 2; y < 9; y++) {
+      const w2 = y < 5 ? (y - 1) : (9 - y);
+      for (let x = 4 - w2; x <= 3 + w2; x++) {
+        if (x >= 0 && x < 8) {
+          const n = ((x + y * 3) % 3) - 1;
+          setPixel(img, x, y, w, 184 + n * 8, 136 + n * 6, 80 + n * 4);
+        }
+      }
+    }
+    // Base
+    fillRect(img, w, 2, 9, 5, 9, 160, 112, 64);
+    // Highlight
+    setPixel(img, 2, 4, w, 208, 168, 112);
+    setPixel(img, 2, 5, w, 208, 168, 112);
+    ctx.putImageData(img, 0, 0);
+  });
+
+  // --- DIRECTION SIGN (24x28) ---
+  ensureCanvasTexture(scene, 'pxa_signpost', 24, 28, (ctx, w, h) => {
+    const img = ctx.createImageData(w, h);
+    // Post
+    fillRect(img, w, 11, 8, 12, 27, 112, 80, 40);
+    fillRect(img, w, 11, 8, 12, 8, 128, 96, 48);
+    // Sign board (pointing right)
+    fillRect(img, w, 6, 2, 22, 9, 152, 112, 56);
+    fillRect(img, w, 7, 3, 21, 8, 136, 96, 40);
+    // Arrow point
+    setPixel(img, 22, 4, w, 152, 112, 56);
+    setPixel(img, 22, 7, w, 152, 112, 56);
+    setPixel(img, 23, 5, w, 152, 112, 56);
+    setPixel(img, 23, 6, w, 152, 112, 56);
+    // Text dots (simulate text)
+    for (let x = 9; x < 20; x += 2) {
+      setPixel(img, x, 4, w, 64, 40, 16);
+      setPixel(img, x, 7, w, 64, 40, 16);
+    }
+    // Second sign (pointing left, lower)
+    fillRect(img, w, 1, 12, 17, 19, 152, 112, 56);
+    fillRect(img, w, 2, 13, 16, 18, 136, 96, 40);
+    setPixel(img, 1, 14, w, 152, 112, 56);
+    setPixel(img, 1, 17, w, 152, 112, 56);
+    setPixel(img, 0, 15, w, 152, 112, 56);
+    setPixel(img, 0, 16, w, 152, 112, 56);
+    for (let x = 4; x < 15; x += 2) {
+      setPixel(img, x, 14, w, 64, 40, 16);
+      setPixel(img, x, 17, w, 64, 40, 16);
+    }
+    // Post cap
+    fillRect(img, w, 10, 0, 13, 2, 136, 96, 48);
+    ctx.putImageData(img, 0, 0);
+  });
+
+  // --- CITY GATE ARCHWAY (48x36) ---
+  ensureCanvasTexture(scene, 'pxa_archway', 48, 36, (ctx, w, h) => {
+    const img = ctx.createImageData(w, h);
+    // Left pillar
+    for (let y = 0; y < 36; y++) {
+      for (let x = 0; x < 12; x++) {
+        const n = ((x * 5 + y * 3) % 4) - 1;
+        setPixel(img, x, y, w, 192 + n, 160 + n, 104 + n);
+      }
+    }
+    // Right pillar
+    for (let y = 0; y < 36; y++) {
+      for (let x = 36; x < 48; x++) {
+        const n = ((x * 5 + y * 3) % 4) - 1;
+        setPixel(img, x, y, w, 192 + n, 160 + n, 104 + n);
+      }
+    }
+    // Arch top (semicircle)
+    for (let y = 0; y < 18; y++) {
+      for (let x = 12; x < 36; x++) {
+        const dx = x - 24, dy = y - 18;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist > 10 && dist < 14) {
+          const n = ((x + y * 3) % 3) - 1;
+          setPixel(img, x, y, w, 200 + n * 4, 168 + n * 4, 108 + n * 4);
+        }
+      }
+    }
+    // Keystone
+    fillRect(img, w, 22, 4, 25, 8, 216, 184, 120);
+    // Top beam
+    fillRect(img, w, 0, 0, 47, 3, 200, 168, 108);
+    fillRect(img, w, 0, 0, 47, 0, 216, 184, 120);
+    // Iron gate bars hint
+    for (let x = 16; x < 32; x += 3) {
+      for (let y = 10; y < 36; y++) {
+        setPixel(img, x, y, w, 96, 96, 104, 60);
+      }
+    }
+    ctx.putImageData(img, 0, 0);
+  });
+
+  // --- LARGE DETAILED HOUSE (Canvas2D, 48x56) ---
+  ensureCanvasTexture(scene, 'pxa_house_detail_1', 48, 56, (ctx, w, h) => {
+    // Wall base
+    ctx.fillStyle = '#e8d8c0';
+    ctx.fillRect(2, 16, 44, 36);
+    // Brick texture
+    ctx.fillStyle = 'rgba(160,140,112,0.3)';
+    for (let y = 20; y < 52; y += 5) ctx.fillRect(2, y, 44, 1);
+    for (let x = 2; x < 46; x += 10) {
+      for (let row = 0; row < 6; row++) {
+        const ox = (row % 2) * 5;
+        ctx.fillRect(x + ox, 16 + row * 5, 1, 4);
+      }
+    }
+    // Roof (pitched)
+    ctx.fillStyle = '#b08848';
+    ctx.beginPath();
+    ctx.moveTo(0, 18); ctx.lineTo(24, 2); ctx.lineTo(48, 18); ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = '#c8a060';
+    ctx.beginPath();
+    ctx.moveTo(2, 18); ctx.lineTo(24, 4); ctx.lineTo(24, 18); ctx.closePath();
+    ctx.fill();
+    // Roof ridge
+    ctx.strokeStyle = '#d0a868'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(0, 18); ctx.lineTo(24, 2); ctx.stroke();
+    // Eave
+    ctx.fillStyle = '#987040'; ctx.fillRect(0, 16, 48, 3);
+    // Windows (2 with shutters)
+    for (const wx of [8, 30]) {
+      ctx.fillStyle = '#5080b0'; ctx.fillRect(wx, 24, 10, 12);
+      ctx.fillStyle = '#78a8d0'; ctx.fillRect(wx + 1, 25, 4, 4); // reflection
+      ctx.fillStyle = '#806030'; // frame
+      ctx.fillRect(wx - 1, 23, 12, 1); ctx.fillRect(wx - 1, 36, 12, 1);
+      ctx.fillRect(wx - 1, 23, 1, 14); ctx.fillRect(wx + 10, 23, 1, 14);
+      ctx.fillRect(wx + 4, 24, 1, 12); // cross bar
+      // Shutters
+      ctx.fillStyle = '#907048';
+      ctx.fillRect(wx - 3, 24, 2, 12);
+      ctx.fillRect(wx + 11, 24, 2, 12);
+    }
+    // Door (arched)
+    ctx.fillStyle = '#604020';
+    ctx.fillRect(19, 38, 10, 14);
+    ctx.beginPath(); ctx.arc(24, 38, 5, Math.PI, 0); ctx.fill();
+    ctx.fillStyle = '#503018';
+    ctx.fillRect(20, 39, 8, 13);
+    ctx.fillStyle = '#c0a040';
+    ctx.fillRect(26, 45, 1, 1); // knob
+    // Step
+    ctx.fillStyle = '#b8a888';
+    ctx.fillRect(17, 52, 14, 2);
+    // Foundation
+    ctx.fillStyle = '#a89878';
+    ctx.fillRect(1, 52, 46, 4);
+    // Wall edges shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.1)';
+    ctx.fillRect(44, 16, 2, 36);
+    ctx.fillStyle = 'rgba(255,255,255,0.1)';
+    ctx.fillRect(2, 16, 1, 36);
+  });
+
+  // --- LARGE HOUSE VARIANT 2 (flat roof, 48x52) ---
+  ensureCanvasTexture(scene, 'pxa_house_detail_2', 48, 52, (ctx, w, h) => {
+    // Wall
+    ctx.fillStyle = '#e0d0b8';
+    ctx.fillRect(2, 8, 44, 40);
+    // Brick texture
+    ctx.fillStyle = 'rgba(152,132,104,0.25)';
+    for (let y = 12; y < 48; y += 5) ctx.fillRect(2, y, 44, 1);
+    // Flat roof with parapet
+    ctx.fillStyle = '#9880a0'; // slightly purple/blue
+    ctx.fillRect(0, 0, 48, 10);
+    ctx.fillStyle = '#b098b8';
+    ctx.fillRect(1, 1, 46, 4);
+    // Parapet crenellations
+    for (let cx = 0; cx < 48; cx += 10) {
+      ctx.fillStyle = '#e0d0b8';
+      ctx.fillRect(cx + 5, 0, 4, 4);
+    }
+    ctx.fillStyle = '#806888'; ctx.fillRect(0, 8, 48, 2);
+    // Windows (arched)
+    for (const wx of [7, 28]) {
+      ctx.fillStyle = '#4870a0';
+      ctx.fillRect(wx, 18, 12, 14);
+      ctx.beginPath(); ctx.arc(wx + 6, 18, 6, Math.PI, 0);
+      ctx.fillStyle = '#4870a0'; ctx.fill();
+      ctx.fillStyle = '#6898c8'; ctx.fillRect(wx + 1, 19, 4, 5);
+      ctx.fillStyle = '#604830';
+      ctx.fillRect(wx, 32, 12, 1);
+      ctx.fillRect(wx + 5, 14, 1, 18);
+    }
+    // Door
+    ctx.fillStyle = '#584028';
+    ctx.fillRect(19, 34, 10, 14);
+    ctx.fillStyle = '#483018';
+    ctx.fillRect(20, 35, 8, 13);
+    ctx.fillStyle = '#b8a040'; ctx.fillRect(26, 41, 1, 1);
+    // Foundation
+    ctx.fillStyle = '#a89070';
+    ctx.fillRect(1, 48, 46, 4);
+  });
+
+  // --- LARGE TEMPLE (Canvas2D, 96x80) ---
+  ensureCanvasTexture(scene, 'pxa_temple_lg', 96, 80, (ctx, w, h) => {
+    // Base building
+    ctx.fillStyle = '#f0e8d8';
+    ctx.fillRect(8, 30, 80, 44);
+    // Brick lines
+    ctx.fillStyle = 'rgba(160,144,112,0.2)';
+    for (let y = 34; y < 74; y += 4) ctx.fillRect(8, y, 80, 1);
+    // Columns
+    for (let cx = 14; cx < 86; cx += 10) {
+      ctx.fillStyle = '#e0d8c8'; ctx.fillRect(cx, 32, 4, 40);
+      ctx.fillStyle = '#d0c8b8'; ctx.fillRect(cx + 3, 32, 1, 40);
+      ctx.fillStyle = '#f0e8d8'; ctx.fillRect(cx, 32, 1, 40);
+      // Capital
+      ctx.fillStyle = '#e8e0d0'; ctx.fillRect(cx - 1, 31, 6, 2);
+    }
+    // Entablature
+    ctx.fillStyle = '#d8c8a8'; ctx.fillRect(6, 28, 84, 4);
+    ctx.fillStyle = '#e8d8b8'; ctx.fillRect(7, 28, 82, 1);
+    // Frieze detail
+    ctx.fillStyle = 'rgba(160,136,88,0.3)';
+    for (let x = 10; x < 86; x += 6) ctx.fillRect(x, 29, 3, 2);
+    // Golden dome
+    const domeGrad = ctx.createRadialGradient(48, 16, 2, 48, 18, 20);
+    domeGrad.addColorStop(0, '#ffe860');
+    domeGrad.addColorStop(0.3, '#e8b830');
+    domeGrad.addColorStop(0.7, '#c89020');
+    domeGrad.addColorStop(1, '#a07018');
+    ctx.fillStyle = domeGrad;
+    ctx.beginPath(); ctx.arc(48, 20, 18, Math.PI, 0); ctx.fill();
+    // Dome highlight
+    ctx.fillStyle = 'rgba(255,240,128,0.4)';
+    ctx.beginPath(); ctx.arc(42, 12, 8, 0, Math.PI * 2); ctx.fill();
+    // Finial
+    ctx.fillStyle = '#ffd700';
+    ctx.fillRect(47, 0, 2, 6);
+    ctx.fillStyle = '#ffe860';
+    ctx.beginPath(); ctx.arc(48, 0, 2, 0, Math.PI * 2); ctx.fill();
+    // Main door (large, ornate)
+    ctx.fillStyle = '#604020';
+    ctx.fillRect(38, 52, 20, 22);
+    ctx.beginPath(); ctx.arc(48, 52, 10, Math.PI, 0);
+    ctx.fillStyle = '#604020'; ctx.fill();
+    ctx.fillStyle = '#503018';
+    ctx.fillRect(39, 53, 18, 21);
+    // Gold door frame
+    ctx.strokeStyle = '#c0a030'; ctx.lineWidth = 2;
+    ctx.strokeRect(37, 42, 22, 32);
+    // Side windows
+    for (const sx of [16, 72]) {
+      ctx.fillStyle = '#5888b8'; ctx.fillRect(sx, 42, 8, 16);
+      ctx.beginPath(); ctx.arc(sx + 4, 42, 4, Math.PI, 0);
+      ctx.fillStyle = '#5888b8'; ctx.fill();
+      ctx.fillStyle = '#78b0d8'; ctx.fillRect(sx + 1, 43, 3, 4);
+    }
+    // Steps (3 wide levels)
+    for (let step = 0; step < 3; step++) {
+      const shade = 200 - step * 16;
+      ctx.fillStyle = `rgb(${shade},${shade - 8},${shade - 24})`;
+      ctx.fillRect(24 - step * 6, 74 + step * 2, 48 + step * 12, 2);
+    }
+    // Trees flanking temple
+    for (const tx of [12, 80]) {
+      ctx.fillStyle = '#48a028'; ctx.beginPath(); ctx.arc(tx, 64, 6, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#60b840'; ctx.beginPath(); ctx.arc(tx - 1, 62, 4, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#704820'; ctx.fillRect(tx - 1, 68, 2, 6);
+    }
+  });
+
+  // --- LARGE CORNER TOWER (Canvas2D, 40x72) ---
+  ensureCanvasTexture(scene, 'pxa_tower_lg', 40, 72, (ctx, w, h) => {
+    // Tower body
+    ctx.fillStyle = '#c0a068';
+    ctx.fillRect(4, 12, 32, 56);
+    // Stone texture
+    ctx.fillStyle = 'rgba(160,136,88,0.2)';
+    for (let y = 16; y < 68; y += 5) ctx.fillRect(4, y, 32, 1);
+    for (let x = 4; x < 36; x += 8) {
+      for (let row = 0; row < 11; row++) {
+        const ox = (row % 2) * 4;
+        ctx.fillRect(x + ox, 12 + row * 5, 1, 4);
+      }
+    }
+    // Top platform (wider)
+    ctx.fillStyle = '#c8a870';
+    ctx.fillRect(0, 0, 40, 14);
+    ctx.fillStyle = '#d8b880';
+    ctx.fillRect(1, 1, 38, 5);
+    // Crenellations
+    for (let cx = 0; cx < 40; cx += 10) {
+      ctx.clearRect(cx + 5, 0, 4, 5);
+    }
+    ctx.fillStyle = '#b09858'; ctx.fillRect(0, 12, 40, 2);
+    // Arrow slits
+    for (const ay of [24, 40, 56]) {
+      ctx.fillStyle = '#383028';
+      ctx.fillRect(16, ay, 8, 3);
+      ctx.fillRect(18, ay - 2, 4, 7);
+    }
+    // Torch
+    ctx.fillStyle = '#704820'; ctx.fillRect(8, 30, 2, 8);
+    ctx.fillStyle = '#ff8020'; ctx.fillRect(7, 28, 4, 3);
+    ctx.fillStyle = '#ffc040'; ctx.fillRect(8, 27, 2, 2);
+    // Shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.08)'; ctx.fillRect(34, 12, 2, 56);
+    ctx.fillStyle = 'rgba(255,255,255,0.06)'; ctx.fillRect(4, 12, 1, 56);
+    // Base
+    ctx.fillStyle = '#a08848'; ctx.fillRect(2, 66, 36, 6);
+  });
 }
 
 function hexToCss(hex) {
@@ -4917,193 +5270,258 @@ class JerusalemCityScene extends Phaser.Scene {
     this.cameras.main.fadeIn(800);
     GameState.chapter = { book: '1 Nephi', chapter: 1, label: '1 Nephi · Ch. 1' };
 
-    // === WALLED CITY LAYOUT ===
-    // City dimensions: walled area with walkable interior
-    const worldW = 1200, worldH = 900;
-    const WALL = 48; // wall thickness
-    const cityL = WALL, cityR = worldW - WALL, cityT = WALL + 60, cityB = worldH - WALL;
+    // === DENSE WALLED CITY (Pokemon GBA style) ===
+    const worldW = 960, worldH = 740;
+    // Wall bounds (inner walkable area)
+    const WL = 72, WT = 72, WR = 888, WB = 668;
+    const wallThick = 28;
     this.physics.world.setBounds(0, 0, worldW, worldH);
     this.cameras.main.setBounds(0, 0, worldW, worldH);
 
     this._pause = attachPauseMenu(this);
     this._lighting = FX.createLightingRig(this, { mode: 'day' });
 
-    // === SKY (above walls) ===
-    const skyG = this.add.graphics();
-    skyG.fillStyle(0x68b8f8);
-    skyG.fillRect(0, 0, worldW, cityT);
-    skyG.fillStyle(0x88d0ff, 0.5);
-    skyG.fillRect(0, 0, worldW, 40);
+    // === GREEN GRASS (entire world background — visible outside walls) ===
+    this.add.tileSprite(worldW / 2, worldH / 2, worldW, worldH, 'tile_grass').setDepth(0);
 
-    // === COBBLESTONE GROUND (inside city) ===
-    this.add.tileSprite(worldW / 2, (cityT + cityB) / 2, cityR - cityL, cityB - cityT, 'tile_cobble').setOrigin(0.5);
-
-    // === CITY WALLS (pxa_wall tiled) ===
-    // Top wall
-    for (let x = 0; x < worldW; x += 64) {
-      this.add.image(x + 32, cityT - 24, 'pxa_wall').setScale(2).setDepth(2);
-    }
-    // Bottom wall
-    for (let x = 0; x < worldW; x += 64) {
-      this.add.image(x + 32, cityB + 12, 'pxa_wall').setScale(2).setDepth(2);
-    }
-    // Left wall (vertical — rotated wall segments)
-    const wallLG = this.add.graphics();
-    wallLG.fillStyle(0xc8a868);
-    wallLG.fillRect(0, cityT - 24, WALL, cityB - cityT + 48);
-    for (let y = cityT; y < cityB; y += 8) {
-      wallLG.fillStyle(0xb09858, 0.3);
-      wallLG.fillRect(0, y, WALL, 1);
-    }
-    wallLG.setDepth(2);
-    // Right wall
-    const wallRG = this.add.graphics();
-    wallRG.fillStyle(0xc8a868);
-    wallRG.fillRect(worldW - WALL, cityT - 24, WALL, cityB - cityT + 48);
-    for (let y = cityT; y < cityB; y += 8) {
-      wallRG.fillStyle(0xb09858, 0.3);
-      wallRG.fillRect(worldW - WALL, y, WALL, 1);
-    }
-    wallRG.setDepth(2);
-
-    // === CORNER GUARD TOWERS ===
-    const towerScale = 2.5;
-    this.add.image(WALL / 2, cityT - 10, 'pxa_tower').setScale(towerScale).setDepth(3);
-    this.add.image(worldW - WALL / 2, cityT - 10, 'pxa_tower').setScale(towerScale).setDepth(3);
-    this.add.image(WALL / 2, cityB + 10, 'pxa_tower').setScale(towerScale).setDepth(3);
-    this.add.image(worldW - WALL / 2, cityB + 10, 'pxa_tower').setScale(towerScale).setDepth(3);
-
-    // === CITY GATE (bottom center, gap in wall) ===
-    const gateX = worldW / 2;
-    const gateLabelG = this.add.graphics();
-    gateLabelG.fillStyle(0xa08848);
-    gateLabelG.fillRect(gateX - 40, cityB - 4, 80, 20);
-    gateLabelG.fillStyle(0xc8a060);
-    gateLabelG.fillRect(gateX - 38, cityB - 2, 76, 16);
-    gateLabelG.setDepth(3);
-    this.add.text(gateX, cityB + 6, 'CITY GATE', {
-      fontSize: '8px', fontFamily: 'monospace', color: '#f8d830', fontStyle: 'bold',
-      stroke: '#000000', strokeThickness: 2
-    }).setOrigin(0.5).setDepth(4);
-
-    // === BUILDINGS — pixel art sprites ===
-    const bldgDepth = 5;
-    const bScale = 3; // building sprite scale
-    const sScale = 3.5; // shop scale
-
-    // --- TEMPLE OF SOLOMON (golden dome, center-north) ---
-    const templeX = worldW / 2, templeY = 200;
-    this.add.image(templeX, templeY, 'pxa_temple').setScale(4).setDepth(bldgDepth);
-    this.add.text(templeX, templeY - 60, 'Temple of Solomon', {
-      fontSize: '10px', fontFamily: 'monospace', color: '#ffd700', fontStyle: 'bold',
-      stroke: '#000000', strokeThickness: 3
-    }).setOrigin(0.5).setDepth(bldgDepth + 1);
-
-    // --- BLUE DOME BUILDING (west of temple) ---
-    const blueX = 240, blueY = 220;
-    this.add.image(blueX, blueY, 'pxa_blue_dome').setScale(bScale).setDepth(bldgDepth);
-    this.add.text(blueX, blueY - 40, 'Synagogue', {
-      fontSize: '8px', fontFamily: 'monospace', color: '#88bbff',
-      stroke: '#000000', strokeThickness: 2
-    }).setOrigin(0.5).setDepth(bldgDepth + 1);
-
-    // --- RESIDENTIAL BUILDINGS (scattered) ---
-    const housePositions = [
-      { x: 160, y: 400, tex: 'pxa_house_tan' },
-      { x: 300, y: 380, tex: 'pxa_house_blue' },
-      { x: 900, y: 220, tex: 'pxa_house_tan' },
-      { x: 1040, y: 240, tex: 'pxa_house_blue' },
-      { x: 160, y: 600, tex: 'pxa_house_blue' },
-      { x: 1040, y: 600, tex: 'pxa_house_tan' },
-      { x: 900, y: 420, tex: 'pxa_house_tan' },
-      { x: 1040, y: 420, tex: 'pxa_house_blue' },
+    // === TREES OUTSIDE WALLS (Pokemon style — lush border) ===
+    const outerTreePositions = [
+      // Top edge
+      [40, 25], [130, 20], [220, 28], [350, 18], [470, 25], [590, 20], [710, 28], [830, 22], [920, 25],
+      // Bottom edge
+      [50, 715], [180, 720], [310, 712], [450, 718], [600, 715], [740, 720], [870, 712],
+      // Left edge
+      [25, 120], [20, 250], [28, 380], [22, 510], [25, 630],
+      // Right edge
+      [935, 130], [940, 260], [932, 400], [938, 520], [935, 640],
     ];
-    housePositions.forEach(h => {
-      this.add.image(h.x, h.y, h.tex).setScale(bScale).setDepth(bldgDepth);
+    outerTreePositions.forEach(([tx, ty]) => {
+      const tex = Math.random() > 0.5 ? 'pxa_tree' : 'pxa_palm';
+      this.add.image(tx, ty, tex).setScale(2 + Math.random() * 0.5).setDepth(1);
     });
 
-    // --- LEHI'S HOME (east side) ---
-    const lehiHomeX = 1000, lehiHomeY = 620;
-    this.add.image(lehiHomeX, lehiHomeY, 'pxa_lehi_home').setScale(bScale).setDepth(bldgDepth);
-    this.add.text(lehiHomeX, lehiHomeY - 40, "Lehi's Home", {
-      fontSize: '9px', fontFamily: 'monospace', color: '#f8d830', fontStyle: 'bold',
+    // === COBBLESTONE GROUND (inside walls only) ===
+    this.add.tileSprite((WL + WR) / 2, (WT + WB) / 2, WR - WL, WB - WT, 'tile_cobble').setDepth(1);
+
+    // === DIRT PATHS (main roads forming cross through city) ===
+    // Horizontal road
+    this.add.tileSprite((WL + WR) / 2, 400, WR - WL, 44, 'tile_dirt').setDepth(1);
+    // Vertical road (gate to temple)
+    this.add.tileSprite(480, (WT + WB) / 2, 44, WB - WT, 'tile_dirt').setDepth(1);
+
+    // === CITY WALLS ===
+    const wallG = this.add.graphics().setDepth(3);
+    // Top wall
+    wallG.fillStyle(0xc0a068); wallG.fillRect(WL, WT - wallThick, WR - WL, wallThick);
+    wallG.fillStyle(0xd0b078); wallG.fillRect(WL, WT - wallThick, WR - WL, 4); // highlight
+    wallG.fillStyle(0xa88848); wallG.fillRect(WL, WT - 2, WR - WL, 4); // bottom shadow
+    // Bottom wall (with gate gap)
+    const gateX = 480, gateW = 80;
+    wallG.fillStyle(0xc0a068);
+    wallG.fillRect(WL, WB, gateX - gateW / 2 - WL, wallThick); // left of gate
+    wallG.fillRect(gateX + gateW / 2, WB, WR - (gateX + gateW / 2), wallThick); // right of gate
+    wallG.fillStyle(0xa88848);
+    wallG.fillRect(WL, WB, gateX - gateW / 2 - WL, 4);
+    wallG.fillRect(gateX + gateW / 2, WB, WR - (gateX + gateW / 2), 4);
+    // Left wall
+    wallG.fillStyle(0xc0a068); wallG.fillRect(WL - wallThick, WT - wallThick, wallThick, WB - WT + wallThick * 2);
+    wallG.fillStyle(0xd0b078); wallG.fillRect(WL - wallThick, WT - wallThick, 4, WB - WT + wallThick * 2);
+    // Right wall
+    wallG.fillStyle(0xc0a068); wallG.fillRect(WR, WT - wallThick, wallThick, WB - WT + wallThick * 2);
+    wallG.fillStyle(0xa88848); wallG.fillRect(WR + wallThick - 4, WT - wallThick, 4, WB - WT + wallThick * 2);
+    // Wall crenellations (top wall)
+    for (let x = WL; x < WR; x += 14) {
+      wallG.fillStyle(0xc8a870); wallG.fillRect(x, WT - wallThick - 6, 6, 8);
+      wallG.fillStyle(0xd8b880); wallG.fillRect(x, WT - wallThick - 6, 6, 2);
+    }
+    // Wall crenellations (bottom wall)
+    for (let x = WL; x < gateX - gateW / 2; x += 14) {
+      wallG.fillStyle(0xc8a870); wallG.fillRect(x, WB + wallThick - 2, 6, 8);
+    }
+    for (let x = gateX + gateW / 2; x < WR; x += 14) {
+      wallG.fillStyle(0xc8a870); wallG.fillRect(x, WB + wallThick - 2, 6, 8);
+    }
+    // Wall brick texture
+    wallG.fillStyle(0xb09858, 0.2);
+    for (let y = WT - wallThick; y < WT; y += 6) wallG.fillRect(WL, y, WR - WL, 1);
+    for (let y = WB; y < WB + wallThick; y += 6) {
+      wallG.fillRect(WL, y, gateX - gateW / 2 - WL, 1);
+      wallG.fillRect(gateX + gateW / 2, y, WR - (gateX + gateW / 2), 1);
+    }
+
+    // === CORNER TOWERS (large, detailed) ===
+    const twrS = 2.2;
+    this.add.image(WL - 8, WT - 12, 'pxa_tower_lg').setScale(twrS).setDepth(4);
+    this.add.image(WR + 8, WT - 12, 'pxa_tower_lg').setScale(twrS).setDepth(4);
+    this.add.image(WL - 8, WB + 12, 'pxa_tower_lg').setScale(twrS).setDepth(4);
+    this.add.image(WR + 8, WB + 12, 'pxa_tower_lg').setScale(twrS).setDepth(4);
+    // Mid-wall towers
+    this.add.image(WL + (WR - WL) / 2, WT - 12, 'pxa_tower_lg').setScale(1.8).setDepth(4);
+    this.add.image(WL - 8, WT + (WB - WT) / 2, 'pxa_tower_lg').setScale(1.8).setDepth(4);
+    this.add.image(WR + 8, WT + (WB - WT) / 2, 'pxa_tower_lg').setScale(1.8).setDepth(4);
+
+    // === CITY GATE (archway at bottom center) ===
+    this.add.image(gateX, WB + 8, 'pxa_archway').setScale(2).setDepth(5);
+    this.add.text(gateX, WB + wallThick + 10, 'CITY GATE', {
+      fontSize: '7px', fontFamily: 'monospace', color: '#f8d830', fontStyle: 'bold',
       stroke: '#000000', strokeThickness: 2
-    }).setOrigin(0.5).setDepth(bldgDepth + 1);
+    }).setOrigin(0.5).setDepth(5);
 
-    // --- LABAN'S HOUSE (northeast, ominous) ---
-    const labanHomeX = 950, labanHomeY = 380;
-    this.add.image(labanHomeX, labanHomeY, 'pxa_laban_house').setScale(bScale).setDepth(bldgDepth);
-    this.add.text(labanHomeX, labanHomeY - 40, "Laban's House", {
-      fontSize: '8px', fontFamily: 'monospace', color: '#ff8888',
+    // === BUILDINGS — dense packed blocks ===
+    const BD = 5; // building depth base
+    const bS = 2.8; // building scale
+
+    // --- TEMPLE OF SOLOMON (center-top, LARGE) ---
+    const templeX = 480, templeY = 170;
+    this.add.image(templeX, templeY, 'pxa_temple_lg').setScale(3.2).setDepth(BD);
+    this.add.text(templeX, templeY - 80, 'TEMPLE OF SOLOMON', {
+      fontSize: '9px', fontFamily: 'monospace', color: '#ffd700', fontStyle: 'bold',
+      stroke: '#000000', strokeThickness: 3
+    }).setOrigin(0.5).setDepth(BD + 1);
+
+    // --- BLUE DOME (right of temple) ---
+    const blueX = 620, blueY = 160;
+    this.add.image(blueX, blueY, 'pxa_blue_dome').setScale(bS).setDepth(BD);
+
+    // --- UPPER-LEFT BUILDING BLOCK (3 houses packed tight) ---
+    this.add.image(150, 150, 'pxa_house_detail_1').setScale(bS).setDepth(BD);
+    this.add.image(260, 145, 'pxa_house_detail_2').setScale(bS).setDepth(BD);
+    this.add.image(150, 260, 'pxa_house_tan').setScale(bS).setDepth(BD);
+    this.add.image(260, 270, 'pxa_house_blue').setScale(bS).setDepth(BD);
+
+    // --- UPPER-RIGHT BUILDING BLOCK ---
+    this.add.image(740, 145, 'pxa_house_detail_1').setScale(bS).setDepth(BD);
+    this.add.image(830, 150, 'pxa_house_detail_2').setScale(bS).setDepth(BD);
+    this.add.image(740, 260, 'pxa_house_blue').setScale(bS).setDepth(BD);
+    this.add.image(830, 265, 'pxa_house_tan').setScale(bS).setDepth(BD);
+
+    // --- MIDDLE-LEFT BLOCK (with Lehi's home) ---
+    this.add.image(140, 380, 'pxa_house_detail_2').setScale(bS).setDepth(BD);
+    this.add.image(240, 385, 'pxa_house_tan').setScale(bS).setDepth(BD);
+    this.add.image(140, 490, 'pxa_house_blue').setScale(bS).setDepth(BD);
+
+    // --- LEHI'S HOME (left-center area) ---
+    const lehiHomeX = 260, lehiHomeY = 500;
+    this.add.image(lehiHomeX, lehiHomeY, 'pxa_lehi_home').setScale(bS + 0.2).setDepth(BD);
+    this.add.text(lehiHomeX, lehiHomeY - 48, "Lehi's Home", {
+      fontSize: '8px', fontFamily: 'monospace', color: '#f8d830', fontStyle: 'bold',
       stroke: '#000000', strokeThickness: 2
-    }).setOrigin(0.5).setDepth(bldgDepth + 1);
+    }).setOrigin(0.5).setDepth(BD + 1);
 
-    // === MARKET DISTRICT (south area) ===
-    // Shops with signs
-    const shopY = 720;
-    const weapShopX = 250;
-    this.add.image(weapShopX, shopY, 'pxa_shop_weapons').setScale(sScale).setDepth(bldgDepth);
-    this.add.text(weapShopX, shopY - 45, 'Weapons Shop', {
-      fontSize: '8px', fontFamily: 'monospace', color: '#ff9999', fontStyle: 'bold',
+    // --- MIDDLE-RIGHT BLOCK ---
+    this.add.image(740, 385, 'pxa_house_detail_1').setScale(bS).setDepth(BD);
+    this.add.image(840, 380, 'pxa_house_detail_2').setScale(bS).setDepth(BD);
+    this.add.image(840, 490, 'pxa_house_tan').setScale(bS).setDepth(BD);
+
+    // --- LABAN'S HOUSE (right-center, ominous) ---
+    const labanHomeX = 740, labanHomeY = 500;
+    this.add.image(labanHomeX, labanHomeY, 'pxa_laban_house').setScale(bS + 0.2).setDepth(BD);
+    this.add.text(labanHomeX, labanHomeY - 48, "Laban's House", {
+      fontSize: '8px', fontFamily: 'monospace', color: '#ff8888', fontStyle: 'bold',
       stroke: '#000000', strokeThickness: 2
-    }).setOrigin(0.5).setDepth(bldgDepth + 1);
+    }).setOrigin(0.5).setDepth(BD + 1);
 
-    const itemShopX = 500;
-    this.add.image(itemShopX, shopY, 'pxa_shop_items').setScale(sScale).setDepth(bldgDepth);
-    this.add.text(itemShopX, shopY - 45, 'Item Shop', {
-      fontSize: '8px', fontFamily: 'monospace', color: '#99ff99', fontStyle: 'bold',
+    // --- LOWER SIDE BUILDINGS (flanking market) ---
+    this.add.image(120, 600, 'pxa_house_detail_1').setScale(bS).setDepth(BD);
+    this.add.image(120, 520, 'pxa_house_blue').setScale(2.5).setDepth(BD);
+    this.add.image(850, 600, 'pxa_house_detail_2').setScale(bS).setDepth(BD);
+    this.add.image(850, 520, 'pxa_house_tan').setScale(2.5).setDepth(BD);
+
+    // === FOUNTAIN (left of center, in plaza) ===
+    const fountainX = 360, fountainY = 420;
+    this.add.image(fountainX, fountainY, 'pxa_fountain').setScale(4).setDepth(BD + 1);
+    const sparkle1 = this.add.circle(fountainX - 10, fountainY - 6, 2, 0x88ccff, 0.7).setDepth(BD + 2);
+    const sparkle2 = this.add.circle(fountainX + 8, fountainY - 2, 2, 0x88ccff, 0.5).setDepth(BD + 2);
+    this.tweens.add({ targets: sparkle1, alpha: 0.1, duration: 900, yoyo: true, repeat: -1 });
+    this.tweens.add({ targets: sparkle2, alpha: 0.15, duration: 700, yoyo: true, repeat: -1, delay: 400 });
+
+    // === MARKET DISTRICT (lower-center) ===
+    const shopY = 580, shopS = 3.5;
+    const weapShopX = 310;
+    this.add.image(weapShopX, shopY, 'pxa_shop_weapons').setScale(shopS).setDepth(BD);
+    this.add.text(weapShopX, shopY - 42, 'WEAPONS\nSHOP', {
+      fontSize: '7px', fontFamily: 'monospace', color: '#ffcccc', fontStyle: 'bold', align: 'center',
       stroke: '#000000', strokeThickness: 2
-    }).setOrigin(0.5).setDepth(bldgDepth + 1);
+    }).setOrigin(0.5).setDepth(BD + 1);
 
-    const tailorX = 750;
-    this.add.image(tailorX, shopY, 'pxa_shop_tailor').setScale(sScale).setDepth(bldgDepth);
-    this.add.text(tailorX, shopY - 45, 'Tailor', {
-      fontSize: '8px', fontFamily: 'monospace', color: '#cc99ff', fontStyle: 'bold',
+    const itemShopX = 480;
+    this.add.image(itemShopX, shopY, 'pxa_shop_items').setScale(shopS).setDepth(BD);
+    this.add.text(itemShopX, shopY - 42, 'ITEM SHOP', {
+      fontSize: '7px', fontFamily: 'monospace', color: '#ccffcc', fontStyle: 'bold',
       stroke: '#000000', strokeThickness: 2
-    }).setOrigin(0.5).setDepth(bldgDepth + 1);
+    }).setOrigin(0.5).setDepth(BD + 1);
 
-    // Market stalls (open-air)
-    const stallScale = 3;
-    this.add.image(380, shopY + 50, 'pxa_stall_red').setScale(stallScale).setDepth(bldgDepth);
-    this.add.image(620, shopY + 50, 'pxa_stall_blue').setScale(stallScale).setDepth(bldgDepth);
-    this.add.image(870, shopY + 50, 'pxa_stall_brown').setScale(stallScale).setDepth(bldgDepth);
+    const tailorX = 640;
+    this.add.image(tailorX, shopY, 'pxa_shop_tailor').setScale(shopS).setDepth(BD);
+    this.add.text(tailorX, shopY - 42, 'TAILOR', {
+      fontSize: '7px', fontFamily: 'monospace', color: '#ddbbff', fontStyle: 'bold',
+      stroke: '#000000', strokeThickness: 2
+    }).setOrigin(0.5).setDepth(BD + 1);
 
-    // === FOUNTAIN (city center) ===
-    const fountainX = worldW / 2, fountainY = 480;
-    this.add.image(fountainX, fountainY, 'pxa_fountain').setScale(3.5).setDepth(bldgDepth);
-    // Water sparkle animation
-    const sparkle = this.add.circle(fountainX - 8, fountainY - 4, 2, 0x88ccff, 0.6).setDepth(bldgDepth + 1);
-    this.tweens.add({ targets: sparkle, alpha: 0.2, duration: 800, yoyo: true, repeat: -1 });
+    // Market stalls in front of shops
+    const stS = 3;
+    this.add.image(380, shopY + 55, 'pxa_stall_red').setScale(stS).setDepth(BD);
+    this.add.image(560, shopY + 55, 'pxa_stall_blue').setScale(stS).setDepth(BD);
+    this.add.image(720, shopY + 55, 'pxa_stall_brown').setScale(stS).setDepth(BD);
 
-    // === BANNERS & FLAGS (decorative, throughout city) ===
-    const bannerScale = 3;
-    [[120, 300, 'pxa_banner_red'], [350, 300, 'pxa_banner_blue'], [700, 300, 'pxa_banner_gold'],
-     [1080, 300, 'pxa_banner_red'], [200, 550, 'pxa_banner_blue'], [500, 550, 'pxa_banner_gold'],
-     [800, 550, 'pxa_banner_red'], [1000, 550, 'pxa_banner_blue'],
-     [300, 680, 'pxa_banner_gold'], [600, 680, 'pxa_banner_red'], [900, 680, 'pxa_banner_blue']
-    ].forEach(([bx, by, tex]) => {
-      const banner = this.add.image(bx, by, tex).setScale(bannerScale).setDepth(bldgDepth - 1);
+    // === DIRECTION SIGN (near gate, right side) ===
+    this.add.image(780, 640, 'pxa_signpost').setScale(3).setDepth(BD + 1);
+    this.add.text(800, 628, 'TO JERICHO ROAD\nTO GETHSEMANE', {
+      fontSize: '6px', fontFamily: 'monospace', color: '#604020', fontStyle: 'bold', align: 'center',
+      stroke: '#e8d8c0', strokeThickness: 1
+    }).setOrigin(0, 0.5).setDepth(BD + 2);
+
+    // === BANNERS & FLAGS (many, throughout city) ===
+    const bnS = 3;
+    const bannerData = [
+      // Along upper buildings
+      [180, 130, 'pxa_banner_red'], [290, 130, 'pxa_banner_blue'],
+      [370, 200, 'pxa_banner_gold'], [580, 200, 'pxa_banner_blue'],
+      [700, 130, 'pxa_banner_gold'], [860, 130, 'pxa_banner_red'],
+      // Mid city
+      [120, 340, 'pxa_banner_blue'], [280, 340, 'pxa_banner_gold'],
+      [600, 340, 'pxa_banner_red'], [860, 340, 'pxa_banner_blue'],
+      // Near market
+      [180, 550, 'pxa_banner_gold'], [400, 550, 'pxa_banner_red'],
+      [550, 550, 'pxa_banner_blue'], [700, 550, 'pxa_banner_gold'],
+      [840, 550, 'pxa_banner_red'],
+      // Near gate
+      [350, 650, 'pxa_banner_blue'], [600, 650, 'pxa_banner_red'],
+    ];
+    bannerData.forEach(([bx, by, tex]) => {
+      const banner = this.add.image(bx, by, tex).setScale(bnS).setDepth(BD - 1);
       this.tweens.add({
-        targets: banner, angle: 3, duration: 1500 + Math.random() * 500,
+        targets: banner, angle: 4, duration: 1200 + Math.random() * 600,
         yoyo: true, repeat: -1, ease: 'Sine.easeInOut'
       });
     });
 
-    // === TREES (scattered for life) ===
-    [[100, 500, 'pxa_tree'], [350, 470, 'pxa_palm'], [700, 400, 'pxa_tree'],
-     [1100, 500, 'pxa_palm'], [450, 350, 'pxa_tree'], [850, 620, 'pxa_palm'],
-     [200, 700, 'pxa_tree'], [950, 700, 'pxa_tree']
+    // === TREES INSIDE CITY (around temple, scattered) ===
+    [[420, 240, 'pxa_tree'], [540, 235, 'pxa_tree'],  // temple flanking
+     [330, 320, 'pxa_palm'], [620, 320, 'pxa_palm'],  // near center
+     [200, 450, 'pxa_tree'], [780, 450, 'pxa_tree'],  // mid sides
+     [400, 480, 'pxa_palm'], [560, 480, 'pxa_palm'],  // near fountain
     ].forEach(([tx, ty, tex]) => {
-      this.add.image(tx, ty, tex).setScale(2.5).setDepth(bldgDepth + 2);
+      this.add.image(tx, ty, tex).setScale(2.2).setDepth(BD + 2);
     });
 
-    // === DIRT PATH (main roads through city) ===
-    // Horizontal main road
-    this.add.tileSprite(worldW / 2, 490, worldW - WALL * 2, 40, 'tile_dirt').setOrigin(0.5).setDepth(0);
-    // Vertical road from gate to temple
-    this.add.tileSprite(worldW / 2, (cityT + cityB) / 2, 40, cityB - cityT, 'tile_dirt').setOrigin(0.5).setDepth(0);
+    // === PROPS (crates, barrels, pots scattered everywhere) ===
+    const propScale = 3;
+    // Near market
+    [[280, 620, 'pxa_crate'], [290, 630, 'pxa_crate'], [270, 628, 'pxa_barrel'],
+     [670, 620, 'pxa_barrel'], [680, 628, 'pxa_crate'], [690, 618, 'pxa_pot'],
+     // Near buildings
+     [180, 300, 'pxa_barrel'], [190, 308, 'pxa_pot'], [820, 300, 'pxa_crate'],
+     [830, 310, 'pxa_barrel'], [160, 440, 'pxa_pot'], [820, 440, 'pxa_crate'],
+     // Near gate
+     [430, 650, 'pxa_barrel'], [530, 648, 'pxa_crate'],
+     // Near fountain
+     [340, 440, 'pxa_pot'], [400, 445, 'pxa_pot'],
+    ].forEach(([px, py, tex]) => {
+      this.add.image(px, py, tex).setScale(propScale).setDepth(BD + 1);
+    });
 
-    // === NPCs ===
+    // === NPCs (many for density) ===
     this.npcSprites = [];
     this.npcZones = [];
     const createNPC = (key, x, y, name, scale, zonew, zoneh) => {
@@ -5113,55 +5531,66 @@ class JerusalemCityScene extends Phaser.Scene {
       } else {
         sprite = this.add.rectangle(x, y, 16, 24, COLORS.faithBlue).setDepth(10);
       }
-      const label = this.add.text(x, y - 26, name, { fontSize: '9px', fontFamily: 'monospace', color: '#ccaa88' }).setOrigin(0.5).setDepth(11);
+      const label = this.add.text(x, y - 26, name, {
+        fontSize: '8px', fontFamily: 'monospace', color: '#ccaa88'
+      }).setOrigin(0.5).setDepth(11);
       this.physics.add.existing(sprite, true);
       sprite.body.setSize(14, 14);
       sprite.body.setOffset(sprite.width / 2 - 7, sprite.height / 2 - 4);
       sprite._npcLabel = label;
       sprite._npcName = name;
       this.npcSprites.push(sprite);
-      const zone = this.add.zone(x, y, zonew || 50, zoneh || 50);
+      const zone = this.add.zone(x, y, zonew || 44, zoneh || 44);
       this.physics.add.existing(zone, true);
       return { zone, sprite, label };
     };
 
-    // Citizens spread across the city
-    const c1 = createNPC('citizen_male', 300, 500, 'Citizen', 1.8, 50, 50);
-    const c2 = createNPC('citizen_female', 500, 450, 'Woman', 1.8, 50, 50);
-    const c3 = createNPC('citizen_male', 800, 500, 'Elder', 1.8, 50, 50);
-    const c4 = createNPC('citizen_male', 400, 770, 'Merchant', 1.8, 50, 50);
+    // Named interaction NPCs
+    const c1 = createNPC('citizen_male', 400, 320, 'Citizen', 1.8, 44, 44);
+    const c2 = createNPC('citizen_female', 560, 400, 'Woman', 1.8, 44, 44);
+    const c3 = createNPC('citizen_male', 680, 440, 'Elder', 1.8, 44, 44);
+    const c4 = createNPC('citizen_male', 460, 640, 'Merchant', 1.8, 44, 44);
     this.citizen1Zone = c1.zone;
     this.citizen2Zone = c2.zone;
     this.citizen3Zone = c3.zone;
     this.merchantZone = c4.zone;
 
     // Family NPCs
-    const nLaman = createNPC('laman', 650, 550, 'Laman', 2, 60, 50);
-    const nLemuel = createNPC('lemuel', 720, 520, 'Lemuel', 1.8, 50, 50);
-    const nSam = createNPC('sam', 950, 550, 'Sam', 2, 50, 50);
-    const nSariah = createNPC('sariah', 880, 650, 'Sariah', 2, 50, 50);
-    const nLehi = createNPC('lehi', 1000, 680, 'Lehi', 2.2, 60, 60);
+    const nLaman = createNPC('laman', 520, 340, 'Laman', 2, 50, 44);
+    const nLemuel = createNPC('lemuel', 570, 360, 'Lemuel', 1.8, 44, 44);
+    const nSam = createNPC('sam', 300, 460, 'Sam', 2, 44, 44);
+    const nSariah = createNPC('sariah', 220, 540, 'Sariah', 2, 44, 44);
+    const nLehi = createNPC('lehi', 300, 540, 'Lehi', 2.2, 54, 54);
     this.lamanZone = nLaman.zone;
     this.lemuelZone = nLemuel.zone;
     this.samZone = nSam.zone;
     this.sariahZone = nSariah.zone;
     this.lehiZone = nLehi.zone;
 
-    // Extra city NPCs for density
-    createNPC('citizen_female', 250, 760, 'Shopkeeper', 1.6, 40, 40);
-    createNPC('citizen_male', 750, 760, 'Tailor', 1.6, 40, 40);
-    createNPC('citizen_male', 600, 350, 'Guard', 1.8, 40, 40);
-    createNPC('citizen_female', 400, 280, 'Priestess', 1.6, 40, 40);
+    // Extra city NPCs for density (non-interactive, just visual life)
+    const crowdPositions = [
+      ['citizen_female', 350, 580, 'Shopkeeper'], ['citizen_male', 640, 580, 'Tailor'],
+      ['citizen_male', 500, 280, 'Guard'], ['citizen_female', 380, 240, 'Priestess'],
+      ['citizen_male', 200, 360, 'Farmer'], ['citizen_female', 800, 360, 'Woman'],
+      ['citizen_male', 620, 480, 'Trader'], ['citizen_female', 150, 580, 'Girl'],
+      ['citizen_male', 750, 580, 'Boy'], ['citizen_female', 480, 440, 'Nun'],
+      ['citizen_male', 600, 640, 'Beggar'], ['citizen_female', 330, 420, 'Healer'],
+      ['citizen_male', 700, 320, 'Scribe'], ['citizen_female', 830, 470, 'Weaver'],
+      ['citizen_male', 180, 200, 'Builder'], ['citizen_female', 840, 200, 'Cook'],
+    ];
+    crowdPositions.forEach(([key, cx, cy, name]) => {
+      createNPC(key, cx, cy, name, 1.6, 36, 36);
+    });
 
-    // === PLAYER === (spawn at gate area, bottom center)
+    // === PLAYER (spawn at gate) ===
     if (this.textures.exists('nephi')) {
-      this.player = this.add.image(gateX, cityB - 60, 'nephi').setScale(2).setDepth(15);
+      this.player = this.add.image(gateX, WB - 40, 'nephi').setScale(2).setDepth(15);
     } else {
-      this.player = this.add.rectangle(gateX, cityB - 60, 20, 28, COLORS.faithBlue).setOrigin(0.5, 1);
+      this.player = this.add.rectangle(gateX, WB - 40, 20, 28, COLORS.faithBlue).setOrigin(0.5, 1);
     }
     this.physics.add.existing(this.player);
     this.player.body.setCollideWorldBounds(true);
-    this.player.body.setSize(20, 30);
+    this.player.body.setSize(20, 28);
     this.player.body.setOffset(this.player.width / 2 - 10, this.player.height / 2 - 10);
     this.cameras.main.startFollow(this.player, true, 0.08, 0.08);
 
@@ -5173,52 +5602,57 @@ class JerusalemCityScene extends Phaser.Scene {
       return b;
     };
 
-    // Walls (top, bottom with gate gap, left, right)
-    addBarrier(worldW / 2, cityT - 20, worldW, 40);
-    addBarrier(gateX - 200, cityB + 10, 320, 40); // left of gate
-    addBarrier(gateX + 200, cityB + 10, 320, 40); // right of gate
-    addBarrier(20, worldH / 2, 60, worldH);
-    addBarrier(worldW - 20, worldH / 2, 60, worldH);
+    // Walls
+    addBarrier((WL + WR) / 2, WT - wallThick / 2, WR - WL + wallThick * 2, wallThick + 10); // top
+    addBarrier(gateX - 200, WB + wallThick / 2, 310, wallThick + 10); // bottom-left of gate
+    addBarrier(gateX + 200, WB + wallThick / 2, 310, wallThick + 10); // bottom-right of gate
+    addBarrier(WL - wallThick / 2, (WT + WB) / 2, wallThick + 10, WB - WT + wallThick * 2); // left
+    addBarrier(WR + wallThick / 2, (WT + WB) / 2, wallThick + 10, WB - WT + wallThick * 2); // right
 
     // Building colliders
     this.buildingColliders = [];
-    const addBC = (x, y, bw, bh) => {
-      const block = addBarrier(x, y, bw, bh);
-      this.buildingColliders.push(block);
-    };
+    const addBC = (x, y, bw, bh) => { this.buildingColliders.push(addBarrier(x, y, bw, bh)); };
+
     // Temple
-    addBC(templeX, templeY, 240, 200);
+    addBC(templeX, templeY, 280, 220);
     // Blue dome
-    addBC(blueX, blueY, 110, 120);
-    // Houses
-    housePositions.forEach(h => addBC(h.x, h.y, 80, 100));
+    addBC(blueX, blueY, 100, 110);
+    // Upper-left block
+    addBC(150, 150, 90, 120); addBC(260, 145, 90, 120);
+    addBC(150, 260, 80, 100); addBC(260, 270, 80, 100);
+    // Upper-right block
+    addBC(740, 145, 90, 120); addBC(830, 150, 90, 120);
+    addBC(740, 260, 80, 100); addBC(830, 265, 80, 100);
+    // Mid-left block
+    addBC(140, 380, 90, 110); addBC(240, 385, 80, 100);
+    addBC(140, 490, 80, 100);
     // Lehi's home
-    addBC(lehiHomeX, lehiHomeY, 96, 110);
+    addBC(lehiHomeX, lehiHomeY, 90, 110);
+    // Mid-right block
+    addBC(740, 385, 90, 110); addBC(840, 380, 80, 100);
+    addBC(840, 490, 80, 100);
     // Laban's house
-    addBC(labanHomeX, labanHomeY, 96, 110);
+    addBC(labanHomeX, labanHomeY, 90, 110);
+    // Lower side buildings
+    addBC(120, 600, 90, 110); addBC(120, 520, 70, 80);
+    addBC(850, 600, 90, 110); addBC(850, 520, 70, 80);
     // Shops
-    addBC(weapShopX, shopY, 100, 120);
-    addBC(itemShopX, shopY, 100, 120);
-    addBC(tailorX, shopY, 100, 120);
+    addBC(weapShopX, shopY, 100, 110); addBC(itemShopX, shopY, 100, 110); addBC(tailorX, shopY, 100, 110);
     // Stalls
-    addBC(380, shopY + 50, 70, 60);
-    addBC(620, shopY + 50, 70, 60);
-    addBC(870, shopY + 50, 70, 60);
+    addBC(380, shopY + 55, 70, 55); addBC(560, shopY + 55, 70, 55); addBC(720, shopY + 55, 70, 55);
     // Fountain
-    addBC(fountainX, fountainY, 60, 50);
+    addBC(fountainX, fountainY, 55, 50);
 
     // NPC colliders
-    this.npcSprites.forEach(s => {
-      this.physics.add.collider(this.player, s);
-    });
+    this.npcSprites.forEach(s => this.physics.add.collider(this.player, s));
 
     // Quest marker on Lehi
     if (!GameState.questFlags.lehiVision) {
-      this.questMarker = this.add.text(1000, lehiHomeY - 60, '\u2757', { fontSize: '24px' }).setOrigin(0.5).setDepth(20);
+      this.questMarker = this.add.text(300, lehiHomeY - 60, '\u2757', { fontSize: '24px' }).setOrigin(0.5).setDepth(20);
       this.tweens.add({ targets: this.questMarker, y: lehiHomeY - 70, duration: 600, yoyo: true, repeat: -1 });
     }
 
-    // Overlap flags for interaction
+    // Overlap flags
     this.nearFlags = {};
     const zones = {
       lehi: this.lehiZone, sam: this.samZone, sariah: this.sariahZone,
@@ -5237,33 +5671,56 @@ class JerusalemCityScene extends Phaser.Scene {
     this._stepCooldown = 0;
 
     this.hud = createHUD(this);
-    this.hud.setObjective(1000, 680);
+    this.hud.setObjective(300, 540);
 
     // Interact prompt
     this.interactPrompt = this.add.text(0, 0, '[ SPACE ] Talk', {
-      fontSize: '12px', fontFamily: 'monospace', color: '#ffffff',
-      backgroundColor: '#000000cc', padding: { x: 8, y: 4 },
+      fontSize: '11px', fontFamily: 'monospace', color: '#ffffff',
+      backgroundColor: '#000000cc', padding: { x: 6, y: 3 },
       stroke: '#ffd700', strokeThickness: 1
     }).setOrigin(0.5).setDepth(80).setVisible(false);
+
+    // === "JERUSALEM" TITLE BANNER (fixed to camera) ===
+    this.add.text(W / 2, 14, 'JERUSALEM', {
+      fontSize: '20px', fontFamily: 'monospace', color: '#ffffff', fontStyle: 'bold',
+      stroke: '#000000', strokeThickness: 5
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(100);
+
+    // === MINI-MAP (bottom-right, fixed to camera) ===
+    const mmW = 100, mmH = 75;
+    const mmX = W - mmW - 8, mmY = H - mmH - 8;
+    const mm = this.add.graphics().setScrollFactor(0).setDepth(100);
+    mm.fillStyle(0x000000, 0.6); mm.fillRect(mmX - 2, mmY - 2, mmW + 4, mmH + 4);
+    mm.fillStyle(0x88a868); mm.fillRect(mmX, mmY, mmW, mmH); // grass
+    mm.fillStyle(0xb0a080); mm.fillRect(mmX + 8, mmY + 8, mmW - 16, mmH - 16); // cobble
+    mm.fillStyle(0xc0a068); // walls
+    mm.fillRect(mmX + 6, mmY + 6, mmW - 12, 3);
+    mm.fillRect(mmX + 6, mmY + mmH - 9, mmW - 12, 3);
+    mm.fillRect(mmX + 6, mmY + 6, 3, mmH - 12);
+    mm.fillRect(mmX + mmW - 9, mmY + 6, 3, mmH - 12);
+    mm.fillStyle(0xffd700); mm.fillRect(mmX + mmW / 2 - 4, mmY + 14, 8, 6); // temple
+    mm.fillStyle(0x4080c0); mm.fillRect(mmX + mmW / 2 + 10, mmY + 14, 5, 5); // blue dome
+    // Player dot (will update in update loop)
+    this.mmPlayerDot = this.add.circle(mmX + mmW / 2, mmY + mmH / 2, 2, 0xff4444).setScrollFactor(0).setDepth(101);
+    this._mmBounds = { x: mmX, y: mmY, w: mmW, h: mmH, ww: worldW, wh: worldH };
 
     // === AMBIENT CITY LIFE ===
     this.ambientBubbles = [];
     const ambientLines = [
-      { x: 300, y: 475, text: 'Babylon grows stronger...', delay: 2000 },
-      { x: 500, y: 425, text: 'Have you heard the prophets?', delay: 5500 },
-      { x: 800, y: 475, text: 'Dark times ahead...', delay: 9000 },
-      { x: 400, y: 745, text: 'Trade has dried up!', delay: 12500 },
-      { x: 650, y: 525, text: 'Father is a fool.', delay: 7000 },
-      { x: 720, y: 495, text: '...', delay: 8000 },
-      { x: 950, y: 525, text: 'I trust Father.', delay: 4000 },
-      { x: 880, y: 625, text: 'Oh, our home...', delay: 11000 },
+      { x: 400, y: 295, text: 'Babylon grows stronger...', delay: 2000 },
+      { x: 560, y: 375, text: 'Have you heard the prophets?', delay: 5500 },
+      { x: 680, y: 415, text: 'Dark times ahead...', delay: 9000 },
+      { x: 460, y: 615, text: 'Trade has dried up!', delay: 12500 },
+      { x: 520, y: 315, text: 'Father is a fool.', delay: 7000 },
+      { x: 570, y: 335, text: '...', delay: 8000 },
+      { x: 300, y: 435, text: 'I trust Father.', delay: 4000 },
+      { x: 220, y: 515, text: 'Oh, our home...', delay: 11000 },
     ];
     ambientLines.forEach(al => {
       const bubble = this.add.text(al.x, al.y - 20, al.text, {
         fontSize: '8px', fontFamily: 'monospace', color: '#ffffff',
         backgroundColor: '#00000099', padding: { x: 4, y: 2 },
       }).setOrigin(0.5).setDepth(12).setAlpha(0);
-
       const showBubble = () => {
         this.tweens.add({
           targets: bubble, alpha: 1, y: al.y - 28, duration: 600, ease: 'Sine.easeOut',
@@ -5290,9 +5747,7 @@ class JerusalemCityScene extends Phaser.Scene {
         targets: s,
         scaleX: (s.scaleX || 1.8) * 1.02,
         duration: 1200 + i * 200,
-        yoyo: true,
-        repeat: -1,
-        ease: 'Sine.easeInOut'
+        yoyo: true, repeat: -1, ease: 'Sine.easeInOut'
       });
     });
 
@@ -5304,7 +5759,7 @@ class JerusalemCityScene extends Phaser.Scene {
           'Jerusalem, 600 BC. The kingdom of Judah teeters on the edge of destruction. Babylon grows powerful in the east, and many prophets cry repentance to the people. Among them is Lehi, father of Nephi.',
           () => {
             showDialogue(this, 'Narrator',
-              'Explore the city. Talk to the people. Then find Lehi at your family home to the east. Walk up to anyone and press SPACE to interact.',
+              'Explore the city. Talk to the people. Then find Lehi at your family home. Walk up to anyone and press SPACE to interact.',
               () => {
                 addJournal('Arrived in Jerusalem. The city is tense with political fear and prophetic warnings.');
               }
@@ -5435,10 +5890,10 @@ class JerusalemCityScene extends Phaser.Scene {
         this.departureMode = true;
         this.guards = [];
 
-        const gateCenter = 600; // worldW / 2
+        const gateCenter = 480; // matches gateX
         const gPositions = [
-          { x: gateCenter - 100, y: 780, patrol: 'h', range: 80 },
-          { x: gateCenter + 100, y: 750, patrol: 'v', range: 60 },
+          { x: gateCenter - 80, y: 600, patrol: 'h', range: 80 },
+          { x: gateCenter + 80, y: 580, patrol: 'v', range: 60 },
         ];
         gPositions.forEach(gp => {
           let guard;
@@ -5458,21 +5913,21 @@ class JerusalemCityScene extends Phaser.Scene {
         });
 
         // Gate zone at bottom center
-        this.gateZone = this.add.zone(gateCenter, 860, 80, 60);
+        this.gateZone = this.add.zone(gateCenter, 660, 80, 50);
         this.physics.add.existing(this.gateZone, true);
-        this.add.text(gateCenter, 830, '\u2193 City Gate', {
+        this.add.text(gateCenter, 640, '\u2193 City Gate', {
           fontSize: '10px', fontFamily: 'monospace', color: '#6b8e23'
         }).setOrigin(0.5).setDepth(20);
 
         this.nearGate = false;
         this.physics.add.overlap(this.player, this.gateZone, () => this.nearGate = true);
 
-        this.add.text(W / 2, 70, 'Reach the city gate!', {
+        this.add.text(W / 2, 40, 'Reach the city gate!', {
           fontSize: '14px', fontFamily: 'monospace', color: '#ffd700', fontStyle: 'bold',
           stroke: '#000000', strokeThickness: 3
         }).setOrigin(0.5).setScrollFactor(0).setDepth(100);
 
-        this.hud.setObjective(gateCenter, 860);
+        this.hud.setObjective(gateCenter, 660);
       }
     );
   }
@@ -5554,6 +6009,13 @@ class JerusalemCityScene extends Phaser.Scene {
       this.player.setScale(2);
     }
 
+    // Mini-map player dot update
+    if (this.mmPlayerDot && this._mmBounds) {
+      const mm = this._mmBounds;
+      this.mmPlayerDot.x = mm.x + (this.player.x / mm.ww) * mm.w;
+      this.mmPlayerDot.y = mm.y + (this.player.y / mm.wh) * mm.h;
+    }
+
     // Departure mode: guard detection + gate check
     if (this.departureMode && !this.departureComplete) {
       if (this.checkGuardDetection() && !this._caughtCooldown) {
@@ -5576,15 +6038,15 @@ class JerusalemCityScene extends Phaser.Scene {
     // Normal interaction mode
     this.interactPrompt.setVisible(false);
     const nf = this.nearFlags;
-    if (nf.lehi) this.interactPrompt.setPosition(1000, 650).setVisible(true);
-    else if (nf.sam) this.interactPrompt.setPosition(950, 520).setVisible(true);
-    else if (nf.sariah) this.interactPrompt.setPosition(880, 620).setVisible(true);
-    else if (nf.laman) this.interactPrompt.setPosition(650, 520).setVisible(true);
-    else if (nf.lemuel) this.interactPrompt.setPosition(720, 490).setVisible(true);
-    else if (nf.citizen1) this.interactPrompt.setPosition(300, 470).setVisible(true);
-    else if (nf.citizen2) this.interactPrompt.setPosition(500, 420).setVisible(true);
-    else if (nf.citizen3) this.interactPrompt.setPosition(800, 470).setVisible(true);
-    else if (nf.merchant) this.interactPrompt.setPosition(400, 740).setVisible(true);
+    if (nf.lehi) this.interactPrompt.setPosition(300, 510).setVisible(true);
+    else if (nf.sam) this.interactPrompt.setPosition(300, 430).setVisible(true);
+    else if (nf.sariah) this.interactPrompt.setPosition(220, 510).setVisible(true);
+    else if (nf.laman) this.interactPrompt.setPosition(520, 310).setVisible(true);
+    else if (nf.lemuel) this.interactPrompt.setPosition(570, 330).setVisible(true);
+    else if (nf.citizen1) this.interactPrompt.setPosition(400, 290).setVisible(true);
+    else if (nf.citizen2) this.interactPrompt.setPosition(560, 370).setVisible(true);
+    else if (nf.citizen3) this.interactPrompt.setPosition(680, 410).setVisible(true);
+    else if (nf.merchant) this.interactPrompt.setPosition(460, 610).setVisible(true);
 
     if (this.interactCooldown > 0) this.interactCooldown -= delta;
     if (Phaser.Input.Keyboard.JustDown(this.spaceKey) && this.interactCooldown <= 0) {
