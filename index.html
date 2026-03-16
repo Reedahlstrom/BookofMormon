@@ -817,23 +817,28 @@ function generateAllSprites(scene) {
 // ============================================================
 
 // Add Pokemon palette colors
-COLORS.pokGrassLight = 0x7ec850;
+// --- POKEMON GBA PALETTE (authentic GBA colors) ---
+COLORS.pokGrassLight = 0x88d858;
 COLORS.pokGrass = 0x58a830;
-COLORS.pokGrassDark = 0x408020;
-COLORS.pokDirt = 0xc8a868;
-COLORS.pokDirtDark = 0xa88848;
-COLORS.pokDirtLight = 0xe0c888;
-COLORS.pokWater = 0x3890f8;
-COLORS.pokWaterDark = 0x2870d0;
-COLORS.pokWaterLight = 0x68b0ff;
+COLORS.pokGrassDark = 0x388018;
+COLORS.pokGrassVDark = 0x286010;
+COLORS.pokDirt = 0xd0a868;
+COLORS.pokDirtDark = 0xa88040;
+COLORS.pokDirtLight = 0xe8c890;
+COLORS.pokWater = 0x3888f0;
+COLORS.pokWaterDark = 0x2060c0;
+COLORS.pokWaterLight = 0x60a8ff;
+COLORS.pokWaterDeep = 0x183880;
 COLORS.pokTreeTop = 0x48a028;
-COLORS.pokTreeDark = 0x307818;
+COLORS.pokTreeDark = 0x287010;
 COLORS.pokTreeTrunk = 0x886030;
 COLORS.pokTrunkDark = 0x604020;
 COLORS.pokRoofRed = 0xd04040;
 COLORS.pokRoofBlue = 0x4080c0;
+COLORS.pokRoofOrange = 0xe08030;
 COLORS.pokWallLight = 0xf0e8d8;
 COLORS.pokWallCream = 0xe8d8c0;
+COLORS.pokWallTan = 0xd8c8a0;
 COLORS.pokFence = 0xd8c8a0;
 COLORS.pokFenceDark = 0xb0a070;
 COLORS.pokFlowerRed = 0xf06060;
@@ -841,7 +846,14 @@ COLORS.pokFlowerYellow = 0xf8e040;
 COLORS.pokFlowerPink = 0xf890c0;
 COLORS.pokFlowerBlue = 0x68a8f0;
 COLORS.pokSand = 0xe8d0a0;
-COLORS.pokSandDark = 0xc8b080;
+COLORS.pokSandDark = 0xc8b078;
+COLORS.pokSandLight = 0xf0e0b8;
+COLORS.pokCliff = 0x907858;
+COLORS.pokCliffDark = 0x685838;
+COLORS.pokJungle = 0x208828;
+COLORS.pokJungleDark = 0x106818;
+COLORS.pokStone = 0xb0a890;
+COLORS.pokStoneDark = 0x908070;
 
 // Draw tile-based grass area with subtle variation and tiny flowers
 function drawPokemonGrass(g, x, y, w, h) {
@@ -1137,6 +1149,200 @@ function drawPokemonStall(g, x, y, canopyColor) {
   g.fillCircle(x + 14, y + 6, 3);
 }
 
+
+// Draw flat-topped acacia tree (wilderness/Sinai style)
+function drawAcaciaTree(g, x, y, scale) {
+  const s = scale || 1;
+  // Trunk (tall, thin, slightly angled)
+  g.fillStyle(COLORS.pokTreeTrunk);
+  g.fillRect(x - 2 * s, y + 2 * s, 4 * s, 28 * s);
+  g.fillStyle(COLORS.pokTrunkDark);
+  g.fillRect(x - 1 * s, y + 2 * s, 2 * s, 28 * s);
+  // Branch forks
+  g.fillStyle(COLORS.pokTreeTrunk);
+  g.fillRect(x - 10 * s, y + 4 * s, 8 * s, 2 * s);
+  g.fillRect(x + 2 * s, y + 4 * s, 8 * s, 2 * s);
+  // Flat canopy (wide and flat, acacia signature shape)
+  g.fillStyle(0x5a8a28);
+  g.fillEllipse(x, y - 2 * s, 32 * s, 8 * s);
+  g.fillStyle(0x487820);
+  g.fillEllipse(x + 2 * s, y, 30 * s, 6 * s);
+  g.fillStyle(0x6aaa38, 0.5);
+  g.fillEllipse(x - 4 * s, y - 4 * s, 16 * s, 4 * s);
+}
+
+// Draw stepped pyramid/temple (Americas/Mesoamerican style)
+function drawPyramid(g, x, y, w, h, color) {
+  color = color || COLORS.pokStone;
+  const dark = darken(color, 25);
+  const light = lighten(color, 20);
+  const steps = 4;
+  const stepH = h / steps;
+  const stepShrink = w / (steps * 2 + 1);
+  for (let i = 0; i < steps; i++) {
+    const sw = w - i * stepShrink * 2;
+    const sx = x + i * stepShrink;
+    const sy = y + (steps - 1 - i) * stepH;
+    g.fillStyle(color);
+    g.fillRect(sx, sy, sw, stepH + 1);
+    g.fillStyle(light, 0.4);
+    g.fillRect(sx, sy, sw, 2);
+    g.fillStyle(dark);
+    g.fillRect(sx, sy + stepH - 1, sw, 1);
+    g.fillRect(sx + sw - 2, sy, 2, stepH);
+  }
+  // Top temple structure
+  const topW = w * 0.25;
+  const topX = x + w / 2 - topW / 2;
+  g.fillStyle(dark);
+  g.fillRect(topX, y - stepH * 0.6, topW, stepH * 0.6);
+  g.fillStyle(light, 0.3);
+  g.fillRect(topX, y - stepH * 0.6, topW, 2);
+}
+
+// Draw sand tiles (desert ground with variation)
+function drawSandTiles(g, x, y, w, h) {
+  const tileSize = 16;
+  for (let ty = 0; ty < h; ty += tileSize) {
+    for (let tx = 0; tx < w; tx += tileSize) {
+      const isAlt = ((Math.floor(tx / tileSize) + Math.floor(ty / tileSize)) % 2 === 0);
+      g.fillStyle(isAlt ? COLORS.pokSand : COLORS.pokSandLight);
+      g.fillRect(x + tx, y + ty, tileSize, tileSize);
+      // Sand grain detail
+      const seed = (tx * 7 + ty * 11) % 19;
+      g.fillStyle(COLORS.pokSandDark, 0.2);
+      if (seed < 5) {
+        g.fillRect(x + tx + 3, y + ty + 5, 2, 1);
+        g.fillRect(x + tx + 9, y + ty + 10, 3, 1);
+      }
+      if (seed > 12) {
+        g.fillRect(x + tx + 6, y + ty + 2, 2, 1);
+        g.fillRect(x + tx + 11, y + ty + 13, 2, 1);
+      }
+      // Occasional small rock
+      const rockSeed = (tx * 3 + ty * 13) % 47;
+      if (rockSeed === 0) {
+        g.fillStyle(COLORS.pokSandDark);
+        g.fillRect(x + tx + 5, y + ty + 8, 3, 2);
+        g.fillStyle(COLORS.pokSand);
+        g.fillRect(x + tx + 5, y + ty + 8, 2, 1);
+      }
+    }
+  }
+}
+
+// Draw jungle grass tiles (denser, darker green for Americas)
+function drawJungleGrass(g, x, y, w, h) {
+  const tileSize = 16;
+  for (let ty = 0; ty < h; ty += tileSize) {
+    for (let tx = 0; tx < w; tx += tileSize) {
+      const isAlt = ((Math.floor(tx / tileSize) + Math.floor(ty / tileSize)) % 2 === 0);
+      g.fillStyle(isAlt ? COLORS.pokJungle : 0x188820);
+      g.fillRect(x + tx, y + ty, tileSize, tileSize);
+      g.fillStyle(COLORS.pokJungleDark, 0.4);
+      const seed = (tx * 5 + ty * 9) % 13;
+      if (seed < 5) {
+        g.fillRect(x + tx + 2, y + ty + 3, 1, 4);
+        g.fillRect(x + tx + 7, y + ty + 1, 1, 3);
+        g.fillRect(x + tx + 12, y + ty + 6, 1, 3);
+      }
+      if (seed > 8) {
+        g.fillRect(x + tx + 4, y + ty + 9, 1, 3);
+        g.fillRect(x + tx + 10, y + ty + 11, 1, 3);
+      }
+    }
+  }
+}
+
+// Draw coastline/shore transition (grass to water or sand to water)
+function drawShoreline(g, x, y, w, vertical) {
+  // Draws a horizontal strip of beach/shore
+  g.fillStyle(0xf0dca0, 0.8);
+  g.fillRect(x, y, w, 4);
+  g.fillStyle(0xe8d090, 0.6);
+  g.fillRect(x, y + 4, w, 3);
+  // Foam
+  for (let fx = 0; fx < w; fx += 12) {
+    const seed = (fx * 7 + y * 3) % 11;
+    if (seed < 6) {
+      g.fillStyle(0xffffff, 0.4);
+      g.fillRect(x + fx + 2, y + 7, 6, 1);
+    }
+  }
+}
+
+// Draw Pokemon route sign
+function drawRouteSign(g, x, y, text) {
+  // Post
+  g.fillStyle(COLORS.pokTreeTrunk);
+  g.fillRect(x - 1, y, 3, 14);
+  // Sign board
+  g.fillStyle(0x4080b0);
+  g.fillRect(x - 18, y - 2, 36, 12);
+  g.fillStyle(0x3070a0);
+  g.fillRect(x - 18, y - 2, 36, 2);
+  g.fillStyle(0x50a0d0, 0.3);
+  g.fillRect(x - 16, y, 32, 4);
+}
+
+// Draw a Pokemon-style city wall section
+function drawCityWall(g, x, y, w, h, color) {
+  color = color || 0xc8a868;
+  const dark = darken(color, 20);
+  const light = lighten(color, 15);
+  g.fillStyle(color);
+  g.fillRect(x, y, w, h);
+  // Brick pattern
+  for (let by = 0; by < h; by += 6) {
+    const offset = (Math.floor(by / 6) % 2) * 8;
+    for (let bx = offset; bx < w; bx += 16) {
+      g.fillStyle(dark, 0.3);
+      g.fillRect(x + bx, y + by, 1, 6);
+      g.fillRect(x + bx, y + by + 5, 16, 1);
+    }
+  }
+  // Top edge highlight
+  g.fillStyle(light);
+  g.fillRect(x, y, w, 2);
+  // Crenellations
+  for (let cx = 0; cx < w; cx += 12) {
+    g.fillStyle(color);
+    g.fillRect(x + cx, y - 5, 6, 7);
+    g.fillStyle(light);
+    g.fillRect(x + cx, y - 5, 6, 1);
+    g.fillStyle(dark);
+    g.fillRect(x + cx + 5, y - 5, 1, 7);
+  }
+}
+
+// Draw golden dome temple (Jerusalem)
+function drawGoldenTemple(g, x, y, w, h) {
+  const wallColor = COLORS.pokWallLight;
+  // Base building
+  g.fillStyle(wallColor);
+  g.fillRect(x, y + h * 0.35, w, h * 0.65);
+  g.fillStyle(darken(wallColor, 20));
+  g.fillRect(x, y + h * 0.35, w, 2);
+  g.fillRect(x + w - 2, y + h * 0.35, 2, h * 0.65);
+  // Columns
+  for (let cx = 4; cx < w; cx += Math.floor(w / 5)) {
+    g.fillStyle(0xe0d8c8);
+    g.fillRect(x + cx, y + h * 0.38, 4, h * 0.58);
+  }
+  // Golden dome
+  g.fillStyle(0xdaa520);
+  g.fillEllipse(x + w / 2, y + h * 0.3, w * 0.7, h * 0.45);
+  g.fillStyle(0xffd700, 0.6);
+  g.fillEllipse(x + w / 2 - w * 0.1, y + h * 0.22, w * 0.35, h * 0.25);
+  // Gold tip
+  g.fillStyle(0xffd700);
+  g.fillRect(x + w / 2 - 1, y + h * 0.08, 3, h * 0.12);
+  g.fillStyle(0xffed4a);
+  g.fillCircle(x + w / 2, y + h * 0.06, 3);
+  // Door
+  g.fillStyle(0x604020);
+  g.fillRect(x + w / 2 - 4, y + h - 10, 8, 10);
+}
 
 // ============================================================
 // PREMIUM SYSTEMS: Procedural Textures, Lighting, Particles, Audio
@@ -2999,477 +3205,485 @@ class WorldMapScene extends Phaser.Scene {
     AudioEngine.setTheme('jerusalem');
     this.cameras.main.fadeIn(500);
 
-    // ── HELPER: draw a filled polygon from point arrays ──
+    // ── HELPERS ──
     const fillPoly = (g, pts, color, alpha) => {
       g.fillStyle(color, alpha ?? 1);
-      g.beginPath();
-      g.moveTo(pts[0][0], pts[0][1]);
+      g.beginPath(); g.moveTo(pts[0][0], pts[0][1]);
       for (let i = 1; i < pts.length; i++) g.lineTo(pts[i][0], pts[i][1]);
-      g.closePath();
-      g.fill();
+      g.closePath(); g.fill();
     };
-    // Seeded pseudo-random for deterministic detail placement
     const seeded = (x, y, m) => ((x * 2654435761 + y * 340573321) >>> 0) % m;
 
+    // 3-panel layout matching reference: Wilderness | Canaan | Americas
+    const panelW = Math.floor(W / 3);
+
     // ================================================================
-    // LAYER 0 — OCEAN (deep gradient background)
+    // LAYER 0 — OCEAN BACKGROUND (dark blue behind everything)
     // ================================================================
     const ocean = this.add.graphics();
-    const oceanColors = [0x42A5F5, 0x1E88E5, 0x1565C0, 0x0D47A1, 0x0A3060];
-    const bandH = Math.ceil(H / oceanColors.length);
-    oceanColors.forEach((c, i) => { ocean.fillStyle(c); ocean.fillRect(0, i * bandH, W, bandH + 1); });
-    // Subtle color swirls
-    ocean.fillStyle(0x1E88E5, 0.3);
-    ocean.fillEllipse(400, 420, 200, 60);
-    ocean.fillStyle(0x0D47A1, 0.2);
-    ocean.fillEllipse(250, 480, 160, 40);
-    ocean.fillStyle(0x42A5F5, 0.15);
-    ocean.fillEllipse(550, 350, 120, 35);
-    // Pixel wave foam
-    const waves = this.add.graphics();
-    for (let i = 0; i < 60; i++) {
-      const wx = seeded(i, 7, W);
-      const wy = seeded(i, 13, H);
-      if (wx > 350 && wy < 280) continue;
-      if (wx > 480 && wy > 400) continue;
-      if (wx < 200 && wy > 200 && wy < 420) continue;
-      waves.fillStyle(0xE3F2FD, 0.25 + (seeded(i, 3, 20)) / 100);
-      const wLen = 6 + seeded(i, 19, 8);
-      waves.fillRect(wx, wy, wLen, 1);
-      waves.fillRect(wx + 1, wy + 1, wLen - 2, 1);
+    // Deep ocean gradient
+    const oceanBands = [0x2060a0, 0x1850a0, 0x183880, 0x102860, 0x0a2050];
+    const bandH = Math.ceil(H / oceanBands.length);
+    oceanBands.forEach((c, i) => { ocean.fillStyle(c); ocean.fillRect(0, i * bandH, W, bandH + 1); });
+    // Wave details in ocean gaps
+    for (let i = 0; i < 40; i++) {
+      const wx = seeded(i, 7, W), wy = seeded(i, 13, H);
+      ocean.fillStyle(0x60a0e0, 0.15);
+      ocean.fillRect(wx, wy, 4 + seeded(i, 19, 6), 1);
     }
 
     // ================================================================
-    // LAYER 1 — LANDMASSES (organic polygon shapes)
+    // LAYER 1 — THREE LANDMASSES (matching reference layout)
     // ================================================================
     const land = this.add.graphics();
 
-    // Old World landmass (Jerusalem + Wilderness + Bountiful connected)
-    const oldWorldCoast = [
-      [380, 55], [430, 50], [500, 48], [580, 52], [660, 58], [720, 65],
-      [760, 72], [785, 90], [790, 120], [785, 155], [775, 185],
-      [760, 210], [740, 235], [720, 252], [695, 265], [665, 275],
-      [620, 282], [560, 290], [500, 298], [440, 310],
-      [380, 325], [320, 340], [260, 355], [200, 365],
-      [160, 370], [120, 372], [85, 368], [60, 358],
-      [42, 340], [30, 315], [25, 285], [28, 255],
-      [38, 230], [55, 210], [78, 195], [105, 185],
-      [140, 180], [180, 178], [220, 172], [260, 160],
-      [300, 140], [330, 118], [355, 95], [370, 72],
+    // LEFT: Wilderness (Sinai) — sandy desert island
+    const wildCoast = [
+      [10, 80], [60, 55], [120, 45], [180, 50], [220, 65], [240, 90],
+      [248, 130], [250, 180], [248, 230], [245, 290], [240, 340],
+      [230, 380], [215, 420], [190, 460], [160, 490], [120, 510],
+      [80, 520], [40, 515], [15, 495], [5, 460], [2, 420],
+      [5, 370], [8, 310], [6, 250], [5, 190], [8, 130],
     ];
-    fillPoly(land, oldWorldCoast, 0xC4A35A);
+    fillPoly(land, wildCoast, COLORS.pokSand);
+    // Beach edge
+    land.lineStyle(3, 0xf0dca0, 0.5);
+    land.beginPath(); wildCoast.forEach(([px, py], i) => i === 0 ? land.moveTo(px, py) : land.lineTo(px, py));
+    land.closePath(); land.strokePath();
 
-    // Promised Land landmass (separate continent, bottom-right)
-    const promisedCoast = [
-      [500, 410], [540, 400], [590, 395], [640, 398], [690, 405],
-      [730, 418], [755, 435], [770, 458], [775, 485], [770, 515],
-      [758, 540], [740, 558], [715, 572], [685, 580], [650, 585],
-      [610, 588], [570, 585], [535, 578], [505, 565],
-      [482, 545], [468, 520], [462, 495], [465, 468],
-      [475, 445], [488, 425],
+    // CENTER: Promised Land (Canaan) — green fertile land
+    const canaanCoast = [
+      [280, 50], [340, 38], [400, 35], [460, 40], [510, 55], [540, 80],
+      [548, 120], [550, 170], [548, 220], [544, 270], [540, 320],
+      [535, 370], [528, 420], [515, 460], [495, 490], [465, 510],
+      [420, 520], [370, 522], [320, 518], [285, 505], [268, 480],
+      [258, 445], [255, 400], [258, 350], [262, 300], [265, 250],
+      [268, 200], [270, 150], [272, 100],
     ];
-    fillPoly(land, promisedCoast, 0x5D8A3C);
+    fillPoly(land, canaanCoast, COLORS.pokGrass);
+    land.lineStyle(3, 0x48a028, 0.5);
+    land.beginPath(); canaanCoast.forEach(([px, py], i) => i === 0 ? land.moveTo(px, py) : land.lineTo(px, py));
+    land.closePath(); land.strokePath();
+
+    // RIGHT: Americas (New World) — jungle continent
+    const americasCoast = [
+      [570, 70], [620, 55], [680, 48], [740, 52], [780, 68], [795, 95],
+      [798, 140], [796, 200], [793, 260], [790, 320], [785, 380],
+      [778, 430], [765, 470], [745, 500], [715, 520], [680, 530],
+      [640, 532], [600, 525], [575, 508], [560, 480], [555, 440],
+      [557, 390], [560, 340], [562, 280], [563, 220], [565, 160],
+      [567, 110],
+    ];
+    fillPoly(land, americasCoast, COLORS.pokJungle);
+    land.lineStyle(3, 0x106818, 0.5);
+    land.beginPath(); americasCoast.forEach(([px, py], i) => i === 0 ? land.moveTo(px, py) : land.lineTo(px, py));
+    land.closePath(); land.strokePath();
 
     // ================================================================
-    // LAYER 2 — TERRAIN PAINTING
+    // LAYER 2 — TERRAIN DETAIL
     // ================================================================
-    const terrain = this.add.graphics();
+    const t = this.add.graphics();
 
-    // --- JERUSALEM REGION (top-right) — green Judean hills ---
-    const jerusalemZone = [
-      [560, 55], [620, 58], [680, 62], [730, 70], [770, 85],
-      [785, 110], [785, 155], [775, 185], [755, 215], [730, 240],
-      [700, 258], [660, 270], [610, 278],
-      [570, 260], [545, 235], [530, 205], [525, 175],
-      [530, 145], [540, 115], [548, 85],
-    ];
-    fillPoly(terrain, jerusalemZone, 0x7AB648);
-    fillPoly(terrain, jerusalemZone, 0x5A8A32, 0.3);
-
-    // Rounded Judean hills
-    const drawHill = (cx, cy, rx, ry, lightColor, darkColor) => {
-      terrain.fillStyle(darkColor, 0.5);
-      terrain.fillEllipse(cx + 2, cy + 2, rx * 2, ry * 2);
-      terrain.fillStyle(lightColor);
-      terrain.fillEllipse(cx, cy, rx * 2, ry * 2);
-      terrain.fillStyle(0xffffff, 0.08);
-      terrain.fillEllipse(cx - rx * 0.2, cy - ry * 0.3, rx * 1.2, ry * 0.8);
-    };
-    drawHill(620, 100, 40, 18, 0x7AB648, 0x4A7A28);
-    drawHill(680, 115, 35, 15, 0x6BA540, 0x4A7A28);
-    drawHill(720, 140, 30, 13, 0x7AB648, 0x4A7A28);
-    drawHill(590, 135, 28, 12, 0x8BC658, 0x5A8A32);
-    drawHill(660, 160, 32, 14, 0x7AB648, 0x4A7A28);
-
-    // Olive trees on hills
-    [[605, 88], [635, 95], [665, 105], [700, 108], [740, 130],
-     [585, 120], [615, 130], [650, 140], [690, 155], [725, 165],
-     [575, 145], [610, 160], [645, 175]].forEach(([ox, oy]) => {
-      terrain.fillStyle(0x4A7A28);
-      terrain.fillEllipse(ox, oy, 7, 6);
-      terrain.fillStyle(0x6BA540);
-      terrain.fillEllipse(ox - 1, oy - 1, 5, 4);
-      terrain.fillStyle(0x8B6B2F);
-      terrain.fillRect(ox - 1, oy + 2, 2, 3);
-    });
-
-    // Jerusalem city — sandstone buildings with golden temple
-    terrain.fillStyle(0xD4A56A);
-    terrain.fillRect(640, 185, 100, 8);
-    terrain.fillStyle(0xC4943A);
-    terrain.fillRect(640, 193, 100, 3);
-    for (let cx = 642; cx < 738; cx += 10) {
-      terrain.fillStyle(0xD4A56A);
-      terrain.fillRect(cx, 181, 5, 6);
-    }
-    [[650, 200, 12, 14], [665, 198, 10, 16], [680, 201, 11, 13],
-     [695, 197, 13, 17], [710, 200, 10, 14], [725, 199, 11, 15]].forEach(([bx, by, bw, bh]) => {
-      terrain.fillStyle(0xE8D5A0);
-      terrain.fillRect(bx, by, bw, bh);
-      terrain.fillStyle(0xD4A56A);
-      terrain.fillRect(bx, by, bw, 2);
-      terrain.fillStyle(0xC4943A, 0.4);
-      terrain.fillRect(bx + bw - 2, by, 2, bh);
-    });
-    // Temple
-    terrain.fillStyle(0xE8D5A0);
-    terrain.fillRect(683, 188, 16, 26);
-    terrain.fillStyle(0xDAA520);
-    terrain.beginPath();
-    terrain.moveTo(681, 190); terrain.lineTo(691, 178); terrain.lineTo(701, 190);
-    terrain.closePath(); terrain.fill();
-    terrain.fillStyle(0xFFD700, 0.6);
-    terrain.fillRect(686, 180, 10, 2);
-
-    // --- TRANSITION: Jerusalem green to Wilderness sand ---
-    [[520, 200], [540, 220], [560, 240], [530, 260], [500, 275], [470, 290], [440, 305]].forEach(([tx, ty], i) => {
-      const blend = i / 7;
-      terrain.fillStyle(0x9EA060, (1 - blend) * 0.4);
-      terrain.fillEllipse(tx, ty, 30, 16);
-      terrain.fillStyle(0xC4A35A, blend * 0.5);
-      terrain.fillEllipse(tx, ty, 28, 14);
-    });
-
-    // --- WILDERNESS / DESERT (center) — rolling sand dunes ---
-    const desertZone = [
-      [300, 140], [380, 130], [460, 155], [530, 190],
-      [540, 230], [520, 270], [480, 295],
-      [420, 310], [360, 325], [300, 330],
-      [250, 320], [210, 300], [185, 275],
-      [180, 245], [195, 215], [220, 190], [250, 168],
-    ];
-    fillPoly(terrain, desertZone, 0xD4B076);
-
-    // Rolling dune shapes with light/shadow
+    // --- WILDERNESS (LEFT PANEL) ---
+    // Sand dune patterns
     const drawDune = (cx, cy, w, h) => {
-      terrain.fillStyle(0xC49A52, 0.6);
-      terrain.fillEllipse(cx + 3, cy + 2, w, h);
-      terrain.fillStyle(0xE8CFA0);
-      terrain.fillEllipse(cx, cy, w, h);
-      terrain.fillStyle(0xF5E0BA, 0.4);
-      terrain.fillEllipse(cx - w * 0.15, cy - h * 0.2, w * 0.6, h * 0.5);
+      t.fillStyle(COLORS.pokSandDark, 0.5);
+      t.fillEllipse(cx + 2, cy + 1, w, h);
+      t.fillStyle(COLORS.pokSandLight);
+      t.fillEllipse(cx, cy, w, h);
+      t.fillStyle(0xf0e0b8, 0.3);
+      t.fillEllipse(cx - w * 0.15, cy - h * 0.2, w * 0.5, h * 0.4);
     };
-    drawDune(340, 200, 60, 20); drawDune(420, 230, 50, 16);
-    drawDune(380, 265, 55, 18); drawDune(310, 240, 45, 15);
-    drawDune(450, 260, 40, 14); drawDune(280, 280, 48, 16);
+    drawDune(60, 120, 50, 16); drawDune(150, 140, 45, 14);
+    drawDune(100, 200, 55, 18); drawDune(180, 220, 40, 13);
+    drawDune(50, 280, 48, 15); drawDune(160, 300, 42, 14);
+    drawDune(80, 360, 50, 16); drawDune(190, 380, 38, 12);
+    drawDune(120, 440, 46, 15);
+
+    // Acacia trees scattered
+    [[35, 100], [180, 110], [220, 170], [30, 200], [170, 250],
+     [40, 320], [200, 340], [90, 410], [160, 460]].forEach(([ax, ay]) => {
+      drawAcaciaTree(t, ax, ay, 0.7);
+    });
+
+    // Lake/oasis (River Laman reference)
+    t.fillStyle(COLORS.pokWaterDark);
+    t.fillEllipse(100, 460, 50, 25);
+    t.fillStyle(COLORS.pokWater);
+    t.fillEllipse(100, 458, 46, 22);
+    t.fillStyle(COLORS.pokWaterLight, 0.4);
+    t.fillEllipse(95, 454, 20, 10);
+
+    // Lehi's camp — tents
+    const drawTent = (tx, ty, color) => {
+      t.fillStyle(color);
+      t.beginPath(); t.moveTo(tx, ty - 8); t.lineTo(tx - 7, ty + 4); t.lineTo(tx + 7, ty + 4);
+      t.closePath(); t.fill();
+      t.fillStyle(0x000000, 0.15);
+      t.beginPath(); t.moveTo(tx, ty - 8); t.lineTo(tx + 7, ty + 4); t.lineTo(tx + 1, ty);
+      t.closePath(); t.fill();
+      // Door
+      t.fillStyle(darken(color, 30));
+      t.fillRect(tx - 2, ty, 4, 4);
+    };
+    drawTent(70, 340, 0xC8A060);
+    drawTent(90, 348, 0xA0785A);
+    drawTent(55, 350, 0xB89858);
+
+    // Wilderness label sign
+    t.fillStyle(0x604020);
+    t.fillRect(68, 374, 3, 10);
+    t.fillStyle(0x806040);
+    t.fillRect(50, 370, 40, 10);
+    t.fillStyle(0x906848, 0.5);
+    t.fillRect(50, 370, 40, 3);
+
+    // Camels
+    const drawCamel = (cx, cy) => {
+      t.fillStyle(0xB8956A);
+      t.fillRect(cx, cy, 8, 5); t.fillRect(cx + 6, cy - 4, 3, 5);
+      t.fillRect(cx + 7, cy - 5, 2, 2);
+      t.fillRect(cx + 1, cy + 5, 1, 3); t.fillRect(cx + 5, cy + 5, 1, 3);
+      t.fillStyle(0xD4B076); t.fillRect(cx + 2, cy - 2, 4, 3);
+    };
+    drawCamel(150, 355); drawCamel(120, 320);
 
     // Rocky outcrops
     const drawRock = (rx, ry, s) => {
-      terrain.fillStyle(0x6B5020);
-      terrain.beginPath();
-      terrain.moveTo(rx, ry); terrain.lineTo(rx - s, ry + s * 1.2); terrain.lineTo(rx + s * 0.8, ry + s * 1.2);
-      terrain.closePath(); terrain.fill();
-      terrain.fillStyle(0x8B6B2F, 0.6);
-      terrain.beginPath();
-      terrain.moveTo(rx, ry); terrain.lineTo(rx + s * 0.8, ry + s * 1.2); terrain.lineTo(rx + s * 0.3, ry + s);
-      terrain.closePath(); terrain.fill();
+      t.fillStyle(0x8B6B2F);
+      t.beginPath(); t.moveTo(rx, ry); t.lineTo(rx - s, ry + s); t.lineTo(rx + s * 0.8, ry + s);
+      t.closePath(); t.fill();
+      t.fillStyle(0xa08050, 0.5);
+      t.beginPath(); t.moveTo(rx, ry); t.lineTo(rx - s * 0.5, ry + s * 0.6); t.lineTo(rx - s, ry + s);
+      t.closePath(); t.fill();
     };
-    drawRock(330, 180, 8); drawRock(460, 245, 6);
-    drawRock(290, 260, 7); drawRock(400, 300, 5);
+    drawRock(200, 140, 10); drawRock(30, 250, 8);
+    drawRock(220, 400, 7); drawRock(140, 170, 6);
 
-    // Desert scrub
-    [[355, 215], [310, 195], [440, 250], [370, 290], [490, 270], [270, 210], [350, 310]].forEach(([sx, sy]) => {
-      terrain.fillStyle(0x9EA060, 0.7);
-      terrain.fillRect(sx, sy, 3, 2);
-      terrain.fillRect(sx + 1, sy - 1, 1, 1);
+    // --- CANAAN (CENTER PANEL) ---
+    // Lush grass detail
+    const grassOverlay = this.add.graphics();
+    // Lighter grass hills
+    const drawHill = (cx, cy, rx, ry, c1, c2) => {
+      grassOverlay.fillStyle(c2, 0.5);
+      grassOverlay.fillEllipse(cx + 2, cy + 2, rx * 2, ry * 2);
+      grassOverlay.fillStyle(c1);
+      grassOverlay.fillEllipse(cx, cy, rx * 2, ry * 2);
+      grassOverlay.fillStyle(0xffffff, 0.06);
+      grassOverlay.fillEllipse(cx - rx * 0.2, cy - ry * 0.3, rx, ry * 0.6);
+    };
+    drawHill(350, 80, 35, 14, 0x68b838, 0x408020);
+    drawHill(440, 95, 30, 12, 0x78c848, 0x488828);
+    drawHill(320, 130, 28, 11, 0x68b838, 0x408020);
+    drawHill(480, 140, 25, 10, 0x78c848, 0x488828);
+    drawHill(380, 170, 32, 13, 0x68b838, 0x408020);
+
+    // Trees on hills
+    [[300, 70], [370, 65], [430, 80], [490, 90], [310, 110], [450, 120],
+     [340, 150], [490, 160], [280, 180], [370, 195]].forEach(([ox, oy]) => {
+      grassOverlay.fillStyle(0x307818);
+      grassOverlay.fillEllipse(ox, oy, 7, 6);
+      grassOverlay.fillStyle(0x48a028);
+      grassOverlay.fillEllipse(ox - 1, oy - 1, 5, 4);
+      grassOverlay.fillStyle(0x705030);
+      grassOverlay.fillRect(ox - 1, oy + 2, 2, 3);
     });
 
-    // River Laman / Valley of Lemuel
-    const riverPts = [[380, 175], [370, 195], [365, 215], [355, 235], [340, 255], [330, 270], [325, 285], [320, 300]];
-    terrain.lineStyle(8, 0x8B6B2F, 0.4);
-    terrain.beginPath(); terrain.moveTo(riverPts[0][0], riverPts[0][1]);
-    for (let i = 1; i < riverPts.length; i++) terrain.lineTo(riverPts[i][0], riverPts[i][1]);
-    terrain.strokePath();
-    terrain.lineStyle(3, 0x42A5F5, 0.8);
-    terrain.beginPath(); terrain.moveTo(riverPts[0][0], riverPts[0][1]);
-    for (let i = 1; i < riverPts.length; i++) terrain.lineTo(riverPts[i][0], riverPts[i][1]);
-    terrain.strokePath();
-    terrain.lineStyle(1, 0xE3F2FD, 0.4);
-    terrain.beginPath(); terrain.moveTo(riverPts[0][0] - 1, riverPts[0][1]);
-    for (let i = 1; i < riverPts.length; i++) terrain.lineTo(riverPts[i][0] - 1, riverPts[i][1]);
-    terrain.strokePath();
+    // Jerusalem city (center-right of Canaan panel)
+    // City walls
+    drawCityWall(grassOverlay, 420, 200, 110, 15, 0xc8a868);
+    // Buildings inside walls
+    [[425, 218, 14, 16], [442, 215, 12, 19], [458, 218, 13, 16],
+     [474, 215, 15, 19], [492, 217, 12, 17], [508, 218, 14, 16]].forEach(([bx, by, bw, bh]) => {
+      grassOverlay.fillStyle(0xE8D5A0);
+      grassOverlay.fillRect(bx, by, bw, bh);
+      grassOverlay.fillStyle(0xD4A56A);
+      grassOverlay.fillRect(bx, by, bw, 2);
+      grassOverlay.fillStyle(0xC4943A, 0.3);
+      grassOverlay.fillRect(bx + bw - 2, by, 2, bh);
+      // Window
+      grassOverlay.fillStyle(0x88bbdd);
+      grassOverlay.fillRect(bx + 3, by + 5, 3, 3);
+    });
+    // Golden dome temple
+    drawGoldenTemple(grassOverlay, 460, 195, 24, 40);
+    // Jerusalem label
+    this.add.text(475, 245, 'JERUSALEM', {
+      fontSize: '8px', fontFamily: 'monospace', color: '#ffd700', fontStyle: 'bold',
+      stroke: '#000000', strokeThickness: 2
+    }).setOrigin(0.5);
 
-    // Lehi's camp — tents near river
-    const drawTent = (tx, ty, color) => {
-      terrain.fillStyle(color);
-      terrain.beginPath(); terrain.moveTo(tx, ty - 6); terrain.lineTo(tx - 5, ty + 3); terrain.lineTo(tx + 5, ty + 3);
-      terrain.closePath(); terrain.fill();
-      terrain.fillStyle(0x000000, 0.15);
-      terrain.beginPath(); terrain.moveTo(tx, ty - 6); terrain.lineTo(tx + 5, ty + 3); terrain.lineTo(tx + 1, ty + 1);
-      terrain.closePath(); terrain.fill();
+    // Route 1 building (Pokemon center style)
+    drawPokemonBuilding(grassOverlay, 330, 230, 40, 35, COLORS.pokRoofOrange, COLORS.pokWallLight);
+    // Route signs
+    drawRouteSign(grassOverlay, 310, 260, 'ROUTE 1');
+    this.add.text(310, 256, 'ROUTE 1', {
+      fontSize: '6px', fontFamily: 'monospace', color: '#ffffff',
+      stroke: '#000000', strokeThickness: 1
+    }).setOrigin(0.5);
+
+    // Route 2 label area
+    drawRouteSign(grassOverlay, 430, 155, 'ROUTE 2');
+    this.add.text(430, 151, 'ROUTE 2', {
+      fontSize: '6px', fontFamily: 'monospace', color: '#ffffff',
+      stroke: '#000000', strokeThickness: 1
+    }).setOrigin(0.5);
+
+    // Path from Route 1 building to Jerusalem
+    grassOverlay.lineStyle(3, COLORS.pokDirt, 0.7);
+    grassOverlay.beginPath();
+    grassOverlay.moveTo(370, 250); grassOverlay.lineTo(400, 240); grassOverlay.lineTo(425, 230);
+    grassOverlay.strokePath();
+    // Route 2 path
+    grassOverlay.lineStyle(3, COLORS.pokDirt, 0.7);
+    grassOverlay.beginPath();
+    grassOverlay.moveTo(430, 170); grassOverlay.lineTo(450, 195);
+    grassOverlay.strokePath();
+
+    // More buildings (south Canaan)
+    drawPokemonBuilding(grassOverlay, 300, 350, 35, 30, COLORS.pokRoofRed, COLORS.pokWallCream);
+    drawPokemonBuilding(grassOverlay, 360, 360, 30, 28, COLORS.pokRoofBlue, COLORS.pokWallLight);
+    drawPokemonBuilding(grassOverlay, 430, 370, 35, 30, COLORS.pokRoofRed, COLORS.pokWallCream);
+
+    // More trees and grass in south Canaan
+    [[290, 300], [350, 310], [420, 320], [490, 330], [300, 400], [380, 420],
+     [460, 410], [330, 460], [400, 470], [280, 440]].forEach(([ox, oy]) => {
+      grassOverlay.fillStyle(0x307818);
+      grassOverlay.fillEllipse(ox, oy, 6, 5);
+      grassOverlay.fillStyle(0x48a028);
+      grassOverlay.fillEllipse(ox - 1, oy - 1, 4, 3);
+    });
+
+    // Coastal sea area (south of Canaan)
+    this.add.text(460, 130, 'ROUTE 2 TO\nCOASTAL SEA', {
+      fontSize: '6px', fontFamily: 'monospace', color: '#aaccee', align: 'center',
+      stroke: '#000000', strokeThickness: 2
+    }).setOrigin(0.5);
+
+    // Sheep/animal pixel art
+    const drawSheep = (sx, sy) => {
+      grassOverlay.fillStyle(0xffffff);
+      grassOverlay.fillRect(sx, sy, 5, 3);
+      grassOverlay.fillRect(sx + 4, sy - 1, 2, 2);
+      grassOverlay.fillStyle(0x333333);
+      grassOverlay.fillRect(sx + 5, sy - 1, 1, 1);
+      grassOverlay.fillRect(sx, sy + 3, 1, 1);
+      grassOverlay.fillRect(sx + 3, sy + 3, 1, 1);
     };
-    drawTent(345, 265, 0xC8A060); drawTent(355, 270, 0xA0785A); drawTent(338, 275, 0xB89858);
+    drawSheep(380, 290); drawSheep(400, 300);
 
-    // Pixel camels
-    const drawCamel = (cx, cy) => {
-      terrain.fillStyle(0xB8956A);
-      terrain.fillRect(cx, cy, 6, 4); terrain.fillRect(cx + 5, cy - 3, 2, 4);
-      terrain.fillRect(cx + 5, cy - 4, 3, 2);
-      terrain.fillRect(cx + 1, cy + 4, 1, 3); terrain.fillRect(cx + 4, cy + 4, 1, 3);
-      terrain.fillStyle(0xD4B076); terrain.fillRect(cx + 2, cy - 2, 3, 2);
-    };
-    drawCamel(400, 215); drawCamel(320, 228);
+    // --- AMERICAS (RIGHT PANEL) ---
+    // Dense jungle canopy
+    const jungle = this.add.graphics();
+    [[590, 90], [650, 80], [720, 95], [770, 110], [600, 140], [680, 130],
+     [750, 150], [580, 190], [650, 180], [730, 195], [770, 220],
+     [600, 250], [680, 240], [750, 260]].forEach(([jx, jy]) => {
+      jungle.fillStyle(0x106818, 0.5);
+      jungle.fillEllipse(jx + 1, jy + 2, 12, 8);
+      jungle.fillStyle(0x188820);
+      jungle.fillEllipse(jx, jy, 10, 7);
+      jungle.fillStyle(0x28a830, 0.4);
+      jungle.fillEllipse(jx - 2, jy - 2, 5, 3);
+    });
 
-    // --- BOUNTIFUL (left coast) — lush tropical green ---
-    const bountifulZone = [
-      [30, 240], [55, 220], [85, 205], [115, 195],
-      [145, 190], [170, 192], [190, 200], [205, 215],
-      [210, 240], [208, 265], [200, 290],
-      [188, 310], [170, 328], [150, 340],
-      [125, 350], [100, 358], [75, 360],
-      [50, 355], [35, 340], [28, 315], [25, 285], [27, 260],
-    ];
-    fillPoly(terrain, bountifulZone, 0x2D8A2D);
+    // Palm trees
+    [[580, 280], [650, 300], [720, 280], [770, 310], [600, 350],
+     [680, 340], [750, 360], [610, 400]].forEach(([px, py]) => {
+      drawPokemonPalm(jungle, px, py, 0.6);
+    });
 
-    // Dense tree canopy clusters
-    const treeCluster = (cx, cy, count, spread) => {
-      for (let i = 0; i < count; i++) {
-        const tx = cx + (seeded(cx + i, cy, spread * 2) - spread);
-        const ty = cy + (seeded(cx, cy + i, spread * 2) - spread);
-        terrain.fillStyle(0x1E6B1E, 0.5);
-        terrain.fillEllipse(tx + 1, ty + 2, 9, 7);
-        terrain.fillStyle(seeded(i, cx, 2) ? 0x2D8A2D : 0x4AAE4A);
-        terrain.fillEllipse(tx, ty, 8, 6);
-        terrain.fillStyle(0x66CC66, 0.3);
-        terrain.fillEllipse(tx - 1, ty - 1, 4, 3);
+    // Zarahemla — capital city (stepped pyramids)
+    drawPyramid(jungle, 690, 90, 40, 30, COLORS.pokStone);
+    drawPyramid(jungle, 720, 105, 30, 22, COLORS.pokStoneDark);
+    drawPyramid(jungle, 660, 110, 25, 18, COLORS.pokStone);
+    this.add.text(710, 80, 'ZARAHEMLA', {
+      fontSize: '7px', fontFamily: 'monospace', color: '#ffd700', fontStyle: 'bold',
+      stroke: '#000000', strokeThickness: 2
+    }).setOrigin(0.5);
+    this.add.text(710, 68, '(CAPITAL CITY)', {
+      fontSize: '5px', fontFamily: 'monospace', color: '#ccaa88',
+      stroke: '#000000', strokeThickness: 1
+    }).setOrigin(0.5);
+
+    // Lamanite territory label
+    this.add.text(760, 200, 'LAMANITE\nTERRITORY', {
+      fontSize: '6px', fontFamily: 'monospace', color: '#cc8888', align: 'center',
+      stroke: '#000000', strokeThickness: 2
+    }).setOrigin(0.5);
+
+    // Land of Promise label
+    this.add.text(750, 300, 'LAND OF\nPROMISE', {
+      fontSize: '7px', fontFamily: 'monospace', color: '#88cc88', align: 'center',
+      stroke: '#000000', strokeThickness: 2
+    }).setOrigin(0.5);
+
+    // Mountains in Americas
+    const drawMtn = (mx, my, w, h, c, snow) => {
+      jungle.fillStyle(c);
+      jungle.beginPath(); jungle.moveTo(mx, my); jungle.lineTo(mx - w/2, my + h); jungle.lineTo(mx + w/2, my + h);
+      jungle.closePath(); jungle.fill();
+      jungle.fillStyle(0x000000, 0.12);
+      jungle.beginPath(); jungle.moveTo(mx, my); jungle.lineTo(mx + w/2, my + h); jungle.lineTo(mx + w*0.1, my + h);
+      jungle.closePath(); jungle.fill();
+      if (snow) {
+        jungle.fillStyle(0xeceff1);
+        jungle.beginPath(); jungle.moveTo(mx, my); jungle.lineTo(mx - w*0.12, my + h*0.2); jungle.lineTo(mx + w*0.12, my + h*0.2);
+        jungle.closePath(); jungle.fill();
       }
     };
-    treeCluster(60, 260, 6, 18); treeCluster(100, 240, 5, 15);
-    treeCluster(140, 250, 5, 16); treeCluster(80, 300, 6, 18);
-    treeCluster(130, 310, 5, 15); treeCluster(55, 330, 4, 14);
-    treeCluster(170, 280, 4, 12); treeCluster(110, 270, 4, 12);
+    drawMtn(630, 150, 30, 22, 0x78909c, true);
+    drawMtn(700, 160, 35, 28, 0x9e9e9e, true);
+    drawMtn(760, 155, 28, 20, 0x78909c, false);
 
-    // Fruit accents
-    [[70, 255, 0xFF6B35], [120, 235, 0xFFD700], [90, 310, 0xFF4444],
-     [145, 260, 0xFF6B35], [60, 340, 0xFFD700], [160, 300, 0xFF4444]].forEach(([fx, fy, fc]) => {
-      terrain.fillStyle(fc); terrain.fillRect(fx, fy, 2, 2);
-    });
+    // More pyramids (south Americas)
+    drawPyramid(jungle, 650, 360, 35, 25, 0xa09878);
+    drawPyramid(jungle, 700, 380, 28, 20, COLORS.pokStone);
 
-    // Sandy beach along coastline
-    terrain.fillStyle(0xF5DEB3, 0.7);
-    for (let a = 3.5; a < 5.8; a += 0.15) {
-      terrain.fillEllipse(118 + Math.cos(a) * 95, 290 + Math.sin(a) * 80, 10, 5);
-    }
-    // Pixel waves at shore
-    for (let a = 3.8; a < 5.5; a += 0.3) {
-      terrain.fillStyle(0xE3F2FD, 0.5);
-      terrain.fillRect(118 + Math.cos(a) * 102, 290 + Math.sin(a) * 86, 6, 1);
-    }
+    // Route 4 label
+    this.add.text(690, 430, 'ROUTE 4 -\nLAND OF\nPROMISE', {
+      fontSize: '5px', fontFamily: 'monospace', color: '#aaccaa', align: 'center',
+      stroke: '#000000', strokeThickness: 1
+    }).setOrigin(0.5);
 
-    // Cliff edges
-    terrain.lineStyle(2, 0x1E6B1E, 0.5);
-    terrain.beginPath();
-    terrain.moveTo(30, 245); terrain.lineTo(28, 270); terrain.lineTo(30, 300); terrain.lineTo(38, 330);
-    terrain.strokePath();
-
-    // Nephi's ship on beach
-    const shipX = 48, shipY = 348;
-    terrain.fillStyle(0x8B5E3C);
-    terrain.beginPath(); terrain.moveTo(shipX, shipY); terrain.lineTo(shipX + 16, shipY + 4);
-    terrain.lineTo(shipX + 14, shipY + 8); terrain.lineTo(shipX - 2, shipY + 6);
-    terrain.closePath(); terrain.fill();
-    terrain.fillStyle(0x6B4226); terrain.fillRect(shipX + 6, shipY - 8, 2, 10);
-    terrain.fillStyle(0xF5F5DC, 0.8);
-    terrain.beginPath(); terrain.moveTo(shipX + 8, shipY - 7); terrain.lineTo(shipX + 15, shipY - 3);
-    terrain.lineTo(shipX + 8, shipY); terrain.closePath(); terrain.fill();
-
-    // --- PROMISED LAND (separate continent, bottom-right) ---
-    // Mountain range
-    const drawMountain = (mx, my, w, h, rockColor, snowColor) => {
-      terrain.fillStyle(rockColor);
-      terrain.beginPath(); terrain.moveTo(mx, my); terrain.lineTo(mx - w / 2, my + h); terrain.lineTo(mx + w / 2, my + h);
-      terrain.closePath(); terrain.fill();
-      terrain.fillStyle(0x000000, 0.15);
-      terrain.beginPath(); terrain.moveTo(mx, my); terrain.lineTo(mx + w / 2, my + h); terrain.lineTo(mx + w * 0.1, my + h);
-      terrain.closePath(); terrain.fill();
-      if (snowColor) {
-        terrain.fillStyle(snowColor);
-        terrain.beginPath(); terrain.moveTo(mx, my); terrain.lineTo(mx - w * 0.15, my + h * 0.25); terrain.lineTo(mx + w * 0.15, my + h * 0.25);
-        terrain.closePath(); terrain.fill();
-      }
+    // Ship on ocean between Canaan and Americas
+    const drawShip = (sx, sy, sz) => {
+      const g2 = this.add.graphics();
+      g2.fillStyle(0x8B5E3C);
+      g2.beginPath();
+      g2.moveTo(sx - 8*sz, sy + 2*sz); g2.lineTo(sx + 10*sz, sy + 2*sz);
+      g2.lineTo(sx + 8*sz, sy + 6*sz); g2.lineTo(sx - 6*sz, sy + 6*sz);
+      g2.closePath(); g2.fill();
+      g2.fillStyle(0x6B4226); g2.fillRect(sx, sy - 8*sz, 2*sz, 10*sz);
+      g2.fillStyle(0xF5F5DC, 0.8);
+      g2.beginPath(); g2.moveTo(sx + 2*sz, sy - 7*sz); g2.lineTo(sx + 10*sz, sy - 2*sz);
+      g2.lineTo(sx + 2*sz, sy + 1*sz); g2.closePath(); g2.fill();
     };
-    drawMountain(570, 408, 40, 30, 0x7986CB, 0xECEFF1);
-    drawMountain(600, 402, 50, 38, 0x9E9E9E, 0xECEFF1);
-    drawMountain(635, 405, 45, 35, 0x78909C, 0xECEFF1);
-    drawMountain(670, 410, 38, 28, 0x9E9E9E, null);
-    drawMountain(700, 408, 42, 32, 0x7986CB, 0xECEFF1);
-    drawMountain(730, 412, 35, 26, 0x78909C, null);
-    // Foothills
-    drawHill(550, 445, 25, 10, 0x388E3C, 0x1B5E20);
-    drawHill(590, 450, 30, 12, 0x388E3C, 0x1B5E20);
-    drawHill(650, 448, 28, 11, 0x2E7D32, 0x1B5E20);
-    drawHill(710, 450, 22, 9, 0x388E3C, 0x1B5E20);
+    drawShip(555, 350, 1);
+    drawShip(260, 420, 0.8);
 
-    // Dense forest
-    treeCluster(540, 465, 5, 16); treeCluster(580, 475, 6, 18);
-    treeCluster(630, 470, 5, 15); treeCluster(680, 475, 5, 16);
-    treeCluster(720, 468, 4, 14); treeCluster(560, 500, 5, 15);
-    treeCluster(610, 510, 6, 18); treeCluster(660, 505, 5, 16);
-    treeCluster(710, 510, 4, 14);
-    // Deeper/darker trees
-    [[530, 490], [570, 520], [620, 530], [670, 525], [720, 530], [550, 545], [610, 555], [660, 550]].forEach(([fx, fy]) => {
-      terrain.fillStyle(0x1B5E20, 0.6); terrain.fillEllipse(fx, fy, 10, 7);
-      terrain.fillStyle(0x2E7D32); terrain.fillEllipse(fx, fy, 8, 5);
-    });
-
-    // Meadow with flowers
-    [[600, 490, 0x66BB6A], [640, 500, 0x81C784], [580, 510, 0x66BB6A]].forEach(([gx, gy, gc]) => {
-      terrain.fillStyle(gc, 0.4); terrain.fillEllipse(gx, gy, 20, 8);
-    });
-    [[590, 488, 0xFFEB3B], [610, 495, 0xFF7043], [640, 502, 0xE91E63],
-     [660, 498, 0xFFEB3B], [580, 515, 0xFF7043]].forEach(([fx, fy, fc]) => {
-      terrain.fillStyle(fc); terrain.fillRect(fx, fy, 2, 2);
-    });
-
-    // Winding river in valley
-    terrain.lineStyle(3, 0x42A5F5, 0.7);
-    terrain.beginPath();
-    terrain.moveTo(620, 445); terrain.lineTo(615, 465); terrain.lineTo(625, 485);
-    terrain.lineTo(618, 510); terrain.lineTo(628, 535); terrain.lineTo(622, 555);
-    terrain.strokePath();
-    terrain.lineStyle(1, 0xE3F2FD, 0.4);
-    terrain.beginPath();
-    terrain.moveTo(619, 445); terrain.lineTo(614, 465); terrain.lineTo(624, 485); terrain.lineTo(617, 510);
-    terrain.strokePath();
-
-    // Mountain mist
-    [[580, 400], [620, 396], [660, 402], [710, 404]].forEach(([mx, my]) => {
-      terrain.fillStyle(0xFFFFFF, 0.12); terrain.fillEllipse(mx, my, 25, 6);
-    });
-
-    // ================================================================
-    // LAYER 3 — COASTLINE DETAIL
-    // ================================================================
-    const coastDetail = this.add.graphics();
-    coastDetail.lineStyle(2, 0x0D47A1, 0.25);
-    coastDetail.beginPath();
-    oldWorldCoast.forEach(([px, py], i) => i === 0 ? coastDetail.moveTo(px, py) : coastDetail.lineTo(px, py));
-    coastDetail.closePath(); coastDetail.strokePath();
-    coastDetail.lineStyle(2, 0x0D47A1, 0.25);
-    coastDetail.beginPath();
-    promisedCoast.forEach(([px, py], i) => i === 0 ? coastDetail.moveTo(px, py) : coastDetail.lineTo(px, py));
-    coastDetail.closePath(); coastDetail.strokePath();
-    // Foam
-    coastDetail.lineStyle(1, 0xE3F2FD, 0.3);
-    coastDetail.beginPath();
-    oldWorldCoast.forEach(([px, py], i) => {
-      const ox = px + (seeded(i, 5, 6) - 3), oy = py + (seeded(i, 9, 6) - 3);
-      i === 0 ? coastDetail.moveTo(ox, oy) : coastDetail.lineTo(ox, oy);
-    });
-    coastDetail.strokePath();
-
-    // ================================================================
-    // LAYER 4 — PATHS between locations
-    // ================================================================
+    // Route 3 — dotted ocean crossing
+    this.add.text(510, 290, 'ROUTE 3 -\nATLANTIC OCEAN\nCROSSING', {
+      fontSize: '5px', fontFamily: 'monospace', color: '#88aacc', align: 'center',
+      stroke: '#000000', strokeThickness: 1
+    }).setOrigin(0.5);
     const pathLayer = this.add.graphics();
-    // Jerusalem to Wilderness
-    pathLayer.lineStyle(2, 0xB89858, 0.6);
-    pathLayer.beginPath();
-    pathLayer.moveTo(660, 210); pathLayer.lineTo(630, 220); pathLayer.lineTo(590, 235);
-    pathLayer.lineTo(550, 248); pathLayer.lineTo(500, 260); pathLayer.lineTo(450, 268); pathLayer.lineTo(400, 265);
-    pathLayer.strokePath();
-    pathLayer.lineStyle(1, 0x8B6B2F, 0.3);
-    pathLayer.beginPath();
-    pathLayer.moveTo(660, 212); pathLayer.lineTo(630, 222); pathLayer.lineTo(590, 237); pathLayer.lineTo(550, 250);
-    pathLayer.strokePath();
-
-    // Wilderness to Bountiful
-    pathLayer.lineStyle(2, 0xB89858, 0.5);
-    pathLayer.beginPath();
-    pathLayer.moveTo(350, 275); pathLayer.lineTo(300, 280); pathLayer.lineTo(250, 278);
-    pathLayer.lineTo(210, 270); pathLayer.lineTo(175, 265); pathLayer.lineTo(145, 270);
-    pathLayer.strokePath();
-
-    // Bountiful to Great Deep: dotted sea route
-    for (let i = 0; i < 20; i++) {
-      const t = i / 20;
-      const sx = 50 + (350 - 50) * t;
-      const sy = 355 + (440 - 355) * t + Math.sin(t * Math.PI * 2) * 15;
-      pathLayer.fillStyle(0xE3F2FD, 0.4 - t * 0.1);
-      pathLayer.fillCircle(sx, sy, 1.5);
-    }
-    // Great Deep to Promised Land
-    for (let i = 0; i < 15; i++) {
-      const t = i / 15;
-      const sx = 350 + (500 - 350) * t;
-      const sy = 440 + (470 - 440) * t + Math.sin(t * Math.PI * 1.5) * 10;
-      pathLayer.fillStyle(0xE3F2FD, 0.35);
-      pathLayer.fillCircle(sx, sy, 1.5);
+    // Dotted line from Canaan coast to Americas
+    for (let i = 0; i < 25; i++) {
+      const prog = i / 25;
+      const dx = 535 + (570 - 535) * prog;
+      const dy = 320 + (370 - 320) * prog + Math.sin(prog * Math.PI * 2) * 8;
+      pathLayer.fillStyle(0xffffff, 0.4);
+      pathLayer.fillCircle(dx, dy, 1.5);
     }
 
-    // Ship on the ocean
-    const oceanShipX = 320, oceanShipY = 420;
-    pathLayer.fillStyle(0x8B5E3C);
+    // Route 1 — Wilderness Trail (dotted path in desert)
+    this.add.text(100, 270, 'ROUTE 1 - WILDERNESS TRAIL', {
+      fontSize: '5px', fontFamily: 'monospace', color: '#ccbb88',
+      stroke: '#000000', strokeThickness: 1
+    }).setOrigin(0.5);
+
+    // Route 2 — Canaan Highway path
+    pathLayer.lineStyle(2, COLORS.pokDirt, 0.5);
     pathLayer.beginPath();
-    pathLayer.moveTo(oceanShipX - 6, oceanShipY + 2); pathLayer.lineTo(oceanShipX + 8, oceanShipY + 2);
-    pathLayer.lineTo(oceanShipX + 6, oceanShipY + 5); pathLayer.lineTo(oceanShipX - 4, oceanShipY + 5);
-    pathLayer.closePath(); pathLayer.fill();
-    pathLayer.fillStyle(0x6B4226); pathLayer.fillRect(oceanShipX, oceanShipY - 5, 1, 8);
-    pathLayer.fillStyle(0xF5F5DC, 0.8);
-    pathLayer.beginPath();
-    pathLayer.moveTo(oceanShipX + 1, oceanShipY - 4); pathLayer.lineTo(oceanShipX + 7, oceanShipY - 1);
-    pathLayer.lineTo(oceanShipX + 1, oceanShipY + 1); pathLayer.closePath(); pathLayer.fill();
+    pathLayer.moveTo(350, 270); pathLayer.lineTo(380, 300); pathLayer.lineTo(400, 340);
+    pathLayer.lineTo(420, 380); pathLayer.lineTo(440, 420);
+    pathLayer.strokePath();
+
+    // ================================================================
+    // LAYER 3 — REGION LABELS (big, like reference)
+    // ================================================================
+    // Wilderness label (top-left)
+    this.add.text(panelW / 2, 30, 'THE WILDERNESS', {
+      fontSize: '12px', fontFamily: 'monospace', color: '#FFD700', fontStyle: 'bold',
+      stroke: '#000000', strokeThickness: 3
+    }).setOrigin(0.5);
+    this.add.text(panelW / 2, 45, '(SINAI)', {
+      fontSize: '9px', fontFamily: 'monospace', color: '#ccaa66',
+      stroke: '#000000', strokeThickness: 2
+    }).setOrigin(0.5);
+
+    // Canaan label (top-center)
+    this.add.text(W / 2, 22, 'THE PROMISED LAND', {
+      fontSize: '12px', fontFamily: 'monospace', color: '#FFD700', fontStyle: 'bold',
+      stroke: '#000000', strokeThickness: 3
+    }).setOrigin(0.5);
+    this.add.text(W / 2, 37, '(CANAAN)', {
+      fontSize: '9px', fontFamily: 'monospace', color: '#88cc88',
+      stroke: '#000000', strokeThickness: 2
+    }).setOrigin(0.5);
+
+    // Americas label (top-right)
+    this.add.text(W - panelW / 2, 30, 'THE AMERICAS', {
+      fontSize: '12px', fontFamily: 'monospace', color: '#FFD700', fontStyle: 'bold',
+      stroke: '#000000', strokeThickness: 3
+    }).setOrigin(0.5);
+    this.add.text(W - panelW / 2, 45, '(NEW WORLD)', {
+      fontSize: '9px', fontFamily: 'monospace', color: '#88aa88',
+      stroke: '#000000', strokeThickness: 2
+    }).setOrigin(0.5);
+
+    // Bottom region labels (like reference)
+    this.add.text(panelW / 2, H - 30, 'THE WILDERNESS', {
+      fontSize: '10px', fontFamily: 'monospace', color: '#FFD700', fontStyle: 'bold',
+      stroke: '#000000', strokeThickness: 3
+    }).setOrigin(0.5);
+    this.add.text(panelW / 2, H - 17, '(SINAI)', {
+      fontSize: '8px', fontFamily: 'monospace', color: '#ccaa66',
+      stroke: '#000000', strokeThickness: 2
+    }).setOrigin(0.5);
+    this.add.text(W / 2, H - 30, 'THE PROMISED LAND', {
+      fontSize: '10px', fontFamily: 'monospace', color: '#FFD700', fontStyle: 'bold',
+      stroke: '#000000', strokeThickness: 3
+    }).setOrigin(0.5);
+    this.add.text(W / 2, H - 17, '(CANAAN)', {
+      fontSize: '8px', fontFamily: 'monospace', color: '#88cc88',
+      stroke: '#000000', strokeThickness: 2
+    }).setOrigin(0.5);
+    this.add.text(W - panelW / 2, H - 30, 'THE AMERICAS', {
+      fontSize: '10px', fontFamily: 'monospace', color: '#FFD700', fontStyle: 'bold',
+      stroke: '#000000', strokeThickness: 3
+    }).setOrigin(0.5);
+    this.add.text(W - panelW / 2, H - 17, '(NEW WORLD)', {
+      fontSize: '8px', fontFamily: 'monospace', color: '#88aa88',
+      stroke: '#000000', strokeThickness: 2
+    }).setOrigin(0.5);
+
+    // ================================================================
+    // LAYER 4 — TITLE BAR
+    // ================================================================
+    this.add.rectangle(W/2, 8, W, 16, 0x000000, 0.6);
+    this.add.text(W/2, 8, 'THE PROMISED LAND: A JOURNEY', {
+      fontSize: '11px', fontFamily: 'monospace', color: '#ffffff', fontStyle: 'bold',
+      stroke: '#000000', strokeThickness: 2
+    }).setOrigin(0.5);
 
     // ================================================================
     // LAYER 5 — LIGHTING & ATMOSPHERE
     // ================================================================
     this._lighting = FX.createLightingRig(this, { mode: 'day' });
-    const rays = this.add.image(W/2, H/2 - 40, 'light_white_256').setScale(3.4).setAlpha(0.06);
-    rays.setBlendMode(Phaser.BlendModes.SCREEN);
-    this.tweens.add({ targets: rays, x: W/2 + 40, alpha: 0.1, duration: 5000, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
-
     this._pause = attachPauseMenu(this);
 
-    // ================================================================
-    // LAYER 6 — MAP BORDER
-    // ================================================================
+    // Map border
     const border = this.add.graphics();
-    border.lineStyle(6, 0x2060a0);
+    border.lineStyle(4, 0x000000);
     border.strokeRect(0, 0, W, H);
-    border.lineStyle(2, 0xf8d830);
-    border.strokeRect(4, 4, W - 8, H - 8);
+    border.lineStyle(2, 0x3070a0);
+    border.strokeRect(2, 2, W - 4, H - 4);
 
     // ================================================================
-    // LAYER 7 — UI: Title, location markers, labels
+    // LAYER 6 — INTERACTIVE LOCATIONS
     // ================================================================
-    this.add.rectangle(W/2, 24, 340, 30, 0x1a3060, 0.92).setStrokeStyle(2, 0xDAA520);
-    this.add.text(W/2, 24, 'BOOK OF MORMON LANDS', {
-      fontSize: '16px', fontFamily: 'monospace', color: '#FFD700', fontStyle: 'bold',
-      stroke: '#0a1530', strokeThickness: 3
-    }).setOrigin(0.5);
-
-    // Scene accessibility
     const hasPlatesAndRod = GameState.brassPlatesObtained;
     const hasLiahona = GameState.liahonaActive;
     const hasShip = GameState.questFlags.shipDone;
     const reachedPromised = GameState.completedScenes?.includes('1Nephi') || GameState.questFlags.reachedPromised;
 
     const worlds = [
-      { x: 660, y: 210, name: 'Jerusalem', sub: 'Obtain the Brass Plates', active: true, scene: 'JerusalemCity', done: hasPlatesAndRod },
-      { x: 370, y: 260, name: 'Wilderness', sub: 'The Valley of Lemuel', active: hasPlatesAndRod, scene: 'WildernessCamp', done: hasLiahona },
-      { x: 120, y: 290, name: 'Bountiful', sub: 'Build the Ship', active: hasLiahona, scene: 'BountifulScene', done: hasShip },
-      { x: 350, y: 430, name: 'Great Deep', sub: 'Cross the Ocean', active: hasShip, scene: 'OceanStorm', done: reachedPromised },
-      { x: 630, y: 490, name: 'Promised Land', sub: 'A Land of Promise', active: reachedPromised, scene: 'PromisedLand', done: false },
+      { x: 475, y: 225, name: 'Jerusalem', sub: 'Obtain the Brass Plates', active: true, scene: 'JerusalemCity', done: hasPlatesAndRod },
+      { x: 80, y: 340, name: 'Wilderness', sub: 'Valley of Lemuel', active: hasPlatesAndRod, scene: 'WildernessCamp', done: hasLiahona },
+      { x: 350, y: 420, name: 'Bountiful', sub: 'Build the Ship', active: hasLiahona, scene: 'BountifulScene', done: hasShip },
+      { x: 260, y: 420, name: 'Great Deep', sub: 'Cross the Ocean', active: hasShip, scene: 'OceanStorm', done: reachedPromised },
+      { x: 680, y: 400, name: 'Promised Land', sub: 'A Land of Promise', active: reachedPromised, scene: 'PromisedLand', done: false },
     ];
 
     let playerWorld = worlds[0];
@@ -3481,7 +3695,6 @@ class WorldMapScene extends Phaser.Scene {
       const markerColor = isDone ? 0x27ae60 : isActive ? 0xDAA520 : 0x555555;
       const markerAlpha = isActive ? 1 : 0.4;
 
-      // Pin marker
       const marker = this.add.graphics();
       marker.fillStyle(markerColor, markerAlpha);
       marker.fillRoundedRect(w.x - 5, w.y - 5, 10, 10, 2);
@@ -3494,13 +3707,11 @@ class WorldMapScene extends Phaser.Scene {
         }).setOrigin(0.5);
       }
 
-      // Glow pulse for active
       if (isActive && !isDone) {
         const glow = this.add.circle(w.x, w.y, 12, markerColor, 0.2);
         this.tweens.add({ targets: glow, scale: 1.5, alpha: 0, duration: 1200, repeat: -1 });
       }
 
-      // Interactive hit area
       const hitZone = this.add.rectangle(w.x, w.y, 80, 50, 0x000000, 0);
       if (isActive) {
         hitZone.setInteractive({ useHandCursor: true });
@@ -3527,42 +3738,25 @@ class WorldMapScene extends Phaser.Scene {
         });
       }
 
-      // Labels
       this.add.text(w.x, w.y + 14, w.name, {
-        fontSize: '11px', fontFamily: 'monospace', color: isActive ? '#FFD700' : '#666666', fontStyle: 'bold',
+        fontSize: '10px', fontFamily: 'monospace', color: isActive ? '#FFD700' : '#666666', fontStyle: 'bold',
         stroke: '#000000', strokeThickness: 3
       }).setOrigin(0.5);
-      this.add.text(w.x, w.y + 28, w.sub, {
-        fontSize: '8px', fontFamily: 'monospace', color: isActive ? '#bbbbbb' : '#444444',
+      this.add.text(w.x, w.y + 27, w.sub, {
+        fontSize: '7px', fontFamily: 'monospace', color: isActive ? '#bbbbbb' : '#444444',
         fontStyle: 'italic', stroke: '#000000', strokeThickness: 2
       }).setOrigin(0.5);
     });
 
-    // Player character
+    // Player character on map
     if (this.textures.exists('nephi')) {
-      const p = this.add.image(playerWorld.x + 18, playerWorld.y - 10, 'nephi').setScale(1.3);
-      this.tweens.add({ targets: p, y: playerWorld.y - 13, duration: 800, yoyo: true, repeat: -1 });
+      const p = this.add.image(playerWorld.x + 18, playerWorld.y - 12, 'nephi').setScale(1.3);
+      this.tweens.add({ targets: p, y: playerWorld.y - 15, duration: 800, yoyo: true, repeat: -1 });
     }
 
-    // Compass rose
-    const compassX = W - 45, compassY = 65;
-    const compass = this.add.graphics();
-    compass.fillStyle(0x1a3060, 0.6); compass.fillCircle(compassX, compassY, 18);
-    compass.lineStyle(1, 0xDAA520, 0.6); compass.strokeCircle(compassX, compassY, 18);
-    compass.lineStyle(1, 0xDAA520, 0.3);
-    compass.lineBetween(compassX, compassY - 15, compassX, compassY + 15);
-    compass.lineBetween(compassX - 15, compassY, compassX + 15, compassY);
-    compass.fillStyle(0xDAA520);
-    compass.beginPath(); compass.moveTo(compassX, compassY - 14);
-    compass.lineTo(compassX - 3, compassY - 8); compass.lineTo(compassX + 3, compassY - 8);
-    compass.closePath(); compass.fill();
-    this.add.text(compassX, compassY - 14, 'N', {
-      fontSize: '7px', fontFamily: 'monospace', color: '#FFD700', fontStyle: 'bold'
-    }).setOrigin(0.5, 1.8);
-
     // Bottom instruction
-    this.add.text(W/2, H - 18, 'Select a location to travel there', {
-      fontSize: '10px', fontFamily: 'monospace', color: '#8899aa',
+    this.add.text(W/2, H - 6, 'Click a location to travel', {
+      fontSize: '8px', fontFamily: 'monospace', color: '#8899aa',
       stroke: '#000000', strokeThickness: 2
     }).setOrigin(0.5);
   }
@@ -3592,100 +3786,88 @@ class JerusalemCityScene extends Phaser.Scene {
     this._pause = attachPauseMenu(this);
     this._lighting = FX.createLightingRig(this, { mode: 'day' });
 
-    // Sky
+    // === GREEN CANAAN LANDSCAPE (matching reference) ===
+    // Sky gradient
     const skyG = this.add.graphics();
     skyG.fillStyle(0x68b8f8);
-    skyG.fillRect(0, 0, worldW, 320);
-    skyG.fillStyle(0x88d0ff, 0.6);
-    skyG.fillRect(0, 0, worldW, 160);
-    // Sun
-    this.add.circle(300, 80, 24, 0xfff870);
-    this.add.circle(300, 80, 18, 0xffff98, 0.6);
+    skyG.fillRect(0, 0, worldW, 250);
+    skyG.fillStyle(0x88d0ff, 0.5);
+    skyG.fillRect(0, 0, worldW, 120);
+    this.add.circle(300, 70, 24, 0xfff870);
+    this.add.circle(300, 70, 18, 0xffff98, 0.6);
 
-    // Ground
+    // Green rolling hills (background, Canaan style)
+    const hillsG = this.add.graphics();
+    hillsG.fillStyle(0x58a830);
+    hillsG.fillEllipse(200, 260, 500, 80);
+    hillsG.fillEllipse(600, 250, 600, 90);
+    hillsG.fillEllipse(1000, 255, 550, 85);
+    hillsG.fillEllipse(1400, 260, 500, 80);
+    hillsG.fillEllipse(1700, 255, 400, 75);
+    hillsG.fillStyle(COLORS.pokGrass);
+    hillsG.fillEllipse(300, 290, 400, 60);
+    hillsG.fillEllipse(700, 285, 500, 70);
+    hillsG.fillEllipse(1100, 290, 450, 65);
+    hillsG.fillEllipse(1500, 285, 400, 60);
+
+    // Ground — lush Pokemon grass tiles
     const groundG = this.add.graphics();
-    drawPokemonPath(groundG, 0, 380, worldW, worldH - 380);
+    drawPokemonGrass(groundG, 0, 300, worldW, worldH - 300);
 
-    // City walls (background)
+    // City walls (sandstone with crenellations)
     const wallG = this.add.graphics();
-    wallG.fillStyle(0xc8a868);
-    wallG.fillRect(0, 280, worldW, 100);
-    wallG.fillStyle(darken(0xc8a868, 20));
-    wallG.fillRect(0, 280, worldW, 4);
-    // Wall crenellations
-    for (let wx = 0; wx < worldW; wx += 40) {
-      wallG.fillStyle(0xc8a868);
-      wallG.fillRect(wx, 268, 20, 16);
-    }
+    drawCityWall(wallG, 0, 340, worldW, 60, 0xc8a868);
 
-    // Buildings
+    // Buildings (sandstone/cream with colored roofs)
     const bldgG = this.add.graphics();
     const buildings = [
-      { x: 100, y: 400, w: 90, h: 90, roof: 0xc8a060, wall: COLORS.pokSand },
-      { x: 230, y: 390, w: 80, h: 100, roof: 0xb89050, wall: COLORS.pokWallCream },
-      { x: 400, y: 395, w: 100, h: 95, roof: 0xd0a868, wall: COLORS.pokSand },
-      { x: 600, y: 385, w: 85, h: 105, roof: 0xc89848, wall: COLORS.pokWallCream },
-      { x: 900, y: 390, w: 80, h: 100, roof: 0xb89050, wall: COLORS.pokSand },
-      { x: 1050, y: 400, w: 95, h: 90, roof: 0xd0a868, wall: COLORS.pokWallCream },
-      { x: 1250, y: 385, w: 85, h: 105, roof: 0xc89848, wall: COLORS.pokSand },
-      { x: 1500, y: 395, w: 90, h: 95, roof: 0xb89050, wall: COLORS.pokWallCream },
+      { x: 100, y: 405, w: 80, h: 80, roof: 0xc8a060, wall: COLORS.pokWallCream },
+      { x: 230, y: 400, w: 70, h: 85, roof: 0xb89050, wall: COLORS.pokSand },
+      { x: 400, y: 395, w: 90, h: 90, roof: 0xd0a868, wall: COLORS.pokWallCream },
+      { x: 600, y: 400, w: 75, h: 85, roof: 0xb89050, wall: COLORS.pokSand },
+      { x: 900, y: 405, w: 70, h: 80, roof: 0xb89050, wall: COLORS.pokWallCream },
+      { x: 1050, y: 400, w: 85, h: 85, roof: 0xd0a868, wall: COLORS.pokSand },
+      { x: 1250, y: 395, w: 75, h: 90, roof: 0xc89848, wall: COLORS.pokWallCream },
+      { x: 1500, y: 400, w: 80, h: 85, roof: 0xb89050, wall: COLORS.pokSand },
     ];
     buildings.forEach(b => drawPokemonBuilding(bldgG, b.x, b.y, b.w, b.h, b.roof, b.wall));
 
-    // Temple of Solomon (large, central)
+    // Temple of Solomon (golden dome)
     const templeG = this.add.graphics();
-    templeG.fillStyle(COLORS.pokWallLight);
-    templeG.fillRect(730, 340, 180, 200);
-    templeG.fillStyle(darken(COLORS.pokWallLight, 20));
-    templeG.fillRect(730, 340, 180, 3);
-    templeG.fillRect(730, 340, 3, 200);
-    templeG.fillRect(907, 340, 3, 200);
-    templeG.fillStyle(COLORS.gold);
-    templeG.fillRect(720, 330, 200, 14);
-    templeG.fillStyle(lighten(COLORS.gold, 20));
-    templeG.fillRect(725, 325, 190, 8);
-    templeG.fillStyle(COLORS.gold);
-    templeG.beginPath();
-    templeG.moveTo(730, 330);
-    templeG.lineTo(820, 295);
-    templeG.lineTo(910, 330);
-    templeG.closePath(); templeG.fill();
-    for (let px = 745; px <= 895; px += 30) {
-      templeG.fillStyle(0xe0d0b0);
-      templeG.fillRect(px - 4, 344, 8, 196);
-    }
-    this.add.text(820, 310, 'Temple of Solomon', {
+    drawGoldenTemple(templeG, 730, 330, 160, 160);
+    this.add.text(810, 315, 'Temple of Solomon', {
       fontSize: '10px', fontFamily: 'monospace', color: '#ffd700',
       stroke: '#000000', strokeThickness: 2
     }).setOrigin(0.5);
 
-    // Family home (where Lehi is)
+    // Lehi's home
     const homeG = this.add.graphics();
-    drawPokemonBuilding(homeG, 1350, 420, 110, 100, 0x8b7355, COLORS.pokWallCream);
-    this.add.text(1405, 415, "Lehi's Home", {
+    drawPokemonBuilding(homeG, 1350, 420, 100, 90, 0x8b7355, COLORS.pokWallCream);
+    this.add.text(1400, 412, "Lehi's Home", {
       fontSize: '10px', fontFamily: 'monospace', color: '#f8d830',
       stroke: '#000000', strokeThickness: 2
     }).setOrigin(0.5);
 
-    // Laban's house (east side, ominous)
+    // Laban's house
     const labanG = this.add.graphics();
-    drawPokemonBuilding(labanG, 1600, 400, 100, 110, 0x8b2020, COLORS.pokWallCream);
-    this.add.text(1650, 395, "Laban's House", {
+    drawPokemonBuilding(labanG, 1600, 410, 90, 95, 0x8b2020, COLORS.pokWallCream);
+    this.add.text(1645, 405, "Laban's House", {
       fontSize: '9px', fontFamily: 'monospace', color: '#ff8888',
       stroke: '#000000', strokeThickness: 2
     }).setOrigin(0.5);
 
     // Market stalls
     const stallG = this.add.graphics();
-    drawPokemonStall(stallG, 200, 560, 0xcc4444);
-    drawPokemonStall(stallG, 550, 560, 0x4488aa);
-    drawPokemonStall(stallG, 1000, 560, 0xcc8844);
+    drawPokemonStall(stallG, 200, 540, 0xcc4444);
+    drawPokemonStall(stallG, 550, 540, 0x4488aa);
+    drawPokemonStall(stallG, 1000, 540, 0xcc8844);
 
-    // Palm trees
-    const palmG = this.add.graphics();
-    [150, 480, 850, 1150, 1550].forEach(tx => drawPokemonPalm(palmG, tx, 500, 1.2));
+    // Trees (mix of round Pokemon trees and palms)
+    const treeG = this.add.graphics();
+    [80, 350, 750, 1100, 1450].forEach(tx => drawPokemonTree(treeG, tx, 500, 1.4));
+    [200, 500, 900, 1200, 1600].forEach(tx => drawPokemonPalm(treeG, tx, 490, 1.0));
 
-    // Main walkway (where player walks) — wide area
+    // Main walkway (dirt path for player)
     const pathG = this.add.graphics();
     drawPokemonPath(pathG, 0, 540, worldW, 160);
 
@@ -4253,20 +4435,37 @@ class WildernessJourneyScene extends Phaser.Scene {
     this._pause = attachPauseMenu(this);
     this._lighting = FX.createLightingRig(this, { mode: 'day' });
 
-    // Desert landscape
+    // Desert landscape (Sinai wilderness style from reference)
     const skyG = this.add.graphics();
-    skyG.fillStyle(0x68b8f8);
-    skyG.fillRect(0, 0, worldW, 300);
+    skyG.fillStyle(0x78c8f8);
+    skyG.fillRect(0, 0, worldW, 280);
+    skyG.fillStyle(0x98d8ff, 0.4);
+    skyG.fillRect(0, 0, worldW, 140);
 
+    // Sand ground tiles
     const groundG = this.add.graphics();
-    drawPokemonPath(groundG, 0, 400, worldW, worldH - 400);
+    drawSandTiles(groundG, 0, 380, worldW, worldH - 380);
 
-    // Desert hills in background
+    // Desert hills/dunes in background
     const hills = this.add.graphics();
-    hills.fillStyle(0xc8a060, 0.5);
-    hills.beginPath(); hills.moveTo(0, 400);
-    for (let x = 0; x <= worldW; x += 4) hills.lineTo(x, 360 + Math.sin(x * 0.008) * 25 + Math.sin(x * 0.02) * 10);
-    hills.lineTo(worldW, 400); hills.closePath(); hills.fill();
+    hills.fillStyle(COLORS.pokSandDark, 0.6);
+    hills.beginPath(); hills.moveTo(0, 380);
+    for (let x = 0; x <= worldW; x += 4) hills.lineTo(x, 340 + Math.sin(x * 0.006) * 30 + Math.sin(x * 0.018) * 12);
+    hills.lineTo(worldW, 380); hills.closePath(); hills.fill();
+    hills.fillStyle(COLORS.pokSand, 0.8);
+    hills.beginPath(); hills.moveTo(0, 380);
+    for (let x = 0; x <= worldW; x += 4) hills.lineTo(x, 355 + Math.sin(x * 0.009 + 1) * 20 + Math.sin(x * 0.025) * 8);
+    hills.lineTo(worldW, 380); hills.closePath(); hills.fill();
+
+    // Acacia trees in background
+    [80, 300, 550, 800, 1050].forEach(ax => drawAcaciaTree(hills, ax, 350, 0.8));
+
+    // Rocky outcrops
+    [[200, 365, 8], [650, 370, 6], [950, 360, 7]].forEach(([rx, ry, rs]) => {
+      hills.fillStyle(0x8B6B2F);
+      hills.beginPath(); hills.moveTo(rx, ry); hills.lineTo(rx - rs, ry + rs); hills.lineTo(rx + rs * 0.8, ry + rs);
+      hills.closePath(); hills.fill();
+    });
 
     // Walking party sprites
     const partyY = 460;
@@ -4334,43 +4533,69 @@ class WildernessJourneyScene extends Phaser.Scene {
     this._lighting = FX.createLightingRig(this, { mode: 'night' });
     this._pause = attachPauseMenu(this);
 
-    // Night sky
+    // Night sky (desert night)
     const skyG = this.add.graphics();
-    skyG.fillStyle(0x182040);
+    skyG.fillStyle(0x101830);
     skyG.fillRect(0, 0, worldW, 260);
-    for (let i = 0; i < 70; i++) {
-      const star = this.add.circle(Phaser.Math.Between(0, worldW), Phaser.Math.Between(0, 220),
+    skyG.fillStyle(0x182040, 0.5);
+    skyG.fillRect(0, 200, worldW, 60);
+    for (let i = 0; i < 80; i++) {
+      const star = this.add.circle(Phaser.Math.Between(0, worldW), Phaser.Math.Between(0, 230),
         Phaser.Math.Between(1, 2), 0xffffff, Phaser.Math.FloatBetween(0.3, 0.9));
       if (i % 4 === 0) this.tweens.add({ targets: star, alpha: 0.2, duration: Phaser.Math.Between(800, 1500), yoyo: true, repeat: -1 });
     }
 
-    // Ground
+    // Desert valley ground (sand tiles, like reference wilderness)
     const groundG = this.add.graphics();
-    drawPokemonGrass(groundG, 0, 350, worldW, worldH - 350);
+    drawSandTiles(groundG, 0, 350, worldW, worldH - 350);
     drawPokemonPath(groundG, 200, 400, 600, 100);
 
-    // River
+    // River Laman (wider, more visible, with shoreline)
     const riverG = this.add.graphics();
+    // River banks (darker sand)
+    riverG.fillStyle(COLORS.pokSandDark);
+    for (let rx = 0; rx < worldW; rx += 16) {
+      const ry = 508 + Math.sin(rx * 0.02) * 12;
+      riverG.fillRect(rx, ry - 4, 16, 48);
+    }
     for (let rx = 0; rx < worldW; rx += 16) {
       const ry = 510 + Math.sin(rx * 0.02) * 12;
-      drawPokemonWater(riverG, rx, ry, 16, 36);
+      drawPokemonWater(riverG, rx, ry, 16, 40);
+    }
+    // Shore foam
+    for (let rx = 0; rx < worldW; rx += 24) {
+      const ry = 510 + Math.sin(rx * 0.02) * 12;
+      riverG.fillStyle(0xffffff, 0.3);
+      riverG.fillRect(rx + 4, ry - 1, 8, 1);
     }
     this.add.text(600, 495, 'River Laman', {
-      fontSize: '10px', fontFamily: 'monospace', color: '#68b0ff', fontStyle: 'italic',
+      fontSize: '11px', fontFamily: 'monospace', color: '#68b0ff', fontStyle: 'bold',
       stroke: '#000000', strokeThickness: 2
     }).setOrigin(0.5);
 
-    // Valley walls
+    // Valley walls (rocky desert cliffs, not green)
     const mtns = this.add.graphics();
-    mtns.fillStyle(0x5a7858, 0.5);
+    // Far cliff layer
+    mtns.fillStyle(COLORS.pokCliffDark, 0.6);
     mtns.beginPath();
-    mtns.moveTo(0, 350); mtns.lineTo(100, 290); mtns.lineTo(250, 320);
-    mtns.lineTo(400, 270); mtns.lineTo(600, 310); mtns.lineTo(800, 280);
-    mtns.lineTo(1000, 305); mtns.lineTo(1200, 285); mtns.lineTo(1200, 350);
+    mtns.moveTo(0, 350); mtns.lineTo(80, 270); mtns.lineTo(200, 300);
+    mtns.lineTo(350, 250); mtns.lineTo(550, 285); mtns.lineTo(750, 260);
+    mtns.lineTo(950, 280); mtns.lineTo(1100, 265); mtns.lineTo(1200, 290); mtns.lineTo(1200, 350);
     mtns.closePath(); mtns.fill();
-    this.add.text(200, 310, 'Valley of Lemuel', {
-      fontSize: '9px', fontFamily: 'monospace', color: '#aabbaa', fontStyle: 'italic',
-      stroke: '#000000', strokeThickness: 1
+    // Near cliff layer
+    mtns.fillStyle(COLORS.pokCliff, 0.7);
+    mtns.beginPath();
+    mtns.moveTo(0, 350); mtns.lineTo(100, 310); mtns.lineTo(250, 330);
+    mtns.lineTo(400, 300); mtns.lineTo(600, 320); mtns.lineTo(800, 305);
+    mtns.lineTo(1000, 315); mtns.lineTo(1200, 310); mtns.lineTo(1200, 350);
+    mtns.closePath(); mtns.fill();
+
+    // Acacia trees on valley edges
+    [100, 350, 650, 900, 1100].forEach(ax => drawAcaciaTree(mtns, ax, 335, 0.5));
+
+    this.add.text(200, 285, 'Valley of Lemuel', {
+      fontSize: '11px', fontFamily: 'monospace', color: '#ccaa88', fontStyle: 'bold',
+      stroke: '#000000', strokeThickness: 2
     }).setOrigin(0.5);
 
     // Tents
